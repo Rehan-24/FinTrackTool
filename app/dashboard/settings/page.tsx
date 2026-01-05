@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Plus, Trash2 } from 'lucide-react'
+import { Plus, Trash2, Settings as SettingsIcon, Edit2, X } from 'lucide-react'
 
 type Category = {
   id: string
@@ -11,20 +11,22 @@ type Category = {
   color: string
 }
 
-const PRESET_COLORS = [
-  '#10b981', '#3b82f6', '#f59e0b', '#8b5cf6', 
-  '#ef4444', '#ec4899', '#14b8a6', '#f97316'
+const COLOR_OPTIONS = [
+  '#EF4444', '#F97316', '#F59E0B', '#EAB308', '#84CC16', '#22C55E',
+  '#10B981', '#14B8A6', '#06B6D4', '#0EA5E9', '#3B82F6', '#6366F1',
+  '#8B5CF6', '#A855F7', '#D946EF', '#EC4899', '#F43F5E', '#64748B'
 ]
 
 export default function SettingsPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [show_add_form, setShowAddForm] = useState(false)
+  const [edit_category, setEditCategory] = useState<Category | null>(null)
   
   // Form state
-  const [cat_name, setCatName] = useState('')
-  const [cat_budget, setCatBudget] = useState('')
-  const [cat_color, setCatColor] = useState(PRESET_COLORS[0])
+  const [name, setName] = useState('')
+  const [monthly_budget, setMonthlyBudget] = useState('')
+  const [color, setColor] = useState(COLOR_OPTIONS[0])
 
   useEffect(() => {
     load_categories()
@@ -60,9 +62,9 @@ export default function SettingsPage() {
         .from('categories')
         .insert({
           user_id: user.id,
-          name: cat_name,
-          monthly_budget: parseFloat(cat_budget),
-          color: cat_color,
+          name,
+          monthly_budget: parseFloat(monthly_budget),
+          color,
         })
 
       if (error) throw error
@@ -76,10 +78,33 @@ export default function SettingsPage() {
     }
   }
 
-  const delete_category = async (id: string) => {
-    if (!confirm('Are you sure? This will delete all purchases in this category.')) {
-      return
+  const update_category = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!edit_category) return
+    
+    try {
+      const { error } = await supabase
+        .from('categories')
+        .update({
+          name,
+          monthly_budget: parseFloat(monthly_budget),
+          color,
+        })
+        .eq('id', edit_category.id)
+
+      if (error) throw error
+
+      setEditCategory(null)
+      reset_form()
+      load_categories()
+    } catch (err) {
+      console.error('Error updating category:', err)
+      alert('Failed to update category')
     }
+  }
+
+  const delete_category = async (id: string) => {
+    if (!confirm('Delete this category? This will also delete all associated purchases.')) return
 
     try {
       const { error } = await supabase
@@ -91,28 +116,21 @@ export default function SettingsPage() {
       load_categories()
     } catch (err) {
       console.error('Error deleting category:', err)
-      alert('Failed to delete category')
+      alert('Failed to delete category. Make sure no purchases are using this category.')
     }
   }
 
-  const update_budget = async (id: string, new_budget: number) => {
-    try {
-      const { error } = await supabase
-        .from('categories')
-        .update({ monthly_budget: new_budget })
-        .eq('id', id)
-
-      if (error) throw error
-      load_categories()
-    } catch (err) {
-      console.error('Error updating budget:', err)
-    }
+  const start_edit = (cat: Category) => {
+    setEditCategory(cat)
+    setName(cat.name)
+    setMonthlyBudget(cat.monthly_budget.toString())
+    setColor(cat.color)
   }
 
   const reset_form = () => {
-    setCatName('')
-    setCatBudget('')
-    setCatColor(PRESET_COLORS[0])
+    setName('')
+    setMonthlyBudget('')
+    setColor(COLOR_OPTIONS[0])
   }
 
   if (loading) {
@@ -122,146 +140,169 @@ export default function SettingsPage() {
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
       <div className="p-8">
-        <div className="max-w-3xl mx-auto">
-          <div className="mb-8">
+        <div className="flex justify-between items-center mb-8">
+          <div>
             <h2 className="text-3xl font-bold text-gray-800">Settings</h2>
             <p className="text-gray-600 mt-1">Manage your budget categories</p>
           </div>
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+          >
+            <Plus size={20} />
+            Add Category
+          </button>
+        </div>
 
-          <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-lg font-semibold text-gray-800">Categories</h3>
-              <button
-                onClick={() => setShowAddForm(!show_add_form)}
-                className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg font-medium hover:bg-blue-700 transition"
-              >
-                <Plus size={20} />
-                Add Category
-              </button>
-            </div>
+        {/* Add/Edit Form Modal */}
+        {(show_add_form || edit_category) && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800">
+                  {edit_category ? 'Edit Category' : 'Add Category'}
+                </h3>
+                <button
+                  onClick={() => {
+                    edit_category ? setEditCategory(null) : setShowAddForm(false)
+                    reset_form()
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X size={24} />
+                </button>
+              </div>
 
-            {/* Add Category Form */}
-            {show_add_form && (
-              <form onSubmit={add_category} className="mb-6 p-4 bg-gray-50 rounded-lg space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Category Name
-                    </label>
+              <form onSubmit={edit_category ? update_category : add_category} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Category Name
+                  </label>
+                  <input
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g., Groceries, Dining Out"
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Monthly Budget
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-3 text-gray-500">$</span>
                     <input
-                      type="text"
-                      value={cat_name}
-                      onChange={(e) => setCatName(e.target.value)}
-                      placeholder="e.g., Groceries"
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={monthly_budget}
+                      onChange={(e) => setMonthlyBudget(e.target.value)}
+                      placeholder="0.00"
+                      className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                       required
                     />
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Monthly Budget
-                    </label>
-                    <div className="relative">
-                      <span className="absolute left-3 top-2 text-gray-500">$</span>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={cat_budget}
-                        onChange={(e) => setCatBudget(e.target.value)}
-                        placeholder="500.00"
-                        className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                        required
-                      />
-                    </div>
-                  </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Color
                   </label>
-                  <div className="flex gap-2">
-                    {PRESET_COLORS.map((color) => (
+                  <div className="grid grid-cols-9 gap-2">
+                    {COLOR_OPTIONS.map((c) => (
                       <button
-                        key={color}
+                        key={c}
                         type="button"
-                        onClick={() => setCatColor(color)}
-                        className={`w-10 h-10 rounded-full border-2 ${
-                          cat_color === color ? 'border-gray-800' : 'border-transparent'
+                        onClick={() => setColor(c)}
+                        className={`w-8 h-8 rounded-lg transition ${
+                          color === c ? 'ring-2 ring-offset-2 ring-blue-500' : ''
                         }`}
-                        style={{ backgroundColor: color }}
+                        style={{ backgroundColor: c }}
                       />
                     ))}
                   </div>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div
+                      className="w-6 h-6 rounded"
+                      style={{ backgroundColor: color }}
+                    />
+                    <span className="text-sm text-gray-600">Selected: {color}</span>
+                  </div>
                 </div>
-                <div className="flex gap-3">
+
+                <div className="flex gap-3 pt-4">
                   <button
                     type="button"
                     onClick={() => {
-                      setShowAddForm(false)
+                      edit_category ? setEditCategory(null) : setShowAddForm(false)
                       reset_form()
                     }}
-                    className="px-4 py-2 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700"
+                    className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-700"
                   >
-                    Add Category
+                    {edit_category ? 'Update' : 'Add'} Category
                   </button>
                 </div>
               </form>
-            )}
+            </div>
+          </div>
+        )}
 
-            {/* Categories List */}
-            {categories.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
-                <p>No categories yet. Add your first category to get started!</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {categories.map((cat) => (
-                  <div
-                    key={cat.id}
-                    className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg"
-                  >
+        {/* Categories List */}
+        {categories.length === 0 ? (
+          <div className="text-center py-16 text-gray-500">
+            <SettingsIcon size={48} className="mx-auto mb-4 opacity-50" />
+            <p className="text-lg mb-4">No categories yet.</p>
+            <p>Add your first budget category to get started!</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {categories.map((cat) => (
+              <div
+                key={cat.id}
+                className="bg-white rounded-lg border-2 p-6 hover:shadow-lg transition"
+                style={{ borderColor: cat.color }}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div className="flex items-center gap-3">
                     <div
-                      className="w-4 h-4 rounded-full flex-shrink-0"
+                      className="w-4 h-4 rounded-full"
                       style={{ backgroundColor: cat.color }}
                     />
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-800">{cat.name}</div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-500">Budget:</span>
-                        <div className="relative">
-                          <span className="absolute left-2 top-2 text-gray-500 text-sm">$</span>
-                          <input
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={cat.monthly_budget}
-                            onChange={(e) => update_budget(cat.id, parseFloat(e.target.value))}
-                            className="w-32 pl-6 pr-2 py-1 border border-gray-300 rounded text-sm"
-                          />
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => delete_category(cat.id)}
-                        className="text-red-500 hover:text-red-700 p-2"
-                      >
-                        <Trash2 size={18} />
-                      </button>
-                    </div>
+                    <h3 className="font-semibold text-gray-800 text-lg">{cat.name}</h3>
                   </div>
-                ))}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => start_edit(cat)}
+                      className="text-blue-500 hover:text-blue-700 p-1"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button
+                      onClick={() => delete_category(cat.id)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                </div>
+
+                <div className="text-sm text-gray-600 mb-1">Monthly Budget</div>
+                <div className="text-3xl font-bold text-gray-800">
+                  ${parseFloat(cat.monthly_budget.toString()).toFixed(2)}
+                </div>
               </div>
-            )}
+            ))}
           </div>
-        </div>
+        )}
       </div>
     </div>
   )

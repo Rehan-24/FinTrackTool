@@ -34,6 +34,8 @@ CREATE TABLE public.purchases (
   is_split BOOLEAN DEFAULT FALSE,
   amount_owed_back NUMERIC(10, 2),
   num_people_owing INTEGER,
+  is_projected BOOLEAN DEFAULT FALSE,
+  recurring_expense_id UUID REFERENCES public.recurring_expenses(id) ON DELETE CASCADE,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -89,9 +91,54 @@ CREATE TABLE public.income (
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
   source TEXT NOT NULL,
   amount NUMERIC(10, 2) NOT NULL,
-  frequency TEXT NOT NULL, -- 'monthly', 'weekly', 'bi-weekly', 'yearly', 'one-time'
+  frequency TEXT NOT NULL,
   date DATE NOT NULL,
   is_recurring BOOLEAN DEFAULT FALSE,
+  is_salary BOOLEAN DEFAULT FALSE,
+  yearly_salary NUMERIC(12, 2),
+  pay_frequency TEXT,
+  next_pay_date DATE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+-- Salary Deductions table (stores detailed breakdown)
+CREATE TABLE public.salary_deductions (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  income_id UUID REFERENCES public.income(id) ON DELETE CASCADE NOT NULL,
+  
+  -- Pre-tax deductions (yearly amounts)
+  pre_tax_401k NUMERIC(10, 2) DEFAULT 0,
+  pre_tax_401k_roth NUMERIC(10, 2) DEFAULT 0,
+  hsa NUMERIC(10, 2) DEFAULT 0,
+  medical_insurance NUMERIC(10, 2) DEFAULT 0,
+  dental_insurance NUMERIC(10, 2) DEFAULT 0,
+  vision_insurance NUMERIC(10, 2) DEFAULT 0,
+  
+  -- Taxes (yearly amounts)
+  federal_tax NUMERIC(10, 2) DEFAULT 0,
+  state_tax NUMERIC(10, 2) DEFAULT 0,
+  social_security NUMERIC(10, 2) DEFAULT 0,
+  medicare NUMERIC(10, 2) DEFAULT 0,
+  fica_total NUMERIC(10, 2) DEFAULT 0,
+  ca_disability NUMERIC(10, 2) DEFAULT 0,
+  
+  -- After-tax deductions (yearly amounts)
+  after_tax_401k NUMERIC(10, 2) DEFAULT 0,
+  after_tax_401k_roth NUMERIC(10, 2) DEFAULT 0,
+  life_insurance NUMERIC(10, 2) DEFAULT 0,
+  ad_d NUMERIC(10, 2) DEFAULT 0,
+  critical_illness NUMERIC(10, 2) DEFAULT 0,
+  hospital_indemnity NUMERIC(10, 2) DEFAULT 0,
+  accident_insurance NUMERIC(10, 2) DEFAULT 0,
+  legal_plan NUMERIC(10, 2) DEFAULT 0,
+  identity_theft NUMERIC(10, 2) DEFAULT 0,
+  
+  -- Net pay (calculated)
+  net_yearly NUMERIC(12, 2) NOT NULL,
+  net_monthly NUMERIC(12, 2) NOT NULL,
+  net_weekly NUMERIC(12, 2) NOT NULL,
+  net_biweekly NUMERIC(12, 2) NOT NULL,
+  
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -106,6 +153,7 @@ ALTER TABLE public.asset_history ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.recurring_expenses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.income ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.salary_deductions ENABLE ROW LEVEL SECURITY;
 
 -- Users policies
 CREATE POLICY "Users can view own profile" ON public.users
@@ -214,11 +262,50 @@ CREATE POLICY "Users can update own income" ON public.income
 CREATE POLICY "Users can delete own income" ON public.income
   FOR DELETE USING (auth.uid() = user_id);
 
+-- Salary deductions policies
+CREATE POLICY "Users can view own salary deductions" ON public.salary_deductions
+  FOR SELECT USING (
+    EXISTS (
+      SELECT 1 FROM public.income
+      WHERE income.id = salary_deductions.income_id
+      AND income.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can insert own salary deductions" ON public.salary_deductions
+  FOR INSERT WITH CHECK (
+    EXISTS (
+      SELECT 1 FROM public.income
+      WHERE income.id = salary_deductions.income_id
+      AND income.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can update own salary deductions" ON public.salary_deductions
+  FOR UPDATE USING (
+    EXISTS (
+      SELECT 1 FROM public.income
+      WHERE income.id = salary_deductions.income_id
+      AND income.user_id = auth.uid()
+    )
+  );
+
+CREATE POLICY "Users can delete own salary deductions" ON public.salary_deductions
+  FOR DELETE USING (
+    EXISTS (
+      SELECT 1 FROM public.income
+      WHERE income.id = salary_deductions.income_id
+      AND income.user_id = auth.uid()
+    )
+  );
+
 -- Indexes for better performance
 CREATE INDEX idx_categories_user_id ON public.categories(user_id);
 CREATE INDEX idx_purchases_user_id ON public.purchases(user_id);
 CREATE INDEX idx_purchases_category_id ON public.purchases(category_id);
 CREATE INDEX idx_purchases_date ON public.purchases(date);
+CREATE INDEX idx_purchases_is_projected ON public.purchases(is_projected);
+CREATE INDEX idx_purchases_recurring_expense_id ON public.purchases(recurring_expense_id);
 CREATE INDEX idx_assets_user_id ON public.assets(user_id);
 CREATE INDEX idx_asset_history_asset_id ON public.asset_history(asset_id);
 CREATE INDEX idx_asset_history_date ON public.asset_history(date);
@@ -226,6 +313,7 @@ CREATE INDEX idx_goals_user_id ON public.goals(user_id);
 CREATE INDEX idx_recurring_expenses_user_id ON public.recurring_expenses(user_id);
 CREATE INDEX idx_income_user_id ON public.income(user_id);
 CREATE INDEX idx_income_date ON public.income(date);
+CREATE INDEX idx_salary_deductions_income_id ON public.salary_deductions(income_id);
 
 -- Trigger to automatically create user profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()

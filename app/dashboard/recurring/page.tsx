@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Plus, Trash2, ToggleLeft, ToggleRight } from 'lucide-react'
+import { Plus, Trash2, ToggleLeft, ToggleRight, Edit2, X } from 'lucide-react'
 
 type Category = {
   id: string
@@ -18,6 +18,7 @@ type RecurringExpense = {
   day_of_month: number | null
   day_of_week: number | null
   is_active: boolean
+  category_id: string
   category: {
     name: string
     color: string
@@ -29,6 +30,7 @@ export default function RecurringExpensesPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
   const [show_add_form, setShowAddForm] = useState(false)
+  const [edit_recurring, setEditRecurring] = useState<RecurringExpense | null>(null)
   
   // Form state
   const [name, setName] = useState('')
@@ -56,7 +58,7 @@ export default function RecurringExpensesPage() {
 
       if (cats) {
         setCategories(cats)
-        if (cats.length > 0) setCategoryId(cats[0].id)
+        if (cats.length > 0 && !category_id) setCategoryId(cats[0].id)
       }
 
       // Load recurring expenses
@@ -105,6 +107,34 @@ export default function RecurringExpensesPage() {
     }
   }
 
+  const update_recurring = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!edit_recurring) return
+    
+    try {
+      const { error } = await supabase
+        .from('recurring_expenses')
+        .update({
+          category_id,
+          name,
+          amount: parseFloat(amount),
+          frequency,
+          day_of_month: frequency === 'monthly' ? parseInt(day_of_month) : null,
+          day_of_week: frequency === 'weekly' ? parseInt(day_of_week) : null,
+        })
+        .eq('id', edit_recurring.id)
+
+      if (error) throw error
+
+      setEditRecurring(null)
+      reset_form()
+      load_data()
+    } catch (err) {
+      console.error('Error updating recurring expense:', err)
+      alert('Failed to update recurring expense')
+    }
+  }
+
   const toggle_active = async (id: string, current_status: boolean) => {
     try {
       const { error } = await supabase
@@ -136,12 +166,23 @@ export default function RecurringExpensesPage() {
     }
   }
 
+  const start_edit = (rec: RecurringExpense) => {
+    setEditRecurring(rec)
+    setName(rec.name)
+    setAmount(rec.amount.toString())
+    setCategoryId(rec.category_id)
+    setFrequency(rec.frequency)
+    setDayOfMonth(rec.day_of_month?.toString() || '1')
+    setDayOfWeek(rec.day_of_week?.toString() || '1')
+  }
+
   const reset_form = () => {
     setName('')
     setAmount('')
     setFrequency('monthly')
     setDayOfMonth('1')
     setDayOfWeek('1')
+    if (categories.length > 0) setCategoryId(categories[0].id)
   }
 
   const get_frequency_display = (rec: RecurringExpense) => {
@@ -204,12 +245,26 @@ export default function RecurringExpensesPage() {
           </div>
         )}
 
-        {/* Add Form Modal */}
-        {show_add_form && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+        {/* Add/Edit Form Modal */}
+        {(show_add_form || edit_recurring) && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50 overflow-y-auto">
             <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Add Recurring Expense</h3>
-              <form onSubmit={add_recurring} className="space-y-4">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800">
+                  {edit_recurring ? 'Edit Recurring Expense' : 'Add Recurring Expense'}
+                </h3>
+                <button
+                  onClick={() => {
+                    edit_recurring ? setEditRecurring(null) : setShowAddForm(false)
+                    reset_form()
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+              
+              <form onSubmit={edit_recurring ? update_recurring : add_recurring} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Name
@@ -311,7 +366,7 @@ export default function RecurringExpensesPage() {
                   <button
                     type="button"
                     onClick={() => {
-                      setShowAddForm(false)
+                      edit_recurring ? setEditRecurring(null) : setShowAddForm(false)
                       reset_form()
                     }}
                     className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
@@ -322,7 +377,7 @@ export default function RecurringExpensesPage() {
                     type="submit"
                     className="flex-1 bg-orange-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-orange-700"
                   >
-                    Add
+                    {edit_recurring ? 'Update' : 'Add'}
                   </button>
                 </div>
               </form>
@@ -356,12 +411,20 @@ export default function RecurringExpensesPage() {
                       <span className="text-sm text-gray-600">{rec.category.name}</span>
                     </div>
                   </div>
-                  <button
-                    onClick={() => delete_recurring(rec.id)}
-                    className="text-red-500 hover:text-red-700 p-2"
-                  >
-                    <Trash2 size={18} />
-                  </button>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => start_edit(rec)}
+                      className="text-blue-500 hover:text-blue-700 p-1"
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button
+                      onClick={() => delete_recurring(rec.id)}
+                      className="text-red-500 hover:text-red-700 p-1"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
                 </div>
 
                 <div className="text-3xl font-bold text-gray-800 mb-2">

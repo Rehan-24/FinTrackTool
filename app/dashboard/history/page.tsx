@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { sync_projected_purchases } from '@/lib/recurring-utils'
 import { Download, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react'
-import { format, startOfMonth, endOfMonth, subMonths, addMonths } from 'date-fns'
+import { format, startOfMonth, endOfMonth, subMonths, addMonths, isBefore, isAfter } from 'date-fns'
 import * as XLSX from 'xlsx'
 
 type MonthlyData = {
@@ -17,12 +18,20 @@ type MonthlyData = {
     category: string
     amount: number
     is_split: boolean
+    is_projected: boolean
   }>
   categories: Array<{
     name: string
     budget: number
     spent: number
     color: string
+  }>
+  income_sources: Array<{
+    source: string
+    amount: number
+    frequency: string
+    is_salary: boolean
+    yearly_salary: number | null
   }>
   recurring: number
   assets_snapshot: Array<{
@@ -50,10 +59,13 @@ export default function MonthlyHistoryPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // Sync projected purchases for selected month
+      await sync_projected_purchases(user.id, selected_month)
+
       const start = format(startOfMonth(selected_month), 'yyyy-MM-dd')
       const end = format(endOfMonth(selected_month), 'yyyy-MM-dd')
 
-      // Get purchases
+      // Get purchases (including projected)
       const { data: purchases } = await supabase
         .from('purchases')
         .select('*, category:categories(name, color)')
@@ -68,10 +80,10 @@ export default function MonthlyHistoryPage() {
         .select('*')
         .eq('user_id', user.id)
 
-      // Calculate spending per category
+      // Calculate spending per category (actual only)
       const categories_with_spent = (categories || []).map(cat => {
         const spent = (purchases || [])
-          .filter(p => p.category_id === cat.id)
+          .filter(p => p.category_id === cat.id && !p.is_projected)
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
         return {
           name: cat.name,
@@ -90,9 +102,25 @@ export default function MonthlyHistoryPage() {
         .lte('date', end)
 
       let total_income = 0
+      const income_sources: Array<{
+        source: string
+        amount: number
+        frequency: string
+        is_salary: boolean
+        yearly_salary: number | null
+      }> = []
+
       if (income_data) {
         income_data.forEach(inc => {
           const amt = parseFloat(inc.amount.toString())
+          income_sources.push({
+            source: inc.source,
+            amount: amt,
+            frequency: inc.frequency,
+            is_salary: inc.is_salary,
+            yearly_salary: inc.yearly_salary
+          })
+
           if (!inc.is_recurring) {
             total_income += amt
           } else {
@@ -121,15 +149,15 @@ export default function MonthlyHistoryPage() {
         })
       }
 
-      // Get assets snapshot (closest to end of month)
+      // Get assets snapshot
       const { data: assets } = await supabase
         .from('assets')
         .select('name, current_value')
         .eq('user_id', user.id)
 
-      const total_spending = (purchases || []).reduce((sum, p) => 
-        sum + parseFloat(p.actual_cost.toString()), 0
-      )
+      const total_spending = (purchases || [])
+        .filter(p => !p.is_projected)
+        .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
 
       setMonthlyData({
         month: format(selected_month, 'MMMM yyyy'),
@@ -141,9 +169,11 @@ export default function MonthlyHistoryPage() {
           description: p.description,
           category: p.category.name,
           amount: parseFloat(p.actual_cost.toString()),
-          is_split: p.is_split
+          is_split: p.is_split,
+          is_projected: p.is_projected
         })),
         categories: categories_with_spent,
+        income_sources,
         recurring: recurring_total,
         assets_snapshot: (assets || []).map(a => ({
           name: a.name,
@@ -158,7 +188,7 @@ export default function MonthlyHistoryPage() {
 
       const { data: prev_purchases } = await supabase
         .from('purchases')
-        .select('actual_cost')
+        .select('actual_cost, is_projected')
         .eq('user_id', user.id)
         .gte('date', prev_start)
         .lte('date', prev_end)
@@ -186,9 +216,9 @@ export default function MonthlyHistoryPage() {
       }
 
       setComparisonData({
-        prev_spending: (prev_purchases || []).reduce((sum, p) => 
-          sum + parseFloat(p.actual_cost.toString()), 0
-        ),
+        prev_spending: (prev_purchases || [])
+          .filter(p => !p.is_projected)
+          .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0),
         prev_income: prev_income_total
       })
 
@@ -199,13 +229,12 @@ export default function MonthlyHistoryPage() {
     }
   }
 
-  const export_to_excel = () => {
+  const export_to_excel = async () => {
     if (!monthly_data) return
 
-    // Create workbook
     const wb = XLSX.utils.book_new()
 
-    // Summary sheet
+    // Sheet 1: Summary
     const summary_data = [
       ['Finance Tracker - Monthly Report'],
       ['Month:', monthly_data.month],
@@ -225,21 +254,22 @@ export default function MonthlyHistoryPage() {
     const summary_ws = XLSX.utils.aoa_to_sheet(summary_data)
     XLSX.utils.book_append_sheet(wb, summary_ws, 'Summary')
 
-    // Purchases sheet
+    // Sheet 2: All Purchases
     const purchases_data = [
-      ['Date', 'Description', 'Category', 'Amount', 'Split Payment'],
+      ['Date', 'Description', 'Category', 'Amount', 'Split Payment', 'Status'],
       ...monthly_data.purchases.map(p => [
         format(new Date(p.date), 'MMM d, yyyy'),
         p.description,
         p.category,
         p.amount.toFixed(2),
-        p.is_split ? 'Yes' : 'No'
+        p.is_split ? 'Yes' : 'No',
+        p.is_projected ? 'Upcoming' : 'Paid'
       ])
     ]
     const purchases_ws = XLSX.utils.aoa_to_sheet(purchases_data)
-    XLSX.utils.book_append_sheet(wb, purchases_ws, 'Purchases')
+    XLSX.utils.book_append_sheet(wb, purchases_ws, 'All Purchases')
 
-    // Categories sheet
+    // Sheet 3: Category Breakdown
     const categories_data = [
       ['Category', 'Budget', 'Spent', 'Remaining', '% Used'],
       ...monthly_data.categories.map(c => [
@@ -248,12 +278,91 @@ export default function MonthlyHistoryPage() {
         c.spent.toFixed(2),
         (c.budget - c.spent).toFixed(2),
         ((c.spent / c.budget) * 100).toFixed(1) + '%'
-      ])
+      ]),
+      [],
+      ['TOTALS'],
+      ['Total Budget', monthly_data.categories.reduce((sum, c) => sum + c.budget, 0).toFixed(2)],
+      ['Total Spent', monthly_data.categories.reduce((sum, c) => sum + c.spent, 0).toFixed(2)]
     ]
     const categories_ws = XLSX.utils.aoa_to_sheet(categories_data)
     XLSX.utils.book_append_sheet(wb, categories_ws, 'Budget by Category')
 
-    // Save file
+    // Sheet 4: Income Streams
+    const income_data = [
+      ['Source', 'Amount', 'Frequency', 'Type', 'Annual Salary'],
+      ...monthly_data.income_sources.map(i => [
+        i.source,
+        i.amount.toFixed(2),
+        i.frequency,
+        i.is_salary ? 'Salary' : 'Other',
+        i.yearly_salary ? i.yearly_salary.toFixed(2) : '-'
+      ]),
+      [],
+      ['TOTAL INCOME', monthly_data.income.toFixed(2)]
+    ]
+    const income_ws = XLSX.utils.aoa_to_sheet(income_data)
+    XLSX.utils.book_append_sheet(wb, income_ws, 'Income Streams')
+
+    // Sheet 5: Salary Details (if applicable)
+    const salary_sources = monthly_data.income_sources.filter(i => i.is_salary)
+    if (salary_sources.length > 0) {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const salary_income_ids = await supabase
+          .from('income')
+          .select('id')
+          .eq('user_id', user.id)
+          .eq('is_salary', true)
+
+        if (salary_income_ids.data && salary_income_ids.data.length > 0) {
+          const { data: deductions } = await supabase
+            .from('salary_deductions')
+            .select('*')
+            .eq('income_id', salary_income_ids.data[0].id)
+            .single()
+
+          if (deductions) {
+            const salary_details_data = [
+              ['SALARY BREAKDOWN'],
+              [],
+              ['PRE-TAX DEDUCTIONS'],
+              ['401k', deductions.pre_tax_401k.toFixed(2)],
+              ['401k Roth', deductions.pre_tax_401k_roth.toFixed(2)],
+              ['HSA', deductions.hsa.toFixed(2)],
+              ['Medical Insurance', deductions.medical_insurance.toFixed(2)],
+              ['Dental Insurance', deductions.dental_insurance.toFixed(2)],
+              ['Vision Insurance', deductions.vision_insurance.toFixed(2)],
+              [],
+              ['TAXES'],
+              ['Federal Tax', deductions.federal_tax.toFixed(2)],
+              ['State Tax', deductions.state_tax.toFixed(2)],
+              ['Social Security', deductions.social_security.toFixed(2)],
+              ['Medicare', deductions.medicare.toFixed(2)],
+              ['FICA Total', deductions.fica_total.toFixed(2)],
+              ['CA Disability', deductions.ca_disability.toFixed(2)],
+              [],
+              ['AFTER-TAX DEDUCTIONS'],
+              ['401k After-Tax', deductions.after_tax_401k.toFixed(2)],
+              ['Life Insurance', deductions.life_insurance.toFixed(2)],
+              ['AD&D', deductions.ad_d.toFixed(2)],
+              ['Critical Illness', deductions.critical_illness.toFixed(2)],
+              ['Hospital Indemnity', deductions.hospital_indemnity.toFixed(2)],
+              ['Accident Insurance', deductions.accident_insurance.toFixed(2)],
+              ['Legal Plan', deductions.legal_plan.toFixed(2)],
+              ['Identity Theft', deductions.identity_theft.toFixed(2)],
+              [],
+              ['NET PAY'],
+              ['Yearly', deductions.net_yearly.toFixed(2)],
+              ['Monthly', deductions.net_monthly.toFixed(2)],
+              ['Bi-Weekly', deductions.net_biweekly.toFixed(2)],
+            ]
+            const salary_ws = XLSX.utils.aoa_to_sheet(salary_details_data)
+            XLSX.utils.book_append_sheet(wb, salary_ws, 'Salary Details')
+          }
+        }
+      }
+    }
+
     const filename = `finance-tracker-${format(selected_month, 'yyyy-MM')}.xlsx`
     XLSX.writeFile(wb, filename)
   }
@@ -284,6 +393,9 @@ export default function MonthlyHistoryPage() {
 
   const spending_change = comparison_data ? get_change_percent(monthly_data.spending, comparison_data.prev_spending) : 0
   const income_change = comparison_data ? get_change_percent(monthly_data.income, comparison_data.prev_income) : 0
+
+  const actual_purchases = monthly_data.purchases.filter(p => !p.is_projected)
+  const projected_purchases = monthly_data.purchases.filter(p => p.is_projected)
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
@@ -429,8 +541,11 @@ export default function MonthlyHistoryPage() {
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="p-6 border-b border-gray-200">
             <h3 className="text-lg font-semibold text-gray-800">
-              All Transactions ({monthly_data.purchases.length})
+              All Transactions
             </h3>
+            <div className="text-sm text-gray-600 mt-1">
+              {actual_purchases.length} paid • {projected_purchases.length} upcoming
+            </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
@@ -445,6 +560,9 @@ export default function MonthlyHistoryPage() {
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Category
                   </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Status
+                  </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
@@ -453,13 +571,13 @@ export default function MonthlyHistoryPage() {
               <tbody className="divide-y divide-gray-200">
                 {monthly_data.purchases.length === 0 ? (
                   <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
                       No purchases this month
                     </td>
                   </tr>
                 ) : (
                   monthly_data.purchases.map((purchase, idx) => (
-                    <tr key={idx} className="hover:bg-gray-50">
+                    <tr key={idx} className={`hover:bg-gray-50 ${purchase.is_projected ? 'bg-yellow-50' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {format(new Date(purchase.date), 'MMM d, yyyy')}
                       </td>
@@ -471,6 +589,17 @@ export default function MonthlyHistoryPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                         {purchase.category}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {purchase.is_projected ? (
+                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
+                            Upcoming
+                          </span>
+                        ) : (
+                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                            Paid
+                          </span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-800">
                         ${purchase.amount.toFixed(2)}

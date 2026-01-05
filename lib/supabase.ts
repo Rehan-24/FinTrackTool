@@ -72,6 +72,8 @@ export type Database = {
           is_split: boolean
           amount_owed_back: number | null
           num_people_owing: number | null
+          is_projected: boolean
+          recurring_expense_id: string | null
           created_at: string
         }
         Insert: {
@@ -85,6 +87,8 @@ export type Database = {
           is_split?: boolean
           amount_owed_back?: number | null
           num_people_owing?: number | null
+          is_projected?: boolean
+          recurring_expense_id?: string | null
           created_at?: string
         }
         Update: {
@@ -98,6 +102,8 @@ export type Database = {
           is_split?: boolean
           amount_owed_back?: number | null
           num_people_owing?: number | null
+          is_projected?: boolean
+          recurring_expense_id?: string | null
           created_at?: string
         }
       }
@@ -232,6 +238,10 @@ export type Database = {
           frequency: string
           date: string
           is_recurring: boolean
+          is_salary: boolean
+          yearly_salary: number | null
+          pay_frequency: string | null
+          next_pay_date: string | null
           created_at: string
         }
         Insert: {
@@ -242,6 +252,10 @@ export type Database = {
           frequency: string
           date: string
           is_recurring?: boolean
+          is_salary?: boolean
+          yearly_salary?: number | null
+          pay_frequency?: string | null
+          next_pay_date?: string | null
           created_at?: string
         }
         Update: {
@@ -252,6 +266,102 @@ export type Database = {
           frequency?: string
           date?: string
           is_recurring?: boolean
+          is_salary?: boolean
+          yearly_salary?: number | null
+          pay_frequency?: string | null
+          next_pay_date?: string | null
+          created_at?: string
+        }
+      }
+      salary_deductions: {
+        Row: {
+          id: string
+          income_id: string
+          pre_tax_401k: number
+          pre_tax_401k_roth: number
+          hsa: number
+          medical_insurance: number
+          dental_insurance: number
+          vision_insurance: number
+          federal_tax: number
+          state_tax: number
+          social_security: number
+          medicare: number
+          fica_total: number
+          ca_disability: number
+          after_tax_401k: number
+          after_tax_401k_roth: number
+          life_insurance: number
+          ad_d: number
+          critical_illness: number
+          hospital_indemnity: number
+          accident_insurance: number
+          legal_plan: number
+          identity_theft: number
+          net_yearly: number
+          net_monthly: number
+          net_weekly: number
+          net_biweekly: number
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          income_id: string
+          pre_tax_401k?: number
+          pre_tax_401k_roth?: number
+          hsa?: number
+          medical_insurance?: number
+          dental_insurance?: number
+          vision_insurance?: number
+          federal_tax?: number
+          state_tax?: number
+          social_security?: number
+          medicare?: number
+          fica_total?: number
+          ca_disability?: number
+          after_tax_401k?: number
+          after_tax_401k_roth?: number
+          life_insurance?: number
+          ad_d?: number
+          critical_illness?: number
+          hospital_indemnity?: number
+          accident_insurance?: number
+          legal_plan?: number
+          identity_theft?: number
+          net_yearly: number
+          net_monthly: number
+          net_weekly: number
+          net_biweekly: number
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          income_id?: string
+          pre_tax_401k?: number
+          pre_tax_401k_roth?: number
+          hsa?: number
+          medical_insurance?: number
+          dental_insurance?: number
+          vision_insurance?: number
+          federal_tax?: number
+          state_tax?: number
+          social_security?: number
+          medicare?: number
+          fica_total?: number
+          ca_disability?: number
+          after_tax_401k?: number
+          after_tax_401k_roth?: number
+          life_insurance?: number
+          ad_d?: number
+          critical_illness?: number
+          hospital_indemnity?: number
+          accident_insurance?: number
+          legal_plan?: number
+          identity_theft?: number
+          net_yearly?: number
+          net_monthly?: number
+          net_weekly?: number
+          net_biweekly?: number
           created_at?: string
         }
       }

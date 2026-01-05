@@ -2,14 +2,8 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Plus, Settings as SettingsIcon } from 'lucide-react'
-import { format, differenceInMonths } from 'date-fns'
-
-type Asset = {
-  id: string
-  name: string
-  current_value: number
-}
+import { Plus, Target, TrendingUp, Calendar, DollarSign, Edit2, Trash2, X } from 'lucide-react'
+import { format, differenceInMonths, isBefore } from 'date-fns'
 
 type Goal = {
   id: string
@@ -18,7 +12,16 @@ type Goal = {
   current_amount: number
   deadline: string
   linked_asset_id: string | null
-  linked_asset?: Asset
+  asset?: {
+    name: string
+    current_value: number
+  }
+}
+
+type Asset = {
+  id: string
+  name: string
+  current_value: number
 }
 
 export default function GoalsPage() {
@@ -26,9 +29,10 @@ export default function GoalsPage() {
   const [assets, setAssets] = useState<Asset[]>([])
   const [loading, setLoading] = useState(true)
   const [show_add_form, setShowAddForm] = useState(false)
+  const [edit_goal, setEditGoal] = useState<Goal | null>(null)
   
   // Form state
-  const [goal_name, setGoalName] = useState('')
+  const [name, setName] = useState('')
   const [target_amount, setTargetAmount] = useState('')
   const [current_amount, setCurrentAmount] = useState('')
   const [deadline, setDeadline] = useState('')
@@ -43,49 +47,30 @@ export default function GoalsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Load assets
-      const { data: assets_data } = await supabase
-        .from('assets')
-        .select('*')
-        .eq('user_id', user.id)
-        .order('name')
-
-      if (assets_data) setAssets(assets_data)
-
-      // Load goals
+      // Load goals with linked assets
       const { data: goals_data } = await supabase
         .from('goals')
-        .select('*')
+        .select(`
+          *,
+          asset:assets(name, current_value)
+        `)
         .eq('user_id', user.id)
         .order('deadline')
 
-      if (goals_data && assets_data) {
-        // Match goals with their linked assets
-        const goals_with_assets = goals_data.map(goal => ({
-          ...goal,
-          linked_asset: assets_data.find(a => a.id === goal.linked_asset_id)
-        }))
-        setGoals(goals_with_assets)
-      }
+      // Load available assets
+      const { data: assets_data } = await supabase
+        .from('assets')
+        .select('id, name, current_value')
+        .eq('user_id', user.id)
+        .order('name')
+
+      if (goals_data) setGoals(goals_data)
+      if (assets_data) setAssets(assets_data)
     } catch (err) {
-      console.error('Error loading goals:', err)
+      console.error('Error loading data:', err)
     } finally {
       setLoading(false)
     }
-  }
-
-  const calculate_goal_progress = (goal: Goal) => {
-    const current = parseFloat(goal.current_amount.toString())
-    const target = parseFloat(goal.target_amount.toString())
-    const remaining = target - current
-    const progress_pct = (current / target) * 100
-    
-    const today = new Date()
-    const deadline_date = new Date(goal.deadline)
-    const months_left = Math.max(0, differenceInMonths(deadline_date, today))
-    const monthly_needed = months_left > 0 ? remaining / months_left : remaining
-    
-    return { remaining, progress_pct, months_left, monthly_needed }
   }
 
   const add_goal = async (e: React.FormEvent) => {
@@ -99,7 +84,7 @@ export default function GoalsPage() {
         .from('goals')
         .insert({
           user_id: user.id,
-          name: goal_name,
+          name,
           target_amount: parseFloat(target_amount),
           current_amount: parseFloat(current_amount),
           deadline,
@@ -117,28 +102,89 @@ export default function GoalsPage() {
     }
   }
 
-  const update_goal_progress = async (goal_id: string) => {
-    const goal = goals.find(g => g.id === goal_id)
-    if (!goal || !goal.linked_asset) return
-
+  const update_goal = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!edit_goal) return
+    
     try {
-      await supabase
+      const { error } = await supabase
         .from('goals')
-        .update({ current_amount: goal.linked_asset.current_value })
-        .eq('id', goal_id)
+        .update({
+          name,
+          target_amount: parseFloat(target_amount),
+          current_amount: parseFloat(current_amount),
+          deadline,
+          linked_asset_id: linked_asset_id || null,
+        })
+        .eq('id', edit_goal.id)
 
+      if (error) throw error
+
+      setEditGoal(null)
+      reset_form()
       load_data()
     } catch (err) {
       console.error('Error updating goal:', err)
+      alert('Failed to update goal')
     }
   }
 
+  const delete_goal = async (id: string) => {
+    if (!confirm('Delete this goal?')) return
+
+    try {
+      const { error } = await supabase
+        .from('goals')
+        .delete()
+        .eq('id', id)
+
+      if (error) throw error
+      load_data()
+    } catch (err) {
+      console.error('Error deleting goal:', err)
+      alert('Failed to delete goal')
+    }
+  }
+
+  const start_edit = (goal: Goal) => {
+    setEditGoal(goal)
+    setName(goal.name)
+    setTargetAmount(goal.target_amount.toString())
+    setCurrentAmount(goal.current_amount.toString())
+    setDeadline(goal.deadline)
+    setLinkedAssetId(goal.linked_asset_id || '')
+  }
+
   const reset_form = () => {
-    setGoalName('')
+    setName('')
     setTargetAmount('')
     setCurrentAmount('')
     setDeadline('')
     setLinkedAssetId('')
+  }
+
+  const get_goal_status = (goal: Goal) => {
+    const progress = (goal.current_amount / goal.target_amount) * 100
+    const today = new Date()
+    const deadline_date = new Date(goal.deadline)
+    
+    if (progress >= 100) {
+      return { status: 'achieved', color: 'bg-green-500', text: 'Goal Achieved! 🎉' }
+    } else if (isBefore(deadline_date, today)) {
+      return { status: 'overdue', color: 'bg-red-500', text: 'Deadline Passed' }
+    } else {
+      return { status: 'in_progress', color: 'bg-blue-500', text: 'In Progress' }
+    }
+  }
+
+  const calculate_monthly_needed = (goal: Goal) => {
+    const remaining = goal.target_amount - goal.current_amount
+    const today = new Date()
+    const deadline_date = new Date(goal.deadline)
+    const months_left = differenceInMonths(deadline_date, today)
+    
+    if (months_left <= 0) return 0
+    return remaining / months_left
   }
 
   if (loading) {
@@ -150,8 +196,8 @@ export default function GoalsPage() {
       <div className="p-8">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-gray-800">Goals</h2>
-            <p className="text-gray-600 mt-1">Track your financial goals</p>
+            <h2 className="text-3xl font-bold text-gray-800">Financial Goals</h2>
+            <p className="text-gray-600 mt-1">Track your savings targets</p>
           </div>
           <button
             onClick={() => setShowAddForm(true)}
@@ -162,25 +208,40 @@ export default function GoalsPage() {
           </button>
         </div>
 
-        {/* Add Goal Modal */}
-        {show_add_form && (
+        {/* Add/Edit Form Modal */}
+        {(show_add_form || edit_goal) && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg p-6 max-w-md w-full max-h-[90vh] overflow-y-auto">
-              <h3 className="text-xl font-bold text-gray-800 mb-4">Add New Goal</h3>
-              <form onSubmit={add_goal} className="space-y-4">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-xl font-bold text-gray-800">
+                  {edit_goal ? 'Edit Goal' : 'New Goal'}
+                </h3>
+                <button
+                  onClick={() => {
+                    edit_goal ? setEditGoal(null) : setShowAddForm(false)
+                    reset_form()
+                  }}
+                  className="text-gray-500 hover:text-gray-700"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              <form onSubmit={edit_goal ? update_goal : add_goal} className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Goal Name
                   </label>
                   <input
                     type="text"
-                    value={goal_name}
-                    onChange={(e) => setGoalName(e.target.value)}
-                    placeholder="e.g., Emergency Fund"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g., Emergency Fund, Down Payment"
                     className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                     required
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Target Amount
@@ -199,6 +260,7 @@ export default function GoalsPage() {
                     />
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Current Amount
@@ -217,6 +279,7 @@ export default function GoalsPage() {
                     />
                   </div>
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Deadline
@@ -229,6 +292,7 @@ export default function GoalsPage() {
                     required
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Link to Asset (Optional)
@@ -238,19 +302,23 @@ export default function GoalsPage() {
                     onChange={(e) => setLinkedAssetId(e.target.value)}
                     className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent"
                   >
-                    <option value="">None</option>
+                    <option value="">No linked asset</option>
                     {assets.map((asset) => (
                       <option key={asset.id} value={asset.id}>
-                        {asset.name}
+                        {asset.name} (${asset.current_value.toLocaleString()})
                       </option>
                     ))}
                   </select>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Link to auto-sync current amount from asset value
+                  </p>
                 </div>
-                <div className="flex gap-3">
+
+                <div className="flex gap-3 pt-4">
                   <button
                     type="button"
                     onClick={() => {
-                      setShowAddForm(false)
+                      edit_goal ? setEditGoal(null) : setShowAddForm(false)
                       reset_form()
                     }}
                     className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
@@ -261,7 +329,7 @@ export default function GoalsPage() {
                     type="submit"
                     className="flex-1 bg-purple-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-purple-700"
                   >
-                    Add Goal
+                    {edit_goal ? 'Update' : 'Create'} Goal
                   </button>
                 </div>
               </form>
@@ -272,92 +340,98 @@ export default function GoalsPage() {
         {/* Goals List */}
         {goals.length === 0 ? (
           <div className="text-center py-16 text-gray-500">
+            <Target size={48} className="mx-auto mb-4 opacity-50" />
             <p className="text-lg mb-4">No goals yet.</p>
-            <p>Set your first financial goal to start tracking progress!</p>
+            <p>Set your first financial goal to start saving!</p>
           </div>
         ) : (
-          <div className="space-y-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {goals.map((goal) => {
-              const progress = calculate_goal_progress(goal)
-              
+              const status = get_goal_status(goal)
+              const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100)
+              const monthly_needed = calculate_monthly_needed(goal)
+              const remaining = goal.target_amount - goal.current_amount
+
               return (
-                <div key={goal.id} className="bg-white rounded-lg p-6 border border-gray-200">
+                <div
+                  key={goal.id}
+                  className="bg-white rounded-lg border border-gray-200 p-6 hover:shadow-lg transition"
+                >
                   <div className="flex justify-between items-start mb-4">
                     <div>
-                      <h3 className="font-semibold text-gray-800 text-xl">{goal.name}</h3>
-                      {goal.linked_asset && (
-                        <p className="text-sm text-gray-500 flex items-center gap-2">
-                          Linked to: {goal.linked_asset.name}
-                          <button
-                            onClick={() => update_goal_progress(goal.id)}
-                            className="text-purple-600 hover:text-purple-700 text-xs underline"
-                          >
-                            Sync
-                          </button>
+                      <h3 className="text-xl font-bold text-gray-800">{goal.name}</h3>
+                      {goal.asset && (
+                        <p className="text-sm text-gray-500 mt-1">
+                          Linked to {goal.asset.name}
                         </p>
                       )}
                     </div>
-                    <button className="text-gray-400 hover:text-gray-600">
-                      <SettingsIcon size={20} />
-                    </button>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => start_edit(goal)}
+                        className="text-blue-500 hover:text-blue-700 p-1"
+                      >
+                        <Edit2 size={18} />
+                      </button>
+                      <button
+                        onClick={() => delete_goal(goal.id)}
+                        className="text-red-500 hover:text-red-700 p-1"
+                      >
+                        <Trash2 size={18} />
+                      </button>
+                    </div>
                   </div>
 
-                  {/* Progress Bar */}
+                  <div className={`inline-block px-3 py-1 rounded-full text-xs font-medium text-white mb-4 ${status.color}`}>
+                    {status.text}
+                  </div>
+
                   <div className="mb-4">
-                    <div className="flex justify-between text-sm mb-2">
-                      <span className="text-gray-600">
-                        ${parseFloat(goal.current_amount.toString()).toLocaleString()} of ${parseFloat(goal.target_amount.toString()).toLocaleString()}
-                      </span>
-                      <span className="font-medium text-purple-600">
-                        {Math.min(progress.progress_pct, 100).toFixed(0)}%
-                      </span>
+                    <div className="flex justify-between text-sm text-gray-600 mb-2">
+                      <span>${goal.current_amount.toLocaleString()}</span>
+                      <span>${goal.target_amount.toLocaleString()}</span>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-4">
-                      <div 
-                        className="bg-purple-600 rounded-full h-4 transition-all" 
-                        style={{width: `${Math.min(progress.progress_pct, 100)}%`}}
-                      ></div>
+                    <div className="w-full bg-gray-200 rounded-full h-3">
+                      <div
+                        className={`h-3 rounded-full transition-all ${status.color}`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <div className="text-center text-sm font-medium text-gray-700 mt-2">
+                      {progress.toFixed(1)}% Complete
                     </div>
                   </div>
 
-                  {/* Stats Grid */}
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-xs text-gray-500 mb-1">Remaining</div>
-                      <div className="font-bold text-gray-800">
-                        ${progress.remaining.toLocaleString()}
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-200">
+                    <div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                        <Calendar size={16} />
+                        Deadline
                       </div>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-xs text-gray-500 mb-1">Deadline</div>
-                      <div className="font-bold text-gray-800">
+                      <div className="font-semibold text-gray-800">
                         {format(new Date(goal.deadline), 'MMM d, yyyy')}
                       </div>
                     </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-xs text-gray-500 mb-1">Months Left</div>
-                      <div className="font-bold text-gray-800">{progress.months_left}</div>
-                    </div>
-                    <div className="bg-gray-50 rounded-lg p-4">
-                      <div className="text-xs text-gray-500 mb-1">Per Month</div>
-                      <div className="font-bold text-purple-600">
-                        ${Math.max(progress.monthly_needed, 0).toFixed(0)}
+                    <div>
+                      <div className="flex items-center gap-2 text-sm text-gray-600 mb-1">
+                        <DollarSign size={16} />
+                        Remaining
+                      </div>
+                      <div className="font-semibold text-gray-800">
+                        ${remaining.toLocaleString()}
                       </div>
                     </div>
                   </div>
 
-                  {/* Status Message */}
-                  {progress.progress_pct >= 100 ? (
-                    <div className="mt-4 bg-green-100 text-green-700 rounded-lg p-3 text-sm text-center font-medium">
-                      🎉 Goal Achieved!
-                    </div>
-                  ) : progress.months_left === 0 ? (
-                    <div className="mt-4 bg-red-100 text-red-700 rounded-lg p-3 text-sm text-center font-medium">
-                      ⚠️ Deadline passed
-                    </div>
-                  ) : (
-                    <div className="mt-4 bg-blue-50 text-blue-700 rounded-lg p-3 text-sm text-center">
-                      Save <span className="font-bold">${Math.max(progress.monthly_needed, 0).toFixed(0)}/month</span> to reach goal on time
+                  {status.status === 'in_progress' && monthly_needed > 0 && (
+                    <div className="mt-4 bg-purple-50 rounded-lg p-4 border border-purple-200">
+                      <div className="text-sm text-purple-700 mb-1">Save per month:</div>
+                      <div className="text-2xl font-bold text-purple-600">
+                        ${monthly_needed.toFixed(2)}
+                      </div>
+                      <div className="text-xs text-purple-600 mt-1">
+                        to reach goal by deadline
+                      </div>
                     </div>
                   )}
                 </div>
