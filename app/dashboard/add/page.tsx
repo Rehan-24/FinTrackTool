@@ -38,6 +38,9 @@ export default function AddPurchasePage() {
   const [custom_owed_back, setCustomOwedBack] = useState('')
   const [use_custom_split, setUseCustomSplit] = useState(false)
 
+  // Notes
+  const [notes, setNotes] = useState('')
+
   useEffect(() => {
     load_data()
   }, [])
@@ -170,6 +173,7 @@ export default function AddPurchasePage() {
           num_people_owing: is_split ? parseInt(num_people) - 1 : null,
           tags: tags.length > 0 ? tags : null,
           payment_method: payment_method.trim() || null,
+          notes: notes.trim() || null,
         })
 
       if (error) throw error
@@ -370,6 +374,23 @@ export default function AddPurchasePage() {
               </div>
               <p className="text-xs text-gray-500">
                 Track which card or account you used
+              </p>
+            </div>
+
+            {/* Notes Field */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Notes <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Add any additional details or reminders..."
+                rows={3}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+              />
+              <p className="text-xs text-gray-500 mt-1">
+                e.g., "Gift for mom's birthday" or "Business expense - keep receipt"
               </p>
             </div>
 

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { sync_projected_purchases } from '@/lib/recurring-utils'
-import { Filter, Plus } from 'lucide-react'
+import { Filter, Plus, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import Link from 'next/link'
 
@@ -17,8 +17,16 @@ type Purchase = {
   id: string
   description: string
   actual_cost: number
+  total_amount: number
   date: string
   is_projected: boolean
+  is_split: boolean
+  amount_owed_back: number | null
+  num_people_owing: number | null
+  category_id: string
+  tags?: string[] | null
+  payment_method?: string | null
+  notes?: string | null
   category: {
     name: string
     color: string
@@ -29,6 +37,7 @@ export default function TransactionsPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [available_tags, setAvailableTags] = useState<string[]>([])
+  const [available_payment_methods, setAvailablePaymentMethods] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   
   // Filters
@@ -36,6 +45,11 @@ export default function TransactionsPage() {
   const [filter_category, setFilterCategory] = useState<string>('all')
   const [filter_type, setFilterType] = useState<string>('all') // all, actual, projected
   const [filter_tag, setFilterTag] = useState<string>('all')
+  const [filter_payment_method, setFilterPaymentMethod] = useState<string>('all')
+
+  // View/Edit modal
+  const [selected_purchase, setSelectedPurchase] = useState<Purchase | null>(null)
+  const [is_editing, setIsEditing] = useState(false)
 
   useEffect(() => {
     load_data()
@@ -83,6 +97,15 @@ export default function TransactionsPage() {
           }
         })
         setAvailableTags(Array.from(all_tags).sort())
+        
+        // Extract all unique payment methods
+        const all_methods = new Set<string>()
+        purchase_data.forEach((p: any) => {
+          if (p.payment_method) {
+            all_methods.add(p.payment_method)
+          }
+        })
+        setAvailablePaymentMethods(Array.from(all_methods).sort())
       }
     } catch (err) {
       console.error('Error loading transactions:', err)
@@ -93,7 +116,7 @@ export default function TransactionsPage() {
 
   const filtered_purchases = purchases.filter(p => {
     // Category filter
-    if (filter_category !== 'all' && p.category.name !== filter_category) {
+    if (filter_category !== 'all' && p.category_id !== filter_category) {
       return false
     }
     
@@ -107,8 +130,15 @@ export default function TransactionsPage() {
     
     // Tag filter
     if (filter_tag !== 'all') {
-      const purchase_tags = (p as any).tags || []
+      const purchase_tags = p.tags || []
       if (!purchase_tags.includes(filter_tag)) {
+        return false
+      }
+    }
+    
+    // Payment method filter
+    if (filter_payment_method !== 'all') {
+      if (p.payment_method !== filter_payment_method) {
         return false
       }
     }
@@ -244,6 +274,24 @@ export default function TransactionsPage() {
                 ))}
               </select>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Payment Method
+              </label>
+              <select
+                value={filter_payment_method}
+                onChange={(e) => setFilterPaymentMethod(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Payment Methods</option>
+                {available_payment_methods.map((method) => (
+                  <option key={method} value={method}>
+                    {method}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
 
@@ -282,7 +330,11 @@ export default function TransactionsPage() {
                   </tr>
                 ) : (
                   filtered_purchases.map((purchase) => (
-                    <tr key={purchase.id} className={`hover:bg-gray-50 ${purchase.is_projected ? 'bg-yellow-50' : ''}`}>
+                    <tr 
+                      key={purchase.id} 
+                      onClick={() => setSelectedPurchase(purchase)}
+                      className={`hover:bg-gray-50 cursor-pointer ${purchase.is_projected ? 'bg-yellow-50' : ''}`}
+                    >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {format(new Date(purchase.date), 'MMM d, yyyy')}
                       </td>
@@ -299,9 +351,9 @@ export default function TransactionsPage() {
                         </div>
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        {(purchase as any).tags && (purchase as any).tags.length > 0 ? (
+                        {purchase.tags && purchase.tags.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
-                            {(purchase as any).tags.map((tag: string) => (
+                            {purchase.tags.map((tag: string) => (
                               <span
                                 key={tag}
                                 className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full"
@@ -336,6 +388,159 @@ export default function TransactionsPage() {
           </div>
         </div>
       </div>
+
+      {/* View/Edit Modal */}
+      {selected_purchase && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">
+                  {is_editing ? 'Edit Transaction' : 'Transaction Details'}
+                </h2>
+                <button
+                  onClick={() => {
+                    setSelectedPurchase(null)
+                    setIsEditing(false)
+                  }}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <X size={24} />
+                </button>
+              </div>
+
+              {!is_editing ? (
+                // View Mode
+                <div className="space-y-4">
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Date</label>
+                      <div className="text-gray-800">{format(new Date(selected_purchase.date), 'MMM d, yyyy')}</div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Amount</label>
+                      <div className="text-2xl font-bold text-gray-800">
+                        ${parseFloat(selected_purchase.actual_cost.toString()).toFixed(2)}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Description</label>
+                    <div className="text-gray-800">{selected_purchase.description}</div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Category</label>
+                    <div className="flex items-center gap-2">
+                      <div
+                        className="w-4 h-4 rounded-full"
+                        style={{ backgroundColor: selected_purchase.category.color }}
+                      />
+                      <span className="text-gray-800">{selected_purchase.category.name}</span>
+                    </div>
+                  </div>
+
+                  {selected_purchase.tags && selected_purchase.tags.length > 0 && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Tags</label>
+                      <div className="flex flex-wrap gap-2">
+                        {selected_purchase.tags.map((tag: string) => (
+                          <span
+                            key={tag}
+                            className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full"
+                          >
+                            {tag}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {selected_purchase.payment_method && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Payment Method</label>
+                      <div className="text-gray-800">{selected_purchase.payment_method}</div>
+                    </div>
+                  )}
+
+                  {selected_purchase.notes && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-500 mb-1">Notes</label>
+                      <div className="text-gray-800 whitespace-pre-wrap bg-gray-50 p-3 rounded-lg">
+                        {selected_purchase.notes}
+                      </div>
+                    </div>
+                  )}
+
+                  {selected_purchase.is_split && (
+                    <div className="bg-blue-50 p-4 rounded-lg">
+                      <label className="block text-sm font-medium text-blue-700 mb-2">Split Payment</label>
+                      <div className="grid grid-cols-2 gap-4 text-sm">
+                        <div>
+                          <span className="text-blue-600">Total:</span>
+                          <span className="ml-2 font-medium">${parseFloat(selected_purchase.total_amount.toString()).toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-blue-600">Your cost:</span>
+                          <span className="ml-2 font-medium">${parseFloat(selected_purchase.actual_cost.toString()).toFixed(2)}</span>
+                        </div>
+                        <div>
+                          <span className="text-blue-600">Owed back:</span>
+                          <span className="ml-2 font-medium text-green-600">
+                            ${selected_purchase.amount_owed_back ? parseFloat(selected_purchase.amount_owed_back.toString()).toFixed(2) : '0.00'}
+                          </span>
+                        </div>
+                        <div>
+                          <span className="text-blue-600">People owing:</span>
+                          <span className="ml-2 font-medium">{selected_purchase.num_people_owing || 0}</span>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {selected_purchase.is_projected && (
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+                      <p className="text-yellow-800 text-sm">
+                        ⚠️ This is an upcoming projected charge
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="flex gap-3 pt-4">
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-700"
+                    >
+                      Edit Transaction
+                    </button>
+                    <button
+                      onClick={() => {
+                        setSelectedPurchase(null)
+                        setIsEditing(false)
+                      }}
+                      className="px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                // Edit Mode - Coming Soon
+                <div className="text-center py-12">
+                  <p className="text-gray-600 mb-4">Edit functionality coming in next update!</p>
+                  <button
+                    onClick={() => setIsEditing(false)}
+                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
+                  >
+                    Back to View
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
