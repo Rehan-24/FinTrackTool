@@ -115,7 +115,12 @@ export default function DashboardPage() {
   }
 
   const total_spent = categories.reduce((sum, cat) => sum + cat.spent, 0)
+  const total_projected = categories.reduce((sum, cat) => sum + (cat.projected || 0), 0)
+  const total_with_projected = total_spent + total_projected
   const total_budget = categories.reduce((sum, cat) => sum + parseFloat(cat.monthly_budget.toString()), 0)
+  const budget_remaining = total_budget - total_with_projected
+  const budget_percentage = total_budget > 0 ? (total_with_projected / total_budget) * 100 : 0
+  const is_over_budget = budget_percentage > 100
   const net_cashflow = monthly_income - total_spent
 
   if (loading) {
@@ -161,13 +166,58 @@ export default function DashboardPage() {
             <div className="text-sm text-gray-500 mt-1">income - spending</div>
           </div>
 
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
+          <div className={`rounded-lg p-6 border-2 ${
+            is_over_budget 
+              ? 'bg-red-50 border-red-200' 
+              : budget_percentage > 80 
+                ? 'bg-yellow-50 border-yellow-200' 
+                : 'bg-green-50 border-green-200'
+          }`}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Categories</span>
-              <PieChart className="text-blue-500" size={20} />
+              <span className="text-gray-700 font-medium">Total Budget</span>
+              <PieChart className={
+                is_over_budget 
+                  ? "text-red-500" 
+                  : budget_percentage > 80 
+                    ? "text-yellow-500" 
+                    : "text-green-500"
+              } size={20} />
             </div>
-            <div className="text-3xl font-bold text-gray-800">{categories.length}</div>
-            <div className="text-sm text-gray-500 mt-1">tracked areas</div>
+            <div className={`text-3xl font-bold ${
+              is_over_budget 
+                ? 'text-red-600' 
+                : budget_percentage > 80 
+                  ? 'text-yellow-600' 
+                  : 'text-green-600'
+            }`}>
+              ${total_with_projected.toFixed(2)}
+            </div>
+            <div className="text-sm text-gray-600 mt-1">
+              of ${total_budget.toFixed(2)} budget
+            </div>
+            <div className={`text-sm font-medium mt-2 ${
+              is_over_budget 
+                ? 'text-red-700' 
+                : budget_percentage > 80 
+                  ? 'text-yellow-700' 
+                  : 'text-green-700'
+            }`}>
+              {is_over_budget 
+                ? `Over by $${Math.abs(budget_remaining).toFixed(2)}` 
+                : `$${budget_remaining.toFixed(2)} remaining`}
+            </div>
+            <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
+              <div
+                className={`rounded-full h-2 transition-all ${
+                  is_over_budget 
+                    ? 'bg-red-500' 
+                    : budget_percentage > 80 
+                      ? 'bg-yellow-500' 
+                      : 'bg-green-500'
+                }`}
+                style={{ width: `${Math.min(budget_percentage, 100)}%` }}
+              />
+            </div>
           </div>
         </div>
 
