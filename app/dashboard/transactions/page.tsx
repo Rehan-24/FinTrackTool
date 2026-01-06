@@ -79,7 +79,7 @@ export default function TransactionsPage() {
 
   const filtered_purchases = purchases.filter(p => {
     // Category filter
-    if (filter_category !== 'all' && p.category_id !== filter_category) {
+    if (filter_category !== 'all' && p.category.name !== filter_category) {
       return false
     }
     
