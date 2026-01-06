@@ -130,9 +130,18 @@ export default function DashboardPage() {
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
       <div className="p-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">Dashboard</h2>
-          <p className="text-gray-600 mt-1">{format(new Date(), 'MMMM yyyy')}</p>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-800">Dashboard</h2>
+            <p className="text-gray-600 mt-1">{format(new Date(), 'MMMM yyyy')}</p>
+          </div>
+          <Link
+            href="/dashboard/add"
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+          >
+            <Receipt size={20} />
+            Add Purchase
+          </Link>
         </div>
 
         {/* Summary Cards */}

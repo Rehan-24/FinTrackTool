@@ -3,8 +3,9 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { sync_projected_purchases } from '@/lib/recurring-utils'
-import { Filter } from 'lucide-react'
+import { Filter, Plus } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
+import Link from 'next/link'
 
 type Category = {
   id: string
@@ -109,9 +110,18 @@ export default function TransactionsPage() {
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
       <div className="p-8">
-        <div className="mb-8">
-          <h2 className="text-3xl font-bold text-gray-800">Transactions</h2>
-          <p className="text-gray-600 mt-1">View and filter your purchases</p>
+        <div className="flex justify-between items-center mb-8">
+          <div>
+            <h2 className="text-3xl font-bold text-gray-800">Transactions</h2>
+            <p className="text-gray-600 mt-1">View and filter your purchases</p>
+          </div>
+          <Link
+            href="/dashboard/add"
+            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+          >
+            <Plus size={20} />
+            Add Purchase
+          </Link>
         </div>
 
         {/* Summary Cards */}

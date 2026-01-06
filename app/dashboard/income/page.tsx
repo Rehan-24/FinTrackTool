@@ -607,24 +607,24 @@ export default function IncomePage() {
 
 // Inline Salary Calculator Component
 function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculation) => void }) {
-  const [gross_salary, setGrossSalary] = useState('105800')
-  const [k401_pct, set401kPct] = useState('4.00')
-  const [k401_roth_pct, set401kRothPct] = useState('2.00')
-  const [hsa_monthly, setHsaMonthly] = useState('211.52')
-  const [medical_monthly, setMedicalMonthly] = useState('103.38')
-  const [dental_monthly, setDentalMonthly] = useState('12.00')
-  const [vision_monthly, setVisionMonthly] = useState('15.34')
-  const [federal_tax_pct, setFederalTaxPct] = useState('13.46')
-  const [state_tax_pct, setStateTaxPct] = useState('5.90')
-  const [ca_disability_pct, setCaDisabilityPct] = useState('1.20')
-  const [k401_after_pct, set401kAfterPct] = useState('1.00')
-  const [life_ins_monthly, setLifeInsMonthly] = useState('3.38')
-  const [ad_d_monthly, setAdDMonthly] = useState('13.18')
-  const [critical_illness_monthly, setCriticalIllnessMonthly] = useState('4.56')
-  const [hospital_monthly, setHospitalMonthly] = useState('10.94')
-  const [accident_monthly, setAccidentMonthly] = useState('6.36')
-  const [legal_monthly, setLegalMonthly] = useState('6.24')
-  const [identity_theft_monthly, setIdentityTheftMonthly] = useState('6.00')
+  const [gross_salary, setGrossSalary] = useState('000000')
+  const [k401_pct, set401kPct] = useState('0.00')
+  const [k401_roth_pct, set401kRothPct] = useState('0.00')
+  const [hsa_monthly, setHsaMonthly] = useState('000.00')
+  const [medical_monthly, setMedicalMonthly] = useState('000.00')
+  const [dental_monthly, setDentalMonthly] = useState('00.00')
+  const [vision_monthly, setVisionMonthly] = useState('00.00')
+  const [federal_tax_pct, setFederalTaxPct] = useState('00.00')
+  const [state_tax_pct, setStateTaxPct] = useState('0.00')
+  const [ca_disability_pct, setCaDisabilityPct] = useState('0.00')
+  const [k401_after_pct, set401kAfterPct] = useState('0.00')
+  const [life_ins_monthly, setLifeInsMonthly] = useState('0.00')
+  const [ad_d_monthly, setAdDMonthly] = useState('0.00')
+  const [critical_illness_monthly, setCriticalIllnessMonthly] = useState('0.00')
+  const [hospital_monthly, setHospitalMonthly] = useState('00.00')
+  const [accident_monthly, setAccidentMonthly] = useState('0.00')
+  const [legal_monthly, setLegalMonthly] = useState('0.00')
+  const [identity_theft_monthly, setIdentityTheftMonthly] = useState('0.00')
   const [auto_savings_monthly, setAutoSavingsMonthly] = useState('0.00')
 
   useEffect(() => {
@@ -729,18 +729,29 @@ function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculati
     const accident_yearly = parseFloat(accident_monthly) * 12
     const legal_yearly = parseFloat(legal_monthly) * 12
     const identity_theft_yearly = parseFloat(identity_theft_monthly) * 12
+    const auto_savings_yearly = parseFloat(auto_savings_monthly) * 12
     const total_after_tax = k401_after_yearly + life_ins_yearly + ad_d_yearly + critical_illness_yearly + 
-      hospital_yearly + accident_yearly + legal_yearly + identity_theft_yearly
+      hospital_yearly + accident_yearly + legal_yearly + identity_theft_yearly + auto_savings_yearly
     const net_yearly = after_tax_income - total_after_tax
 
     return {
       yearly: net_yearly,
       monthly: net_yearly / 12,
-      biweekly: net_yearly / 26
+      biweekly: net_yearly / 26,
+      // return individual amounts for display
+      k401_yearly,
+      k401_roth_yearly,
+      federal_tax,
+      state_tax,
+      ca_disability,
+      k401_after_yearly,
+      taxable_income,
+      after_tax_income
     }
   }
 
   const net = calc_net()
+  const yearly = parseFloat(gross_salary) || 0
 
   return (
     <div className="mt-4 space-y-4 bg-emerald-50 rounded-lg p-4 border border-emerald-200">
@@ -761,11 +772,15 @@ function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculati
 
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">401k %</label>
+          <label className="block text-xs text-gray-600 mb-1">
+            401k % <span className="text-emerald-600">(${(net.k401_yearly || 0).toFixed(0)}/yr)</span>
+          </label>
           <input type="number" step="0.01" value={k401_pct} onChange={(e) => set401kPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">401k Roth %</label>
+          <label className="block text-xs text-gray-600 mb-1">
+            401k Roth % <span className="text-emerald-600">(${(net.k401_roth_yearly || 0).toFixed(0)}/yr)</span>
+          </label>
           <input type="number" step="0.01" value={k401_roth_pct} onChange={(e) => set401kRothPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
         </div>
         <div>
@@ -788,22 +803,30 @@ function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculati
 
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Fed Tax %</label>
+          <label className="block text-xs text-gray-600 mb-1">
+            Fed Tax % <span className="text-red-600">(${(net.federal_tax || 0).toFixed(0)}/yr)</span>
+          </label>
           <input type="number" step="0.01" value={federal_tax_pct} onChange={(e) => setFederalTaxPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">State Tax %</label>
+          <label className="block text-xs text-gray-600 mb-1">
+            State Tax % <span className="text-red-600">(${(net.state_tax || 0).toFixed(0)}/yr)</span>
+          </label>
           <input type="number" step="0.01" value={state_tax_pct} onChange={(e) => setStateTaxPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">CA Disability %</label>
+          <label className="block text-xs text-gray-600 mb-1">
+            CA Disability % <span className="text-red-600">(${(net.ca_disability || 0).toFixed(0)}/yr)</span>
+          </label>
           <input type="number" step="0.01" value={ca_disability_pct} onChange={(e) => setCaDisabilityPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
         </div>
       </div>
 
       <div className="grid grid-cols-3 gap-3">
         <div>
-          <label className="block text-xs text-gray-600 mb-1">401k After %</label>
+          <label className="block text-xs text-gray-600 mb-1">
+            401k After % <span className="text-blue-600">(${(net.k401_after_yearly || 0).toFixed(0)}/yr)</span>
+          </label>
           <input type="number" step="0.01" value={k401_after_pct} onChange={(e) => set401kAfterPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
         </div>
         <div>
@@ -835,7 +858,9 @@ function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculati
           <input type="number" step="0.01" value={identity_theft_monthly} onChange={(e) => setIdentityTheftMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
         </div>
         <div>
-          <label className="block text-xs text-gray-600 mb-1">Auto Savings/mo</label>
+          <label className="block text-xs text-gray-600 mb-1">
+            Auto Savings/mo <span className="text-blue-600">(${(parseFloat(auto_savings_monthly || '0') * 12).toFixed(0)}/yr)</span>
+          </label>
           <input type="number" step="0.01" value={auto_savings_monthly} onChange={(e) => setAutoSavingsMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
         </div>
       </div>
