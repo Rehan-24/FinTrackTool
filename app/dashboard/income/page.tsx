@@ -390,7 +390,7 @@ export default function IncomePage() {
             </div>
             <div className="text-4xl font-bold">${monthly_total.toFixed(2)}</div>
             <div className="text-sm mt-2 opacity-80">
-              {format(new Date(filter_month.split('-')[0], parseInt(filter_month.split('-')[1]) - 1, 1), 'MMMM yyyy')}
+              {format(new Date(parseInt(filter_month.split('-')[0]), parseInt(filter_month.split('-')[1]) - 1, 1), 'MMMM yyyy')}
             </div>
           </div>
 
