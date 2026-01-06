@@ -135,7 +135,7 @@ export default function IncomePage() {
 
       // If salary, insert deductions breakdown
       if (is_salary && salary_calc && new_income) {
-        await supabase
+        const { error: deduction_error } = await supabase
           .from('salary_deductions')
           .insert({
             income_id: new_income.id,
@@ -145,6 +145,11 @@ export default function IncomePage() {
             net_biweekly: salary_calc.net_biweekly,
             net_weekly: salary_calc.net_yearly / 52,
           })
+        
+        if (deduction_error) {
+          console.error('Failed to save salary deductions:', deduction_error)
+          alert('Income saved but salary deductions failed to save. Error: ' + deduction_error.message)
+        }
       }
 
       setShowAddForm(false)
@@ -194,17 +199,27 @@ export default function IncomePage() {
         }
 
         if (existing_deductions) {
-          await supabase
+          const { error: update_error } = await supabase
             .from('salary_deductions')
             .update(deduction_data)
             .eq('id', existing_deductions.id)
+          
+          if (update_error) {
+            console.error('Failed to update salary deductions:', update_error)
+            alert('Income updated but deductions failed to update. Error: ' + update_error.message)
+          }
         } else {
-          await supabase
+          const { error: insert_error } = await supabase
             .from('salary_deductions')
             .insert({
               income_id: edit_income.id,
               ...deduction_data,
             })
+          
+          if (insert_error) {
+            console.error('Failed to insert salary deductions:', insert_error)
+            alert('Income updated but deductions failed to save. Error: ' + insert_error.message)
+          }
         }
       } else {
         update_data = {

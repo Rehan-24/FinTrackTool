@@ -263,6 +263,9 @@ export default function TransactionsPage() {
                     Category
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                    Tags
+                  </th>
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
                   <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -294,6 +297,22 @@ export default function TransactionsPage() {
                           />
                           <span className="text-gray-700">{purchase.category.name}</span>
                         </div>
+                      </td>
+                      <td className="px-6 py-4 text-sm">
+                        {(purchase as any).tags && (purchase as any).tags.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {(purchase as any).tags.map((tag: string) => (
+                              <span
+                                key={tag}
+                                className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full"
+                              >
+                                {tag}
+                              </span>
+                            ))}
+                          </div>
+                        ) : (
+                          <span className="text-gray-400 text-xs">-</span>
+                        )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         {purchase.is_projected ? (
