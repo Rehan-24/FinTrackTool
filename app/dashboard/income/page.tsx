@@ -29,6 +29,7 @@ type SalaryCalculation = {
     accident_insurance: number
     legal_plan: number
     identity_theft: number
+    auto_savings: number
   }
   net_yearly: number
   net_monthly: number
@@ -624,6 +625,7 @@ function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculati
   const [accident_monthly, setAccidentMonthly] = useState('6.36')
   const [legal_monthly, setLegalMonthly] = useState('6.24')
   const [identity_theft_monthly, setIdentityTheftMonthly] = useState('6.00')
+  const [auto_savings_monthly, setAutoSavingsMonthly] = useState('0.00')
 
   useEffect(() => {
     const yearly = parseFloat(gross_salary) || 0
@@ -657,9 +659,10 @@ function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculati
     const accident_yearly = parseFloat(accident_monthly) * 12
     const legal_yearly = parseFloat(legal_monthly) * 12
     const identity_theft_yearly = parseFloat(identity_theft_monthly) * 12
+    const auto_savings_yearly = parseFloat(auto_savings_monthly) * 12
 
     const total_after_tax = k401_after_yearly + life_ins_yearly + ad_d_yearly + critical_illness_yearly + 
-      hospital_yearly + accident_yearly + legal_yearly + identity_theft_yearly
+      hospital_yearly + accident_yearly + legal_yearly + identity_theft_yearly + auto_savings_yearly
 
     const net_yearly = after_tax_income - total_after_tax
 
@@ -687,6 +690,7 @@ function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculati
         accident_insurance: accident_yearly,
         legal_plan: legal_yearly,
         identity_theft: identity_theft_yearly,
+        auto_savings: auto_savings_yearly,
       },
       net_yearly,
       net_monthly: net_yearly / 12,
@@ -696,7 +700,7 @@ function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculati
     onChange(calculation)
   }, [gross_salary, k401_pct, k401_roth_pct, hsa_monthly, medical_monthly, dental_monthly, vision_monthly,
       federal_tax_pct, state_tax_pct, ca_disability_pct, k401_after_pct, life_ins_monthly, ad_d_monthly,
-      critical_illness_monthly, hospital_monthly, accident_monthly, legal_monthly, identity_theft_monthly, onChange])
+      critical_illness_monthly, hospital_monthly, accident_monthly, legal_monthly, identity_theft_monthly, auto_savings_monthly, onChange])
 
   const calc_net = () => {
     const yearly = parseFloat(gross_salary) || 0
@@ -829,6 +833,10 @@ function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculati
         <div>
           <label className="block text-xs text-gray-600 mb-1">ID Theft/mo</label>
           <input type="number" step="0.01" value={identity_theft_monthly} onChange={(e) => setIdentityTheftMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
+        </div>
+        <div>
+          <label className="block text-xs text-gray-600 mb-1">Auto Savings/mo</label>
+          <input type="number" step="0.01" value={auto_savings_monthly} onChange={(e) => setAutoSavingsMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
         </div>
       </div>
 

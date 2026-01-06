@@ -13,6 +13,8 @@ type Category = {
   color: string
   monthly_budget: number
   spent: number
+  projected?: number
+  total?: number
 }
 
 type Purchase = {
@@ -66,12 +68,16 @@ export default function DashboardPage() {
         .lte('date', end)
         .order('date', { ascending: false })
 
-      // Calculate spending per category (only actual purchases)
+      // Calculate spending per category (INCLUDING projected for budget view)
       const cats_with_spent = (cats || []).map(cat => {
-        const spent = (purchases || [])
+        const actual_spent = (purchases || [])
           .filter(p => p.category_id === cat.id && !p.is_projected)
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
-        return { ...cat, spent }
+        const projected_spent = (purchases || [])
+          .filter(p => p.category_id === cat.id && p.is_projected)
+          .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
+        const total_spent = actual_spent + projected_spent
+        return { ...cat, spent: actual_spent, projected: projected_spent, total: total_spent }
       })
 
       setCategories(cats_with_spent)
@@ -178,7 +184,9 @@ export default function DashboardPage() {
               </div>
             ) : (
               categories.map((cat) => {
-                const percentage = cat.monthly_budget > 0 ? (cat.spent / parseFloat(cat.monthly_budget.toString())) * 100 : 0
+                // Use total (actual + projected) for percentage calculation
+                const totalToUse = cat.total || cat.spent
+                const percentage = cat.monthly_budget > 0 ? (totalToUse / parseFloat(cat.monthly_budget.toString())) * 100 : 0
                 const isOverBudget = percentage > 100
 
                 return (
@@ -195,6 +203,11 @@ export default function DashboardPage() {
                         <span className={`font-medium ${isOverBudget ? 'text-red-600' : 'text-gray-600'}`}>
                           ${cat.spent.toFixed(2)}
                         </span>
+                        {cat.projected && cat.projected > 0 && (
+                          <span className="text-yellow-600 text-sm">
+                            {' '}+ ${cat.projected.toFixed(2)}
+                          </span>
+                        )}
                         <span className="text-gray-400"> / </span>
                         <span className="text-gray-600">
                           ${parseFloat(cat.monthly_budget.toString()).toFixed(2)}
@@ -210,9 +223,14 @@ export default function DashboardPage() {
                         }}
                       />
                     </div>
+                    {cat.projected && cat.projected > 0 && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Includes ${cat.projected.toFixed(2)} upcoming charges
+                      </div>
+                    )}
                     {isOverBudget && (
                       <div className="text-xs text-red-600 mt-1">
-                        Over budget by ${(cat.spent - parseFloat(cat.monthly_budget.toString())).toFixed(2)}
+                        Over budget by ${(totalToUse - parseFloat(cat.monthly_budget.toString())).toFixed(2)}
                       </div>
                     )}
                   </div>

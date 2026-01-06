@@ -36,6 +36,8 @@ CREATE TABLE public.purchases (
   num_people_owing INTEGER,
   is_projected BOOLEAN DEFAULT FALSE,
   recurring_expense_id UUID REFERENCES public.recurring_expenses(id) ON DELETE CASCADE,
+  tags TEXT[], -- Array of tags
+  payment_method TEXT, -- Card/account used
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -82,6 +84,7 @@ CREATE TABLE public.recurring_expenses (
   day_of_week INTEGER, -- 0-6 for weekly, null for others
   is_active BOOLEAN DEFAULT TRUE,
   last_generated DATE,
+  tags TEXT[], -- Array of tags
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
@@ -132,6 +135,7 @@ CREATE TABLE public.salary_deductions (
   accident_insurance NUMERIC(10, 2) DEFAULT 0,
   legal_plan NUMERIC(10, 2) DEFAULT 0,
   identity_theft NUMERIC(10, 2) DEFAULT 0,
+  auto_savings NUMERIC(10, 2) DEFAULT 0,
   
   -- Net pay (calculated)
   net_yearly NUMERIC(12, 2) NOT NULL,

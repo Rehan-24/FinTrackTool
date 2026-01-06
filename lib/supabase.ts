@@ -74,6 +74,8 @@ export type Database = {
           num_people_owing: number | null
           is_projected: boolean
           recurring_expense_id: string | null
+          tags: string[] | null
+          payment_method: string | null
           created_at: string
         }
         Insert: {
@@ -89,6 +91,8 @@ export type Database = {
           num_people_owing?: number | null
           is_projected?: boolean
           recurring_expense_id?: string | null
+          tags?: string[] | null
+          payment_method?: string | null
           created_at?: string
         }
         Update: {
@@ -104,6 +108,8 @@ export type Database = {
           num_people_owing?: number | null
           is_projected?: boolean
           recurring_expense_id?: string | null
+          tags?: string[] | null
+          payment_method?: string | null
           created_at?: string
         }
       }
@@ -298,6 +304,7 @@ export type Database = {
           accident_insurance: number
           legal_plan: number
           identity_theft: number
+          auto_savings: number
           net_yearly: number
           net_monthly: number
           net_weekly: number
@@ -328,6 +335,7 @@ export type Database = {
           accident_insurance?: number
           legal_plan?: number
           identity_theft?: number
+          auto_savings?: number
           net_yearly: number
           net_monthly: number
           net_weekly: number
@@ -358,6 +366,7 @@ export type Database = {
           accident_insurance?: number
           legal_plan?: number
           identity_theft?: number
+          auto_savings?: number
           net_yearly?: number
           net_monthly?: number
           net_weekly?: number
