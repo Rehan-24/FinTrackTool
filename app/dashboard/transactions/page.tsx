@@ -28,12 +28,14 @@ type Purchase = {
 export default function TransactionsPage() {
   const [purchases, setPurchases] = useState<Purchase[]>([])
   const [categories, setCategories] = useState<Category[]>([])
+  const [available_tags, setAvailableTags] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   
   // Filters
   const [filter_month, setFilterMonth] = useState<string>(format(new Date(), 'yyyy-MM'))
   const [filter_category, setFilterCategory] = useState<string>('all')
   const [filter_type, setFilterType] = useState<string>('all') // all, actual, projected
+  const [filter_tag, setFilterTag] = useState<string>('all')
 
   useEffect(() => {
     load_data()
@@ -70,7 +72,18 @@ export default function TransactionsPage() {
         .order('date', { ascending: false })
 
       if (cats) setCategories(cats)
-      if (purchase_data) setPurchases(purchase_data)
+      if (purchase_data) {
+        setPurchases(purchase_data)
+        
+        // Extract all unique tags
+        const all_tags = new Set<string>()
+        purchase_data.forEach((p: any) => {
+          if (p.tags) {
+            p.tags.forEach((tag: string) => all_tags.add(tag))
+          }
+        })
+        setAvailableTags(Array.from(all_tags).sort())
+      }
     } catch (err) {
       console.error('Error loading transactions:', err)
     } finally {
@@ -90,6 +103,14 @@ export default function TransactionsPage() {
     }
     if (filter_type === 'projected' && !p.is_projected) {
       return false
+    }
+    
+    // Tag filter
+    if (filter_tag !== 'all') {
+      const purchase_tags = (p as any).tags || []
+      if (!purchase_tags.includes(filter_tag)) {
+        return false
+      }
     }
     
     return true
@@ -203,6 +224,24 @@ export default function TransactionsPage() {
                 <option value="all">All Transactions</option>
                 <option value="actual">Actual Only</option>
                 <option value="projected">Upcoming Only</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tag
+              </label>
+              <select
+                value={filter_tag}
+                onChange={(e) => setFilterTag(e.target.value)}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="all">All Tags</option>
+                {available_tags.map((tag) => (
+                  <option key={tag} value={tag}>
+                    {tag}
+                  </option>
+                ))}
               </select>
             </div>
           </div>

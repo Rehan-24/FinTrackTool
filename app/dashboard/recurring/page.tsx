@@ -19,6 +19,7 @@ type RecurringExpense = {
   day_of_week: number | null
   is_active: boolean
   category_id: string
+  tags?: string[] | null
   category: {
     name: string
     color: string
@@ -39,6 +40,10 @@ export default function RecurringExpensesPage() {
   const [frequency, setFrequency] = useState('monthly')
   const [day_of_month, setDayOfMonth] = useState('1')
   const [day_of_week, setDayOfWeek] = useState('1')
+  const [tags, setTags] = useState<string[]>([])
+  const [tag_input, setTagInput] = useState('')
+  const [available_tags, setAvailableTags] = useState<string[]>([])
+  const [show_tag_suggestions, setShowTagSuggestions] = useState(false)
 
   useEffect(() => {
     load_data()
@@ -69,6 +74,28 @@ export default function RecurringExpensesPage() {
         .order('name')
 
       if (recurring_data) setRecurring(recurring_data)
+
+      // Load existing tags from recurring expenses and purchases
+      const { data: recurring_tags } = await supabase
+        .from('recurring_expenses')
+        .select('tags')
+        .eq('user_id', user.id)
+        .not('tags', 'is', null)
+
+      const { data: purchase_tags } = await supabase
+        .from('purchases')
+        .select('tags')
+        .eq('user_id', user.id)
+        .not('tags', 'is', null)
+
+      const all_tags = new Set<string>()
+      recurring_tags?.forEach(r => {
+        if (r.tags) r.tags.forEach((tag: string) => all_tags.add(tag))
+      })
+      purchase_tags?.forEach(p => {
+        if (p.tags) p.tags.forEach((tag: string) => all_tags.add(tag))
+      })
+      setAvailableTags(Array.from(all_tags).sort())
     } catch (err) {
       console.error('Error loading data:', err)
     } finally {
@@ -94,6 +121,7 @@ export default function RecurringExpensesPage() {
           day_of_month: frequency === 'monthly' ? parseInt(day_of_month) : null,
           day_of_week: frequency === 'weekly' ? parseInt(day_of_week) : null,
           is_active: true,
+          tags: tags.length > 0 ? tags : null,
         })
 
       if (error) throw error
@@ -121,6 +149,7 @@ export default function RecurringExpensesPage() {
           frequency,
           day_of_month: frequency === 'monthly' ? parseInt(day_of_month) : null,
           day_of_week: frequency === 'weekly' ? parseInt(day_of_week) : null,
+          tags: tags.length > 0 ? tags : null,
         })
         .eq('id', edit_recurring.id)
 
@@ -174,6 +203,7 @@ export default function RecurringExpensesPage() {
     setFrequency(rec.frequency)
     setDayOfMonth(rec.day_of_month?.toString() || '1')
     setDayOfWeek(rec.day_of_week?.toString() || '1')
+    setTags(rec.tags || [])
   }
 
   const reset_form = () => {
@@ -182,6 +212,8 @@ export default function RecurringExpensesPage() {
     setFrequency('monthly')
     setDayOfMonth('1')
     setDayOfWeek('1')
+    setTags([])
+    setTagInput('')
     if (categories.length > 0) setCategoryId(categories[0].id)
   }
 
@@ -362,6 +394,82 @@ export default function RecurringExpensesPage() {
                     </select>
                   </div>
                 )}
+
+                {/* Tags Field */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Tags <span className="text-gray-400 font-normal">(optional)</span>
+                  </label>
+                  <div className="space-y-2">
+                    {tags.length > 0 && (
+                      <div className="flex flex-wrap gap-2 mb-2">
+                        {tags.map((tag) => (
+                          <span
+                            key={tag}
+                            className="inline-flex items-center gap-1 px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm"
+                          >
+                            {tag}
+                            <button
+                              type="button"
+                              onClick={() => setTags(tags.filter(t => t !== tag))}
+                              className="hover:text-orange-900"
+                            >
+                              <X size={14} />
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                    <div className="relative">
+                      <input
+                        type="text"
+                        value={tag_input}
+                        onChange={(e) => {
+                          setTagInput(e.target.value)
+                          setShowTagSuggestions(e.target.value.length > 0)
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            const trimmed = tag_input.trim()
+                            if (trimmed && !tags.includes(trimmed)) {
+                              setTags([...tags, trimmed])
+                              setTagInput('')
+                              setShowTagSuggestions(false)
+                            }
+                          }
+                        }}
+                        onFocus={() => setShowTagSuggestions(tag_input.length > 0)}
+                        onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
+                        placeholder="Type tag and press Enter"
+                        className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
+                      {show_tag_suggestions && available_tags.filter(tag => 
+                        tag.toLowerCase().includes(tag_input.toLowerCase()) && !tags.includes(tag)
+                      ).length > 0 && (
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+                          {available_tags.filter(tag => 
+                            tag.toLowerCase().includes(tag_input.toLowerCase()) && !tags.includes(tag)
+                          ).map((tag) => (
+                            <button
+                              key={tag}
+                              type="button"
+                              onClick={() => {
+                                setTags([...tags, tag])
+                                setTagInput('')
+                                setShowTagSuggestions(false)
+                              }}
+                              className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+                            >
+                              {tag}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3">
                   <button
                     type="button"

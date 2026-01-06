@@ -34,6 +34,10 @@ export default function AddPurchasePage() {
   const [available_payment_methods, setAvailablePaymentMethods] = useState<string[]>([])
   const [show_payment_suggestions, setShowPaymentSuggestions] = useState(false)
 
+  // Custom split amount
+  const [custom_owed_back, setCustomOwedBack] = useState('')
+  const [use_custom_split, setUseCustomSplit] = useState(false)
+
   useEffect(() => {
     load_data()
   }, [])
@@ -134,8 +138,23 @@ export default function AddPurchasePage() {
       if (!user) return
 
       const total = parseFloat(total_amount)
-      const actual = is_split ? total / parseInt(num_people) : total
-      const owed_back = is_split ? total - actual : null
+      let actual: number
+      let owed_back: number | null
+      
+      if (is_split) {
+        if (use_custom_split && custom_owed_back) {
+          // Use custom owed back amount
+          owed_back = parseFloat(custom_owed_back)
+          actual = total - owed_back
+        } else {
+          // Use even split
+          actual = total / parseInt(num_people)
+          owed_back = total - actual
+        }
+      } else {
+        actual = total
+        owed_back = null
+      }
 
       const { error } = await supabase
         .from('purchases')
@@ -377,19 +396,24 @@ export default function AddPurchasePage() {
               </div>
 
               {is_split && (
-                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">
-                    Total Number of People (including you)
-                  </label>
-                  <input
-                    type="number"
-                    min="2"
-                    value={num_people}
-                    onChange={(e) => setNumPeople(e.target.value)}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  />
-                  {total_amount && num_people && (
-                    <div className="mt-3 text-sm">
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200 space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Total Number of People (including you)
+                    </label>
+                    <input
+                      type="number"
+                      min="2"
+                      value={num_people}
+                      onChange={(e) => setNumPeople(e.target.value)}
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                  </div>
+
+                  {/* Suggested Split Display */}
+                  {total_amount && num_people && !use_custom_split && (
+                    <div className="bg-white rounded p-3 text-sm">
+                      <div className="text-xs text-gray-500 mb-2">Suggested even split:</div>
                       <div className="flex justify-between mb-1">
                         <span className="text-gray-600">Your share:</span>
                         <span className="font-semibold">
@@ -402,6 +426,60 @@ export default function AddPurchasePage() {
                           ${(parseFloat(total_amount) - parseFloat(total_amount) / parseInt(num_people)).toFixed(2)}
                         </span>
                       </div>
+                    </div>
+                  )}
+
+                  {/* Custom Split Toggle */}
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      id="custom_split"
+                      checked={use_custom_split}
+                      onChange={(e) => setUseCustomSplit(e.target.checked)}
+                      className="w-4 h-4 text-blue-600 rounded focus:ring-blue-500"
+                    />
+                    <label htmlFor="custom_split" className="text-sm text-gray-700">
+                      Use custom split (uneven amounts)
+                    </label>
+                  </div>
+
+                  {/* Custom Amount Input */}
+                  {use_custom_split && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Amount Owed Back to You
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-4 top-3 text-gray-500">$</span>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max={total_amount ? parseFloat(total_amount).toString() : undefined}
+                          value={custom_owed_back}
+                          onChange={(e) => setCustomOwedBack(e.target.value)}
+                          placeholder="0.00"
+                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                        />
+                      </div>
+                      {total_amount && custom_owed_back && (
+                        <div className="mt-3 bg-white rounded p-3 text-sm">
+                          <div className="flex justify-between mb-1">
+                            <span className="text-gray-600">Total:</span>
+                            <span className="font-semibold">${parseFloat(total_amount).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between mb-1">
+                            <span className="text-gray-600">Owed back to you:</span>
+                            <span className="font-semibold text-green-600">${parseFloat(custom_owed_back).toFixed(2)}</span>
+                          </div>
+                          <div className="flex justify-between border-t border-gray-200 pt-1 mt-1">
+                            <span className="text-gray-600">Your actual cost:</span>
+                            <span className="font-semibold text-blue-600">
+                              ${(parseFloat(total_amount) - parseFloat(custom_owed_back)).toFixed(2)}
+                            </span>
+                          </div>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
