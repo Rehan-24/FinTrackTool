@@ -67,6 +67,7 @@ export default function IncomePage() {
 
   // Salary calculator state
   const [salary_calc, setSalaryCalc] = useState<SalaryCalculation | null>(null)
+  const [loaded_salary_values, setLoadedSalaryValues] = useState<any>(null)
 
   useEffect(() => {
     load_income()
@@ -250,7 +251,7 @@ export default function IncomePage() {
     }
   }
 
-  const start_edit = (inc: Income) => {
+  const start_edit = async (inc: Income) => {
     setEditIncome(inc)
     setSource(inc.source)
     setAmount(inc.amount.toString())
@@ -260,6 +261,64 @@ export default function IncomePage() {
     if (inc.is_salary) {
       setPayFrequency(inc.pay_frequency || 'bi-weekly')
       setNextPayDate(inc.next_pay_date || format(new Date(), 'yyyy-MM-dd'))
+      
+      // Load salary deductions from database
+      try {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (!user) return
+
+        const { data: deductions } = await supabase
+          .from('salary_deductions')
+          .select('*')
+          .eq('income_id', inc.id)
+          .single()
+
+        if (deductions) {
+          // Convert yearly amounts back to input format
+          const yearly_salary = inc.yearly_salary || 0
+          
+          // Calculate percentages from yearly amounts
+          const k401_yearly = deductions.pre_tax_401k || 0
+          const k401_roth_yearly = deductions.pre_tax_401k_roth || 0
+          const k401_after_yearly = deductions.after_tax_401k || 0
+          
+          // Calculate taxable income to derive tax percentages
+          const total_pre_tax = k401_yearly + k401_roth_yearly + (deductions.hsa || 0) + 
+            (deductions.medical_insurance || 0) + (deductions.dental_insurance || 0) + (deductions.vision_insurance || 0)
+          const taxable_income = yearly_salary - total_pre_tax
+          
+          const values = {
+            gross_yearly: yearly_salary,
+            k401_pct: yearly_salary > 0 ? ((k401_yearly / yearly_salary) * 100).toFixed(2) : '0.00',
+            k401_roth_pct: yearly_salary > 0 ? ((k401_roth_yearly / yearly_salary) * 100).toFixed(2) : '0.00',
+            hsa_monthly: ((deductions.hsa || 0) / 12).toFixed(2),
+            medical_monthly: ((deductions.medical_insurance || 0) / 12).toFixed(2),
+            dental_monthly: ((deductions.dental_insurance || 0) / 12).toFixed(2),
+            vision_monthly: ((deductions.vision_insurance || 0) / 12).toFixed(2),
+            federal_tax_pct: taxable_income > 0 ? (((deductions.federal_tax || 0) / taxable_income) * 100).toFixed(2) : '0.00',
+            state_tax_pct: taxable_income > 0 ? (((deductions.state_tax || 0) / taxable_income) * 100).toFixed(2) : '0.00',
+            ca_disability_pct: yearly_salary > 0 ? (((deductions.ca_disability || 0) / yearly_salary) * 100).toFixed(2) : '0.00',
+            k401_after_pct: yearly_salary > 0 ? ((k401_after_yearly / (yearly_salary - total_pre_tax - (deductions.federal_tax || 0) - (deductions.state_tax || 0) - (deductions.social_security || 0) - (deductions.medicare || 0) - (deductions.ca_disability || 0))) * 100).toFixed(2) : '0.00',
+            life_ins_monthly: ((deductions.life_insurance || 0) / 12).toFixed(2),
+            ad_d_monthly: ((deductions.ad_d || 0) / 12).toFixed(2),
+            critical_illness_monthly: ((deductions.critical_illness || 0) / 12).toFixed(2),
+            hospital_monthly: ((deductions.hospital_indemnity || 0) / 12).toFixed(2),
+            accident_monthly: ((deductions.accident_insurance || 0) / 12).toFixed(2),
+            legal_monthly: ((deductions.legal_plan || 0) / 12).toFixed(2),
+            identity_theft_monthly: ((deductions.identity_theft || 0) / 12).toFixed(2),
+            auto_savings_monthly: ((deductions.auto_savings || 0) / 12).toFixed(2),
+          }
+          setLoadedSalaryValues(values)
+        } else {
+          // No existing deductions, use zeros
+          setLoadedSalaryValues({})
+        }
+      } catch (err) {
+        console.error('Error loading salary deductions:', err)
+        setLoadedSalaryValues({})
+      }
+    } else {
+      setLoadedSalaryValues(null)
     }
   }
 
@@ -272,6 +331,7 @@ export default function IncomePage() {
     setPayFrequency('bi-weekly')
     setNextPayDate(format(new Date(), 'yyyy-MM-dd'))
     setSalaryCalc(null)
+    setLoadedSalaryValues(null)
   }
 
   const get_monthly_income = () => {
@@ -411,7 +471,11 @@ export default function IncomePage() {
 
                   {is_salary && (
                     <>
-                      <SalaryCalculatorInline onChange={setSalaryCalc} />
+                      <SalaryCalculatorInline 
+                        key={loaded_salary_values ? 'editing' : 'new'}
+                        onChange={setSalaryCalc} 
+                        initialValues={loaded_salary_values}
+                      />
                       <div className="mt-4 grid grid-cols-2 gap-4">
                         <div>
                           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -606,26 +670,34 @@ export default function IncomePage() {
 }
 
 // Inline Salary Calculator Component
-function SalaryCalculatorInline({ onChange }: { onChange: (calc: SalaryCalculation) => void }) {
-  const [gross_salary, setGrossSalary] = useState('000000')
-  const [k401_pct, set401kPct] = useState('0.00')
-  const [k401_roth_pct, set401kRothPct] = useState('0.00')
-  const [hsa_monthly, setHsaMonthly] = useState('000.00')
-  const [medical_monthly, setMedicalMonthly] = useState('000.00')
-  const [dental_monthly, setDentalMonthly] = useState('00.00')
-  const [vision_monthly, setVisionMonthly] = useState('00.00')
-  const [federal_tax_pct, setFederalTaxPct] = useState('00.00')
-  const [state_tax_pct, setStateTaxPct] = useState('0.00')
-  const [ca_disability_pct, setCaDisabilityPct] = useState('0.00')
-  const [k401_after_pct, set401kAfterPct] = useState('0.00')
-  const [life_ins_monthly, setLifeInsMonthly] = useState('0.00')
-  const [ad_d_monthly, setAdDMonthly] = useState('0.00')
-  const [critical_illness_monthly, setCriticalIllnessMonthly] = useState('0.00')
-  const [hospital_monthly, setHospitalMonthly] = useState('00.00')
-  const [accident_monthly, setAccidentMonthly] = useState('0.00')
-  const [legal_monthly, setLegalMonthly] = useState('0.00')
-  const [identity_theft_monthly, setIdentityTheftMonthly] = useState('0.00')
-  const [auto_savings_monthly, setAutoSavingsMonthly] = useState('0.00')
+function SalaryCalculatorInline({ 
+  onChange, 
+  initialValues 
+}: { 
+  onChange: (calc: SalaryCalculation) => void
+  initialValues?: any
+}) {
+  // Use initial values if provided, otherwise use defaults (or zeros for new)
+  const defaults = initialValues || {}
+  const [gross_salary, setGrossSalary] = useState(defaults.gross_yearly?.toString() || '0')
+  const [k401_pct, set401kPct] = useState(defaults.k401_pct?.toString() || '0.00')
+  const [k401_roth_pct, set401kRothPct] = useState(defaults.k401_roth_pct?.toString() || '0.00')
+  const [hsa_monthly, setHsaMonthly] = useState(defaults.hsa_monthly?.toString() || '0.00')
+  const [medical_monthly, setMedicalMonthly] = useState(defaults.medical_monthly?.toString() || '0.00')
+  const [dental_monthly, setDentalMonthly] = useState(defaults.dental_monthly?.toString() || '0.00')
+  const [vision_monthly, setVisionMonthly] = useState(defaults.vision_monthly?.toString() || '0.00')
+  const [federal_tax_pct, setFederalTaxPct] = useState(defaults.federal_tax_pct?.toString() || '0.00')
+  const [state_tax_pct, setStateTaxPct] = useState(defaults.state_tax_pct?.toString() || '0.00')
+  const [ca_disability_pct, setCaDisabilityPct] = useState(defaults.ca_disability_pct?.toString() || '0.00')
+  const [k401_after_pct, set401kAfterPct] = useState(defaults.k401_after_pct?.toString() || '0.00')
+  const [life_ins_monthly, setLifeInsMonthly] = useState(defaults.life_ins_monthly?.toString() || '0.00')
+  const [ad_d_monthly, setAdDMonthly] = useState(defaults.ad_d_monthly?.toString() || '0.00')
+  const [critical_illness_monthly, setCriticalIllnessMonthly] = useState(defaults.critical_illness_monthly?.toString() || '0.00')
+  const [hospital_monthly, setHospitalMonthly] = useState(defaults.hospital_monthly?.toString() || '0.00')
+  const [accident_monthly, setAccidentMonthly] = useState(defaults.accident_monthly?.toString() || '0.00')
+  const [legal_monthly, setLegalMonthly] = useState(defaults.legal_monthly?.toString() || '0.00')
+  const [identity_theft_monthly, setIdentityTheftMonthly] = useState(defaults.identity_theft_monthly?.toString() || '0.00')
+  const [auto_savings_monthly, setAutoSavingsMonthly] = useState(defaults.auto_savings_monthly?.toString() || '0.00')
 
   useEffect(() => {
     const yearly = parseFloat(gross_salary) || 0
