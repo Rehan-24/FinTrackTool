@@ -436,23 +436,52 @@ export default function RecurringExpensesPage() {
                         type="text"
                         value={tag_input}
                         onChange={(e) => {
-                          setTagInput(e.target.value)
-                          setShowTagSuggestions(e.target.value.length > 0)
+                          const value = e.target.value
+                          console.log('[Recurring] Tag input changed:', value)
+                          
+                          // Check if user typed a comma
+                          if (value.includes(',')) {
+                            // Split by comma and add all non-empty tags
+                            const new_tags = value
+                              .split(',')
+                              .map(t => t.trim())
+                              .filter(t => t.length > 0 && !tags.includes(t))
+                            
+                            if (new_tags.length > 0) {
+                              console.log('[Recurring] Adding tags from comma-separated input:', new_tags)
+                              setTags([...tags, ...new_tags])
+                            }
+                            
+                            // Clear input after processing
+                            setTagInput('')
+                            setShowTagSuggestions(false)
+                          } else {
+                            setTagInput(value)
+                            setShowTagSuggestions(value.length > 0)
+                          }
                         }}
                         onKeyDown={(e) => {
+                          console.log('[Recurring] Key pressed:', e.key, 'Input:', tag_input)
                           if (e.key === 'Enter') {
                             e.preventDefault()
                             const trimmed = tag_input.trim()
+                            console.log('[Recurring] Enter pressed, trimmed:', trimmed)
+                            console.log('[Recurring] Current tags:', tags)
+                            console.log('[Recurring] Already includes?', tags.includes(trimmed))
                             if (trimmed && !tags.includes(trimmed)) {
-                              setTags([...tags, trimmed])
+                              const new_tags = [...tags, trimmed]
+                              console.log('[Recurring] Setting tags to:', new_tags)
+                              setTags(new_tags)
                               setTagInput('')
                               setShowTagSuggestions(false)
+                            } else {
+                              console.log('[Recurring] Tag not added - empty or duplicate')
                             }
                           }
                         }}
                         onFocus={() => setShowTagSuggestions(tag_input.length > 0)}
                         onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
-                        placeholder="Type tag and press Enter"
+                        placeholder="Type tags separated by commas (e.g., streaming, monthly)"
                         className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
                       />
                       {show_tag_suggestions && available_tags.filter(tag => 

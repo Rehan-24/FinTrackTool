@@ -100,28 +100,65 @@ export default function AddPurchasePage() {
 
   const add_tag = (tag: string) => {
     const trimmed = tag.trim()
+    console.log('add_tag called with:', tag)
+    console.log('trimmed:', trimmed)
+    console.log('current tags:', tags)
+    console.log('already includes?', tags.includes(trimmed))
+    
     if (trimmed && !tags.includes(trimmed)) {
-      setTags([...tags, trimmed])
+      const new_tags = [...tags, trimmed]
+      console.log('Setting tags to:', new_tags)
+      setTags(new_tags)
       setTagInput('')
       setShowTagSuggestions(false)
+    } else {
+      console.log('Tag not added - empty or duplicate')
     }
   }
 
   const remove_tag = (tag: string) => {
+    console.log('Removing tag:', tag)
     setTags(tags.filter(t => t !== tag))
   }
 
   const handle_tag_input = (value: string) => {
-    setTagInput(value)
-    setShowTagSuggestions(value.length > 0)
+    console.log('Tag input changed:', value)
+    
+    // Check if user typed a comma
+    if (value.includes(',')) {
+      // Split by comma and add all non-empty tags
+      const new_tags = value
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t.length > 0 && !tags.includes(t))
+      
+      if (new_tags.length > 0) {
+        console.log('Adding tags from comma-separated input:', new_tags)
+        setTags([...tags, ...new_tags])
+      }
+      
+      // Clear input after processing
+      setTagInput('')
+      setShowTagSuggestions(false)
+    } else {
+      setTagInput(value)
+      setShowTagSuggestions(value.length > 0)
+    }
   }
 
   const handle_tag_keydown = (e: React.KeyboardEvent) => {
+    console.log('Key pressed:', e.key, 'Input value:', tag_input)
     if (e.key === 'Enter') {
       e.preventDefault()
+      console.log('Enter pressed, tag_input:', tag_input)
       if (tag_input.trim()) {
         add_tag(tag_input)
+      } else {
+        console.log('Tag input is empty or whitespace')
       }
+    } else if (e.key === ',') {
+      // Let the onChange handler process the comma
+      // This ensures comma triggers tag addition
     }
   }
 
@@ -319,7 +356,7 @@ export default function AddPurchasePage() {
                     onKeyDown={handle_tag_keydown}
                     onFocus={() => setShowTagSuggestions(true)}
                     onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
-                    placeholder="Type tag and press Enter (e.g., business, vacation)"
+                    placeholder="Type tags separated by commas (e.g., business, vacation, reimbursable)"
                     className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   />
                   
@@ -340,7 +377,7 @@ export default function AddPurchasePage() {
                   )}
                 </div>
                 <p className="text-xs text-gray-500">
-                  Add multiple tags to organize transactions (business, reimbursable, etc.)
+                  Add multiple tags separated by commas, or press Enter after each tag
                 </p>
               </div>
             </div>
