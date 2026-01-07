@@ -146,6 +146,50 @@ export default function TransactionsPage() {
     return true
   })
 
+  const handle_save_edit = async (updated_purchase: any) => {
+    try {
+      const { error } = await supabase
+        .from('purchases')
+        .update(updated_purchase)
+        .eq('id', selected_purchase!.id)
+
+      if (error) throw error
+
+      setSelectedPurchase(null)
+      setIsEditing(false)
+      load_data()
+      alert('Transaction updated successfully!')
+    } catch (err) {
+      console.error('Error updating purchase:', err)
+      alert('Failed to update transaction')
+    }
+  }
+
+  const handle_delete = async () => {
+    if (!selected_purchase) return
+    
+    if (!confirm('Are you sure you want to delete this transaction? This cannot be undone.')) {
+      return
+    }
+
+    try {
+      const { error } = await supabase
+        .from('purchases')
+        .delete()
+        .eq('id', selected_purchase.id)
+
+      if (error) throw error
+
+      setSelectedPurchase(null)
+      setIsEditing(false)
+      load_data()
+      alert('Transaction deleted successfully!')
+    } catch (err) {
+      console.error('Error deleting purchase:', err)
+      alert('Failed to delete transaction')
+    }
+  }
+
   const total_actual = purchases
     .filter(p => !p.is_projected)
     .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
@@ -526,21 +570,294 @@ export default function TransactionsPage() {
                   </div>
                 </div>
               ) : (
-                // Edit Mode - Coming Soon
-                <div className="text-center py-12">
-                  <p className="text-gray-600 mb-4">Edit functionality coming in next update!</p>
-                  <button
-                    onClick={() => setIsEditing(false)}
-                    className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300"
-                  >
-                    Back to View
-                  </button>
-                </div>
+                // Edit Mode - Full Form
+                <EditTransactionForm 
+                  purchase={selected_purchase}
+                  categories={categories}
+                  onSave={handle_save_edit}
+                  onCancel={() => setIsEditing(false)}
+                  onDelete={handle_delete}
+                />
               )}
             </div>
           </div>
         </div>
       )}
     </div>
+  )
+}
+
+// Edit Transaction Form Component
+function EditTransactionForm({ 
+  purchase, 
+  categories, 
+  onSave, 
+  onCancel, 
+  onDelete 
+}: { 
+  purchase: Purchase
+  categories: Category[]
+  onSave: (data: any) => void
+  onCancel: () => void
+  onDelete: () => void
+}) {
+  const [description, setDescription] = useState(purchase.description)
+  const [amount, setAmount] = useState(purchase.actual_cost.toString())
+  const [total_amount, setTotalAmount] = useState(purchase.total_amount.toString())
+  const [category_id, setCategoryId] = useState(purchase.category_id)
+  const [date, setDate] = useState(purchase.date)
+  const [is_split, setIsSplit] = useState(purchase.is_split)
+  const [amount_owed_back, setAmountOwedBack] = useState(
+    purchase.amount_owed_back ? purchase.amount_owed_back.toString() : ''
+  )
+  const [num_people_owing, setNumPeopleOwing] = useState(
+    purchase.num_people_owing ? purchase.num_people_owing.toString() : '1'
+  )
+  const [tags, setTags] = useState<string[]>(purchase.tags || [])
+  const [tag_input, setTagInput] = useState('')
+  const [payment_method, setPaymentMethod] = useState(purchase.payment_method || '')
+  const [notes, setNotes] = useState(purchase.notes || '')
+
+  const handle_submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    
+    const updated = {
+      description,
+      actual_cost: parseFloat(amount),
+      total_amount: parseFloat(total_amount),
+      category_id,
+      date,
+      is_split,
+      amount_owed_back: is_split && amount_owed_back ? parseFloat(amount_owed_back) : null,
+      num_people_owing: is_split && num_people_owing ? parseInt(num_people_owing) : null,
+      tags: tags.length > 0 ? tags : null,
+      payment_method: payment_method.trim() || null,
+      notes: notes.trim() || null,
+    }
+
+    onSave(updated)
+  }
+
+  const handle_tag_input = (value: string) => {
+    if (value.includes(',')) {
+      const new_tags = value
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t.length > 0 && !tags.includes(t))
+      
+      if (new_tags.length > 0) {
+        setTags([...tags, ...new_tags])
+      }
+      setTagInput('')
+    } else {
+      setTagInput(value)
+    }
+  }
+
+  const add_tag = (tag: string) => {
+    const trimmed = tag.trim()
+    if (trimmed && !tags.includes(trimmed)) {
+      setTags([...tags, trimmed])
+      setTagInput('')
+    }
+  }
+
+  const remove_tag = (tag: string) => {
+    setTags(tags.filter(t => t !== tag))
+  }
+
+  return (
+    <form onSubmit={handle_submit} className="space-y-4">
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Date</label>
+          <input
+            type="date"
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          />
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Category</label>
+          <select
+            value={category_id}
+            onChange={(e) => setCategoryId(e.target.value)}
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+            required
+          >
+            {categories.map((cat) => (
+              <option key={cat.id} value={cat.id}>
+                {cat.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <input
+          type="text"
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          required
+        />
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Total Amount</label>
+          <div className="relative">
+            <span className="absolute left-3 top-2 text-gray-500">$</span>
+            <input
+              type="number"
+              step="0.01"
+              value={total_amount}
+              onChange={(e) => setTotalAmount(e.target.value)}
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Your Cost</label>
+          <div className="relative">
+            <span className="absolute left-3 top-2 text-gray-500">$</span>
+            <input
+              type="number"
+              step="0.01"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+              required
+            />
+          </div>
+        </div>
+      </div>
+
+      <div>
+        <label className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={is_split}
+            onChange={(e) => setIsSplit(e.target.checked)}
+            className="rounded"
+          />
+          <span className="text-sm font-medium text-gray-700">Split Payment</span>
+        </label>
+      </div>
+
+      {is_split && (
+        <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">Amount Owed Back</label>
+            <div className="relative">
+              <span className="absolute left-3 top-2 text-gray-500">$</span>
+              <input
+                type="number"
+                step="0.01"
+                value={amount_owed_back}
+                onChange={(e) => setAmountOwedBack(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">People Owing</label>
+            <input
+              type="number"
+              min="1"
+              value={num_people_owing}
+              onChange={(e) => setNumPeopleOwing(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
+          </div>
+        </div>
+      )}
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Tags</label>
+        {tags.length > 0 && (
+          <div className="flex flex-wrap gap-2 mb-2">
+            {tags.map((tag) => (
+              <span
+                key={tag}
+                className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm"
+              >
+                {tag}
+                <button
+                  type="button"
+                  onClick={() => remove_tag(tag)}
+                  className="hover:text-blue-900"
+                >
+                  <X size={14} />
+                </button>
+              </span>
+            ))}
+          </div>
+        )}
+        <input
+          type="text"
+          value={tag_input}
+          onChange={(e) => handle_tag_input(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              if (tag_input.trim()) add_tag(tag_input)
+            }
+          }}
+          placeholder="Add tags (comma-separated)"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Payment Method</label>
+        <input
+          type="text"
+          value={payment_method}
+          onChange={(e) => setPaymentMethod(e.target.value)}
+          placeholder="e.g., Chase Visa, Cash"
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+        <textarea
+          value={notes}
+          onChange={(e) => setNotes(e.target.value)}
+          rows={3}
+          placeholder="Add any additional details..."
+          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 resize-none"
+        />
+      </div>
+
+      <div className="flex gap-3 pt-4 border-t">
+        <button
+          type="submit"
+          className="flex-1 bg-blue-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-blue-700"
+        >
+          Save Changes
+        </button>
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+        >
+          Cancel
+        </button>
+        <button
+          type="button"
+          onClick={onDelete}
+          className="px-4 py-3 bg-red-600 text-white rounded-lg font-medium hover:bg-red-700"
+        >
+          Delete
+        </button>
+      </div>
+    </form>
   )
 }
