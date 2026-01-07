@@ -31,7 +31,9 @@ export async function generate_projected_purchases(user_id: string, start_date: 
         next_date = addDays(current_date, days_until === 0 ? 7 : days_until)
         current_date = addWeeks(next_date, 1)
       } else if (expense.frequency === 'yearly' && expense.day_of_month) {
-        const year_date = new Date(current_date.getFullYear(), 0, expense.day_of_month)
+        // Use month_of_year if available, otherwise default to January (month 0)
+        const month = expense.month_of_year ? expense.month_of_year - 1 : 0
+        const year_date = new Date(current_date.getFullYear(), month, expense.day_of_month)
         if (isBefore(start_date, year_date) || start_date.getTime() === year_date.getTime()) {
           next_date = year_date
         }

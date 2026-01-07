@@ -40,6 +40,7 @@ export default function RecurringExpensesPage() {
   const [frequency, setFrequency] = useState('monthly')
   const [day_of_month, setDayOfMonth] = useState('1')
   const [day_of_week, setDayOfWeek] = useState('1')
+  const [month_of_year, setMonthOfYear] = useState('1') // For yearly recurring
   const [tags, setTags] = useState<string[]>([])
   const [tag_input, setTagInput] = useState('')
   const [available_tags, setAvailableTags] = useState<string[]>([])
@@ -118,8 +119,9 @@ export default function RecurringExpensesPage() {
           name,
           amount: parseFloat(amount),
           frequency,
-          day_of_month: frequency === 'monthly' ? parseInt(day_of_month) : null,
+          day_of_month: frequency === 'monthly' || frequency === 'yearly' ? parseInt(day_of_month) : null,
           day_of_week: frequency === 'weekly' ? parseInt(day_of_week) : null,
+          month_of_year: frequency === 'yearly' ? parseInt(month_of_year) : null,
           is_active: true,
           tags: tags.length > 0 ? tags : null,
         })
@@ -145,8 +147,9 @@ export default function RecurringExpensesPage() {
         name,
         amount: parseFloat(amount),
         frequency,
-        day_of_month: frequency === 'monthly' ? parseInt(day_of_month) : null,
+        day_of_month: frequency === 'monthly' || frequency === 'yearly' ? parseInt(day_of_month) : null,
         day_of_week: frequency === 'weekly' ? parseInt(day_of_week) : null,
+        month_of_year: frequency === 'yearly' ? parseInt(month_of_year) : null,
         tags: tags.length > 0 ? tags : null,
       }
 
@@ -214,6 +217,7 @@ export default function RecurringExpensesPage() {
     setFrequency(rec.frequency)
     setDayOfMonth(rec.day_of_month?.toString() || '1')
     setDayOfWeek(rec.day_of_week?.toString() || '1')
+    setMonthOfYear((rec as any).month_of_year?.toString() || '1')
     setTags(rec.tags || [])
   }
 
@@ -223,6 +227,7 @@ export default function RecurringExpensesPage() {
     setFrequency('monthly')
     setDayOfMonth('1')
     setDayOfWeek('1')
+    setMonthOfYear('1')
     setTags([])
     setTagInput('')
     if (categories.length > 0) setCategoryId(categories[0].id)
@@ -234,6 +239,11 @@ export default function RecurringExpensesPage() {
     } else if (rec.frequency === 'weekly') {
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
       return `Weekly on ${days[rec.day_of_week!]}`
+    } else if (rec.frequency === 'yearly') {
+      const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+      const month = (rec as any).month_of_year ? months[(rec as any).month_of_year - 1] : 'January'
+      const day = rec.day_of_month || 1
+      return `Yearly on ${month} ${day}${getOrdinalSuffix(day)}`
     }
     return rec.frequency
   }
@@ -403,6 +413,46 @@ export default function RecurringExpensesPage() {
                       <option value="5">Friday</option>
                       <option value="6">Saturday</option>
                     </select>
+                  </div>
+                )}
+                {frequency === 'yearly' && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Month
+                      </label>
+                      <select
+                        value={month_of_year}
+                        onChange={(e) => setMonthOfYear(e.target.value)}
+                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      >
+                        <option value="1">January</option>
+                        <option value="2">February</option>
+                        <option value="3">March</option>
+                        <option value="4">April</option>
+                        <option value="5">May</option>
+                        <option value="6">June</option>
+                        <option value="7">July</option>
+                        <option value="8">August</option>
+                        <option value="9">September</option>
+                        <option value="10">October</option>
+                        <option value="11">November</option>
+                        <option value="12">December</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Day
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        value={day_of_month}
+                        onChange={(e) => setDayOfMonth(e.target.value)}
+                        className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
+                      />
+                    </div>
                   </div>
                 )}
 

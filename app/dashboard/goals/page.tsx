@@ -163,8 +163,9 @@ export default function GoalsPage() {
     setLinkedAssetId('')
   }
 
-  const get_goal_status = (goal: Goal) => {
-    const progress = (goal.current_amount / goal.target_amount) * 100
+  const get_goal_status = (goal: Goal, actual_current?: number) => {
+    const current = actual_current !== undefined ? actual_current : goal.current_amount
+    const progress = (current / goal.target_amount) * 100
     const today = new Date()
     const deadline_date = new Date(goal.deadline)
     
@@ -177,8 +178,9 @@ export default function GoalsPage() {
     }
   }
 
-  const calculate_monthly_needed = (goal: Goal) => {
-    const remaining = goal.target_amount - goal.current_amount
+  const calculate_monthly_needed = (goal: Goal, actual_current?: number) => {
+    const current = actual_current !== undefined ? actual_current : goal.current_amount
+    const remaining = goal.target_amount - current
     const today = new Date()
     const deadline_date = new Date(goal.deadline)
     const months_left = differenceInMonths(deadline_date, today)
@@ -347,10 +349,12 @@ export default function GoalsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {goals.map((goal) => {
-              const status = get_goal_status(goal)
-              const progress = Math.min((goal.current_amount / goal.target_amount) * 100, 100)
-              const monthly_needed = calculate_monthly_needed(goal)
-              const remaining = goal.target_amount - goal.current_amount
+              // Use asset value if linked, otherwise use goal's current_amount
+              const actual_current = goal.asset ? goal.asset.current_value : goal.current_amount
+              const status = get_goal_status(goal, actual_current)
+              const progress = Math.min((actual_current / goal.target_amount) * 100, 100)
+              const monthly_needed = calculate_monthly_needed(goal, actual_current)
+              const remaining = goal.target_amount - actual_current
 
               return (
                 <div
@@ -362,7 +366,7 @@ export default function GoalsPage() {
                       <h3 className="text-xl font-bold text-gray-800">{goal.name}</h3>
                       {goal.asset && (
                         <p className="text-sm text-gray-500 mt-1">
-                          Linked to {goal.asset.name}
+                          Linked to {goal.asset.name} (${goal.asset.current_value.toLocaleString()})
                         </p>
                       )}
                     </div>
@@ -388,7 +392,7 @@ export default function GoalsPage() {
 
                   <div className="mb-4">
                     <div className="flex justify-between text-sm text-gray-600 mb-2">
-                      <span>${goal.current_amount.toLocaleString()}</span>
+                      <span>${actual_current.toLocaleString()}</span>
                       <span>${goal.target_amount.toLocaleString()}</span>
                     </div>
                     <div className="w-full bg-gray-200 rounded-full h-3">
