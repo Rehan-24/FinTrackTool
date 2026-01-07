@@ -146,10 +146,16 @@ export default function TransactionsPage() {
     return true
   })
 
+  // Helper to parse date string as local date (not UTC)
+  const parse_local_date = (date_string: string) => {
+    const [year, month, day] = date_string.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+
   // Helper to check if purchase is truly upcoming (projected AND date in future)
   const is_truly_upcoming = (purchase: Purchase) => {
     if (!purchase.is_projected) return false
-    const purchase_date = new Date(purchase.date)
+    const purchase_date = parse_local_date(purchase.date)
     const today = new Date()
     today.setHours(0, 0, 0, 0) // Reset to start of day
     return purchase_date >= today
@@ -391,7 +397,7 @@ export default function TransactionsPage() {
                       className={`hover:bg-gray-50 cursor-pointer ${is_upcoming ? 'bg-yellow-50' : ''}`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {format(new Date(purchase.date), 'MMM d, yyyy')}
+                        {format(parse_local_date(purchase.date), 'MMM d, yyyy')}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <div className="font-medium text-gray-800">{purchase.description}</div>
@@ -471,7 +477,7 @@ export default function TransactionsPage() {
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-medium text-gray-500 mb-1">Date</label>
-                      <div className="text-gray-800">{format(new Date(selected_purchase.date), 'MMM d, yyyy')}</div>
+                      <div className="text-gray-800">{format(parse_local_date(selected_purchase.date), 'MMM d, yyyy')}</div>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-500 mb-1">Amount</label>

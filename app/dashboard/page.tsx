@@ -123,6 +123,12 @@ export default function DashboardPage() {
   const is_over_budget = budget_percentage > 100
   const net_cashflow = monthly_income - total_spent
 
+  // Helper to parse date string as local date (not UTC)
+  const parse_local_date = (date_string: string) => {
+    const [year, month, day] = date_string.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
   }
@@ -346,7 +352,7 @@ export default function DashboardPage() {
                           )}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {purchase.category.name} • {format(new Date(purchase.date), 'MMM d')}
+                          {purchase.category.name} • {format(parse_local_date(purchase.date), 'MMM d')}
                         </div>
                       </div>
                     </div>

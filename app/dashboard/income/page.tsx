@@ -47,6 +47,8 @@ type Income = {
   yearly_salary: number | null
   pay_frequency: string | null
   next_pay_date: string | null
+  start_date: string | null
+  end_date: string | null
 }
 
 export default function IncomePage() {
@@ -64,6 +66,12 @@ export default function IncomePage() {
   const [is_salary, setIsSalary] = useState(false)
   const [pay_frequency, setPayFrequency] = useState('bi-weekly')
   const [next_pay_date, setNextPayDate] = useState(format(new Date(), 'yyyy-MM-dd'))
+  
+  // Start/End date for recurring income
+  const [has_start_date, setHasStartDate] = useState(false)
+  const [start_date, setStartDate] = useState('')
+  const [has_end_date, setHasEndDate] = useState(false)
+  const [end_date, setEndDate] = useState('')
 
   // Salary calculator state
   const [salary_calc, setSalaryCalc] = useState<SalaryCalculation | null>(null)
@@ -123,6 +131,14 @@ export default function IncomePage() {
           frequency,
           date,
         }
+      }
+      
+      // Add start/end dates if specified
+      if (has_start_date && start_date) {
+        income_data.start_date = start_date
+      }
+      if (has_end_date && end_date) {
+        income_data.end_date = end_date
       }
 
       const { data: new_income, error } = await supabase
@@ -232,6 +248,17 @@ export default function IncomePage() {
           next_pay_date: null,
         }
       }
+      
+      // Add start/end dates
+      update_data.start_date = has_start_date && start_date ? start_date : null
+      update_data.end_date = has_end_date && end_date ? end_date : null
+      
+      // Warn user if changing amount value
+      if (edit_income.amount !== parseFloat(amount)) {
+        if (!confirm('⚠️ Warning: Changing this income amount will update all previous entries tied to this income source in your history. Continue?')) {
+          return
+        }
+      }
 
       const { error } = await supabase
         .from('income')
@@ -273,6 +300,13 @@ export default function IncomePage() {
     setFrequency(inc.frequency)
     setDate(inc.date)
     setIsSalary(inc.is_salary)
+    
+    // Load start/end dates
+    setHasStartDate(!!inc.start_date)
+    setStartDate(inc.start_date || '')
+    setHasEndDate(!!inc.end_date)
+    setEndDate(inc.end_date || '')
+    
     if (inc.is_salary) {
       setPayFrequency(inc.pay_frequency || 'bi-weekly')
       setNextPayDate(inc.next_pay_date || format(new Date(), 'yyyy-MM-dd'))
@@ -345,6 +379,10 @@ export default function IncomePage() {
     setIsSalary(false)
     setPayFrequency('bi-weekly')
     setNextPayDate(format(new Date(), 'yyyy-MM-dd'))
+    setHasStartDate(false)
+    setStartDate('')
+    setHasEndDate(false)
+    setEndDate('')
     setSalaryCalc(null)
     setLoadedSalaryValues(null)
   }
@@ -374,6 +412,25 @@ export default function IncomePage() {
 
   const monthly_total = get_monthly_income()
   const recurring_estimate = get_recurring_monthly()
+
+  // Helper to check if income is expired
+  const is_expired = (inc: Income) => {
+    if (!inc.end_date) return false
+    const end = new Date(inc.end_date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return end < today
+  }
+
+  // Sort income: active first, expired last
+  const sorted_income = [...income].sort((a, b) => {
+    const a_expired = is_expired(a)
+    const b_expired = is_expired(b)
+    if (a_expired && !b_expired) return 1
+    if (!a_expired && b_expired) return -1
+    // Both same status, sort by date descending
+    return new Date(b.date).getTime() - new Date(a.date).getTime()
+  })
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
@@ -575,6 +632,61 @@ export default function IncomePage() {
                   </>
                 )}
 
+                {/* Start/End Date for Recurring Income */}
+                {(is_salary || frequency !== 'one-time') && (
+                  <div className="col-span-2 space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                    <p className="text-sm font-medium text-gray-700">Optional: Set Start/End Dates</p>
+                    
+                    {/* Start Date */}
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="has_start_date"
+                        checked={has_start_date}
+                        onChange={(e) => setHasStartDate(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-emerald-600 rounded"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="has_start_date" className="text-sm text-gray-700 cursor-pointer">
+                          <span className="font-medium">Start Date</span> - Income begins on this date
+                        </label>
+                        {has_start_date && (
+                          <input
+                            type="date"
+                            value={start_date}
+                            onChange={(e) => setStartDate(e.target.value)}
+                            className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                          />
+                        )}
+                      </div>
+                    </div>
+
+                    {/* End Date */}
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        id="has_end_date"
+                        checked={has_end_date}
+                        onChange={(e) => setHasEndDate(e.target.checked)}
+                        className="mt-1 w-4 h-4 text-emerald-600 rounded"
+                      />
+                      <div className="flex-1">
+                        <label htmlFor="has_end_date" className="text-sm text-gray-700 cursor-pointer">
+                          <span className="font-medium">End Date</span> - Income expires/ends on this date
+                        </label>
+                        {has_end_date && (
+                          <input
+                            type="date"
+                            value={end_date}
+                            onChange={(e) => setEndDate(e.target.value)}
+                            className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+                          />
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
@@ -628,16 +740,35 @@ export default function IncomePage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {income.map((inc) => (
-                    <tr key={inc.id} className="hover:bg-gray-50">
+                  {sorted_income.map((inc) => {
+                    const expired = is_expired(inc)
+                    return (
+                    <tr key={inc.id} className={`hover:bg-gray-50 ${expired ? 'opacity-60' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {format(new Date(inc.date), 'MMM d, yyyy')}
                       </td>
                       <td className="px-6 py-4 text-sm">
-                        <div className="font-medium text-gray-800">{inc.source}</div>
+                        <div className="flex items-center gap-2">
+                          <div className="font-medium text-gray-800">{inc.source}</div>
+                          {expired && (
+                            <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
+                              Expired
+                            </span>
+                          )}
+                        </div>
                         {inc.is_salary && inc.yearly_salary && (
                           <div className="text-xs text-emerald-600">
                             Salary • ${inc.yearly_salary.toLocaleString()}/year
+                          </div>
+                        )}
+                        {inc.start_date && (
+                          <div className="text-xs text-gray-500">
+                            Start: {format(new Date(inc.start_date), 'MMM d, yyyy')}
+                          </div>
+                        )}
+                        {inc.end_date && (
+                          <div className="text-xs text-gray-500">
+                            End: {format(new Date(inc.end_date), 'MMM d, yyyy')}
                           </div>
                         )}
                       </td>
@@ -673,7 +804,8 @@ export default function IncomePage() {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>

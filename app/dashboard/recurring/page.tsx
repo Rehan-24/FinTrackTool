@@ -20,6 +20,8 @@ type RecurringExpense = {
   is_active: boolean
   category_id: string
   tags?: string[] | null
+  start_date?: string | null
+  end_date?: string | null
   category: {
     name: string
     color: string
@@ -45,6 +47,12 @@ export default function RecurringExpensesPage() {
   const [tag_input, setTagInput] = useState('')
   const [available_tags, setAvailableTags] = useState<string[]>([])
   const [show_tag_suggestions, setShowTagSuggestions] = useState(false)
+  
+  // Start/End dates
+  const [has_start_date, setHasStartDate] = useState(false)
+  const [start_date, setStartDate] = useState('')
+  const [has_end_date, setHasEndDate] = useState(false)
+  const [end_date, setEndDate] = useState('')
 
   useEffect(() => {
     load_data()
@@ -124,6 +132,8 @@ export default function RecurringExpensesPage() {
           month_of_year: frequency === 'yearly' ? parseInt(month_of_year) : null,
           is_active: true,
           tags: tags.length > 0 ? tags : null,
+          start_date: has_start_date && start_date ? start_date : null,
+          end_date: has_end_date && end_date ? end_date : null,
         })
 
       if (error) throw error
@@ -142,6 +152,13 @@ export default function RecurringExpensesPage() {
     if (!edit_recurring) return
     
     try {
+      // Warn user if changing amount
+      if (edit_recurring.amount !== parseFloat(amount)) {
+        if (!confirm('⚠️ Warning: Changing this recurring expense amount will update all previous entries tied to this expense in your history. Continue?')) {
+          return
+        }
+      }
+      
       const update_data = {
         category_id,
         name,
@@ -151,6 +168,8 @@ export default function RecurringExpensesPage() {
         day_of_week: frequency === 'weekly' ? parseInt(day_of_week) : null,
         month_of_year: frequency === 'yearly' ? parseInt(month_of_year) : null,
         tags: tags.length > 0 ? tags : null,
+        start_date: has_start_date && start_date ? start_date : null,
+        end_date: has_end_date && end_date ? end_date : null,
       }
 
       console.log('Updating recurring expense with:', update_data)
@@ -219,6 +238,12 @@ export default function RecurringExpensesPage() {
     setDayOfWeek(rec.day_of_week?.toString() || '1')
     setMonthOfYear((rec as any).month_of_year?.toString() || '1')
     setTags(rec.tags || [])
+    
+    // Load start/end dates
+    setHasStartDate(!!rec.start_date)
+    setStartDate(rec.start_date || '')
+    setHasEndDate(!!rec.end_date)
+    setEndDate(rec.end_date || '')
   }
 
   const reset_form = () => {
@@ -230,6 +255,10 @@ export default function RecurringExpensesPage() {
     setMonthOfYear('1')
     setTags([])
     setTagInput('')
+    setHasStartDate(false)
+    setStartDate('')
+    setHasEndDate(false)
+    setEndDate('')
     if (categories.length > 0) setCategoryId(categories[0].id)
   }
 
@@ -265,6 +294,25 @@ export default function RecurringExpensesPage() {
     if (r.frequency === 'yearly') return sum + (parseFloat(r.amount.toString()) / 12)
     return sum
   }, 0)
+
+  // Helper to check if recurring is expired
+  const is_recurring_expired = (rec: RecurringExpense) => {
+    if (!rec.end_date) return false
+    const end = new Date(rec.end_date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    return end < today
+  }
+
+  // Sort recurring: active first, expired last
+  const sorted_recurring = [...recurring].sort((a, b) => {
+    const a_expired = is_recurring_expired(a)
+    const b_expired = is_recurring_expired(b)
+    if (a_expired && !b_expired) return 1
+    if (!a_expired && b_expired) return -1
+    // Both same status, keep original order
+    return 0
+  })
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
@@ -560,6 +608,59 @@ export default function RecurringExpensesPage() {
                   </div>
                 </div>
 
+                {/* Start/End Dates */}
+                <div className="space-y-3 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                  <p className="text-sm font-medium text-gray-700">Optional: Set Start/End Dates</p>
+                  
+                  {/* Start Date */}
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="rec_has_start_date"
+                      checked={has_start_date}
+                      onChange={(e) => setHasStartDate(e.target.checked)}
+                      className="mt-1 w-4 h-4 text-orange-600 rounded"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="rec_has_start_date" className="text-sm text-gray-700 cursor-pointer">
+                        <span className="font-medium">Start Date</span> - Expense begins on this date
+                      </label>
+                      {has_start_date && (
+                        <input
+                          type="date"
+                          value={start_date}
+                          onChange={(e) => setStartDate(e.target.value)}
+                          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                        />
+                      )}
+                    </div>
+                  </div>
+
+                  {/* End Date */}
+                  <div className="flex items-start gap-3">
+                    <input
+                      type="checkbox"
+                      id="rec_has_end_date"
+                      checked={has_end_date}
+                      onChange={(e) => setHasEndDate(e.target.checked)}
+                      className="mt-1 w-4 h-4 text-orange-600 rounded"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="rec_has_end_date" className="text-sm text-gray-700 cursor-pointer">
+                        <span className="font-medium">End Date</span> - Expense expires/ends on this date
+                      </label>
+                      {has_end_date && (
+                        <input
+                          type="date"
+                          value={end_date}
+                          onChange={(e) => setEndDate(e.target.value)}
+                          className="mt-2 w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500"
+                        />
+                      )}
+                    </div>
+                  </div>
+                </div>
+
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -591,16 +692,26 @@ export default function RecurringExpensesPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {recurring.map((rec) => (
+            {sorted_recurring.map((rec) => {
+              const expired = is_recurring_expired(rec)
+              return (
               <div
                 key={rec.id}
                 className={`bg-white rounded-lg p-6 border-2 ${
+                  expired ? 'border-red-200 opacity-60' : 
                   rec.is_active ? 'border-gray-200' : 'border-gray-300 opacity-60'
                 }`}
               >
                 <div className="flex justify-between items-start mb-3">
                   <div className="flex-1">
-                    <h3 className="font-semibold text-gray-800 text-lg">{rec.name}</h3>
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-gray-800 text-lg">{rec.name}</h3>
+                      {expired && (
+                        <span className="px-2 py-0.5 bg-red-100 text-red-700 text-xs rounded-full">
+                          Expired
+                        </span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-2 mt-1">
                       <div
                         className="w-3 h-3 rounded-full"
@@ -608,6 +719,16 @@ export default function RecurringExpensesPage() {
                       />
                       <span className="text-sm text-gray-600">{rec.category.name}</span>
                     </div>
+                    {rec.start_date && (
+                      <div className="text-xs text-gray-500 mt-1">
+                        Start: {format(new Date(rec.start_date), 'MMM d, yyyy')}
+                      </div>
+                    )}
+                    {rec.end_date && (
+                      <div className="text-xs text-gray-500">
+                        End: {format(new Date(rec.end_date), 'MMM d, yyyy')}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <button
@@ -668,7 +789,8 @@ export default function RecurringExpensesPage() {
                   )}
                 </button>
               </div>
-            ))}
+              )
+            })}
           </div>
         )}
       </div>

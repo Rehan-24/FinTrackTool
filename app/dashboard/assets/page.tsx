@@ -16,6 +16,7 @@ type AssetHistory = {
   id: string
   value: number
   date: string
+  created_at?: string
 }
 
 export default function AssetsPage() {
@@ -65,6 +66,7 @@ export default function AssetsPage() {
       .select('*')
       .eq('asset_id', asset_id)
       .order('date', { ascending: false })
+      .order('created_at', { ascending: false }) // Most recent first for same day
 
     if (data) setHistory(data)
   }
