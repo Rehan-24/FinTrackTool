@@ -146,6 +146,15 @@ export default function TransactionsPage() {
     return true
   })
 
+  // Helper to check if purchase is truly upcoming (projected AND date in future)
+  const is_truly_upcoming = (purchase: Purchase) => {
+    if (!purchase.is_projected) return false
+    const purchase_date = new Date(purchase.date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Reset to start of day
+    return purchase_date >= today
+  }
+
   const handle_save_edit = async (updated_purchase: any) => {
     try {
       const { error } = await supabase
@@ -373,11 +382,13 @@ export default function TransactionsPage() {
                     </td>
                   </tr>
                 ) : (
-                  filtered_purchases.map((purchase) => (
+                  filtered_purchases.map((purchase) => {
+                    const is_upcoming = is_truly_upcoming(purchase)
+                    return (
                     <tr 
                       key={purchase.id} 
                       onClick={() => setSelectedPurchase(purchase)}
-                      className={`hover:bg-gray-50 cursor-pointer ${purchase.is_projected ? 'bg-yellow-50' : ''}`}
+                      className={`hover:bg-gray-50 cursor-pointer ${is_upcoming ? 'bg-yellow-50' : ''}`}
                     >
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                         {format(new Date(purchase.date), 'MMM d, yyyy')}
@@ -411,7 +422,7 @@ export default function TransactionsPage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        {purchase.is_projected ? (
+                        {is_upcoming ? (
                           <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
                             Upcoming
                           </span>
@@ -425,7 +436,8 @@ export default function TransactionsPage() {
                         ${parseFloat(purchase.actual_cost.toString()).toFixed(2)}
                       </td>
                     </tr>
-                  ))
+                    )
+                  })
                 )}
               </tbody>
             </table>
@@ -543,7 +555,7 @@ export default function TransactionsPage() {
                     </div>
                   )}
 
-                  {selected_purchase.is_projected && (
+                  {is_truly_upcoming(selected_purchase) && (
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
                       <p className="text-yellow-800 text-sm">
                         ⚠️ This is an upcoming projected charge
@@ -615,11 +627,52 @@ function EditTransactionForm({
   )
   const [tags, setTags] = useState<string[]>(purchase.tags || [])
   const [tag_input, setTagInput] = useState('')
+  const [show_tag_suggestions, setShowTagSuggestions] = useState(false)
+  const [available_tags, setAvailableTags] = useState<string[]>([])
   const [payment_method, setPaymentMethod] = useState(purchase.payment_method || '')
   const [notes, setNotes] = useState(purchase.notes || '')
 
+  // Load available tags on mount
+  useEffect(() => {
+    const load_tags = async () => {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      // Get tags from purchases
+      const { data: purchases_data } = await supabase
+        .from('purchases')
+        .select('tags')
+        .eq('user_id', user.id)
+        .not('tags', 'is', null)
+
+      // Get tags from recurring
+      const { data: recurring_data } = await supabase
+        .from('recurring_expenses')
+        .select('tags')
+        .eq('user_id', user.id)
+        .not('tags', 'is', null)
+
+      const all_tags = new Set<string>()
+      purchases_data?.forEach(p => p.tags?.forEach((t: string) => all_tags.add(t)))
+      recurring_data?.forEach(r => r.tags?.forEach((t: string) => all_tags.add(t)))
+      
+      setAvailableTags(Array.from(all_tags).sort())
+    }
+    load_tags()
+  }, [])
+
   const handle_submit = (e: React.FormEvent) => {
     e.preventDefault()
+    
+    // Add any remaining text in tag_input before saving
+    const final_tags = [...tags]
+    if (tag_input.trim()) {
+      const new_tags = tag_input
+        .split(',')
+        .map(t => t.trim())
+        .filter(t => t && !final_tags.includes(t))
+      final_tags.push(...new_tags)
+    }
     
     const updated = {
       description,
@@ -630,7 +683,7 @@ function EditTransactionForm({
       is_split,
       amount_owed_back: is_split && amount_owed_back ? parseFloat(amount_owed_back) : null,
       num_people_owing: is_split && num_people_owing ? parseInt(num_people_owing) : null,
-      tags: tags.length > 0 ? tags : null,
+      tags: final_tags.length > 0 ? final_tags : null,
       payment_method: payment_method.trim() || null,
       notes: notes.trim() || null,
     }
@@ -639,6 +692,7 @@ function EditTransactionForm({
   }
 
   const handle_tag_input = (value: string) => {
+    // Check if user typed a comma
     if (value.includes(',')) {
       const new_tags = value
         .split(',')
@@ -649,8 +703,10 @@ function EditTransactionForm({
         setTags([...tags, ...new_tags])
       }
       setTagInput('')
+      setShowTagSuggestions(false)
     } else {
       setTagInput(value)
+      setShowTagSuggestions(value.length > 0)
     }
   }
 
@@ -799,19 +855,43 @@ function EditTransactionForm({
             ))}
           </div>
         )}
-        <input
-          type="text"
-          value={tag_input}
-          onChange={(e) => handle_tag_input(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              e.preventDefault()
-              if (tag_input.trim()) add_tag(tag_input)
-            }
-          }}
-          placeholder="Add tags (comma-separated)"
-          className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-        />
+        <div className="relative">
+          <input
+            type="text"
+            value={tag_input}
+            onChange={(e) => handle_tag_input(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                if (tag_input.trim()) add_tag(tag_input)
+              }
+            }}
+            onFocus={() => setShowTagSuggestions(true)}
+            onBlur={() => setTimeout(() => setShowTagSuggestions(false), 200)}
+            placeholder="Add tags (comma-separated)"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+          />
+          
+          {/* Tag suggestions dropdown */}
+          {show_tag_suggestions && tag_input && available_tags.filter(t => 
+            t.toLowerCase().includes(tag_input.toLowerCase()) && !tags.includes(t)
+          ).length > 0 && (
+            <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 overflow-y-auto">
+              {available_tags
+                .filter(t => t.toLowerCase().includes(tag_input.toLowerCase()) && !tags.includes(t))
+                .map((tag) => (
+                  <button
+                    key={tag}
+                    type="button"
+                    onClick={() => add_tag(tag)}
+                    className="w-full text-left px-4 py-2 hover:bg-gray-100 text-sm"
+                  >
+                    {tag}
+                  </button>
+                ))}
+            </div>
+          )}
+        </div>
       </div>
 
       <div>

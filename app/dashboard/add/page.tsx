@@ -20,7 +20,13 @@ export default function AddPurchasePage() {
   const [description, setDescription] = useState('')
   const [total_amount, setTotalAmount] = useState('')
   const [category_id, setCategoryId] = useState('')
-  const [date, setDate] = useState(new Date().toISOString().split('T')[0])
+  const [date, setDate] = useState(() => {
+    const today = new Date()
+    const year = today.getFullYear()
+    const month = String(today.getMonth() + 1).padStart(2, '0')
+    const day = String(today.getDate()).padStart(2, '0')
+    return `${year}-${month}-${day}`
+  })
   const [is_split, setIsSplit] = useState(false)
   const [num_people, setNumPeople] = useState('2')
 
@@ -40,6 +46,9 @@ export default function AddPurchasePage() {
 
   // Notes
   const [notes, setNotes] = useState('')
+  
+  // Upcoming/Projected
+  const [is_projected, setIsProjected] = useState(false)
 
   useEffect(() => {
     load_data()
@@ -181,6 +190,16 @@ export default function AddPurchasePage() {
       let actual: number
       let owed_back: number | null
       
+      // Process any remaining tags in input field
+      const final_tags = [...tags]
+      if (tag_input.trim()) {
+        const new_tags = tag_input
+          .split(',')
+          .map(t => t.trim())
+          .filter(t => t && !final_tags.includes(t))
+        final_tags.push(...new_tags)
+      }
+      
       if (is_split) {
         if (use_custom_split && custom_owed_back) {
           // Use custom owed back amount
@@ -206,7 +225,8 @@ export default function AddPurchasePage() {
         is_split,
         amount_owed_back: owed_back,
         num_people_owing: is_split ? parseInt(num_people) - 1 : null,
-        tags: tags.length > 0 ? tags : null,
+        is_projected,
+        tags: final_tags.length > 0 ? final_tags : null,
         payment_method: payment_method.trim() || null,
         notes: notes.trim() || null,
       }
@@ -318,6 +338,20 @@ export default function AddPurchasePage() {
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                 required
               />
+            </div>
+
+            {/* Upcoming Checkbox */}
+            <div className="flex items-center gap-3 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+              <input
+                type="checkbox"
+                id="is_projected"
+                checked={is_projected}
+                onChange={(e) => setIsProjected(e.target.checked)}
+                className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
+              />
+              <label htmlFor="is_projected" className="text-sm text-gray-700 cursor-pointer">
+                Mark as <span className="font-semibold">Upcoming</span> (hasn't happened yet)
+              </label>
             </div>
 
             {/* Tags - NEW v4.1 */}
