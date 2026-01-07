@@ -159,29 +159,40 @@ export default function AddPurchasePage() {
         owed_back = null
       }
 
-      const { error } = await supabase
-        .from('purchases')
-        .insert({
-          user_id: user.id,
-          category_id,
-          description,
-          total_amount: total,
-          actual_cost: actual,
-          date,
-          is_split,
-          amount_owed_back: owed_back,
-          num_people_owing: is_split ? parseInt(num_people) - 1 : null,
-          tags: tags.length > 0 ? tags : null,
-          payment_method: payment_method.trim() || null,
-          notes: notes.trim() || null,
-        })
+      const insert_data = {
+        user_id: user.id,
+        category_id,
+        description,
+        total_amount: total,
+        actual_cost: actual,
+        date,
+        is_split,
+        amount_owed_back: owed_back,
+        num_people_owing: is_split ? parseInt(num_people) - 1 : null,
+        tags: tags.length > 0 ? tags : null,
+        payment_method: payment_method.trim() || null,
+        notes: notes.trim() || null,
+      }
 
-      if (error) throw error
+      console.log('Attempting to insert purchase with data:', insert_data)
+      console.log('Tags being saved:', tags)
+
+      const { error, data: inserted } = await supabase
+        .from('purchases')
+        .insert(insert_data)
+        .select()
+
+      if (error) {
+        console.error('Insert error:', error)
+        throw error
+      }
+
+      console.log('Successfully inserted purchase:', inserted)
 
       router.push('/dashboard')
     } catch (err) {
       console.error('Error adding purchase:', err)
-      alert('Failed to add purchase')
+      alert('Failed to add purchase: ' + (err as any).message)
     }
   }
 

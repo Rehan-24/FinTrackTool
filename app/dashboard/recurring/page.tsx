@@ -140,27 +140,38 @@ export default function RecurringExpensesPage() {
     if (!edit_recurring) return
     
     try {
-      const { error } = await supabase
-        .from('recurring_expenses')
-        .update({
-          category_id,
-          name,
-          amount: parseFloat(amount),
-          frequency,
-          day_of_month: frequency === 'monthly' ? parseInt(day_of_month) : null,
-          day_of_week: frequency === 'weekly' ? parseInt(day_of_week) : null,
-          tags: tags.length > 0 ? tags : null,
-        })
-        .eq('id', edit_recurring.id)
+      const update_data = {
+        category_id,
+        name,
+        amount: parseFloat(amount),
+        frequency,
+        day_of_month: frequency === 'monthly' ? parseInt(day_of_month) : null,
+        day_of_week: frequency === 'weekly' ? parseInt(day_of_week) : null,
+        tags: tags.length > 0 ? tags : null,
+      }
 
-      if (error) throw error
+      console.log('Updating recurring expense with:', update_data)
+      console.log('Tags state:', tags)
+
+      const { error, data: updated } = await supabase
+        .from('recurring_expenses')
+        .update(update_data)
+        .eq('id', edit_recurring.id)
+        .select()
+
+      if (error) {
+        console.error('Update error:', error)
+        throw error
+      }
+
+      console.log('Successfully updated recurring:', updated)
 
       setEditRecurring(null)
       reset_form()
       load_data()
     } catch (err) {
       console.error('Error updating recurring expense:', err)
-      alert('Failed to update recurring expense')
+      alert('Failed to update recurring expense: ' + (err as any).message)
     }
   }
 
