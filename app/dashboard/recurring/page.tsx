@@ -583,6 +583,20 @@ export default function RecurringExpensesPage() {
                   {get_frequency_display(rec)}
                 </div>
 
+                {/* Tags Display */}
+                {rec.tags && rec.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {rec.tags.map((tag: string) => (
+                      <span
+                        key={tag}
+                        className="px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded-full"
+                      >
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
                 <button
                   onClick={() => toggle_active(rec.id, rec.is_active)}
                   className={`w-full flex items-center justify-center gap-2 py-2 px-4 rounded-lg font-medium transition ${

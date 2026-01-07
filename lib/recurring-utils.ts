@@ -61,7 +61,8 @@ export async function generate_projected_purchases(user_id: string, start_date: 
             date: next_date.toISOString().split('T')[0],
             is_projected: true,
             recurring_expense_id: expense.id,
-            is_split: false
+            is_split: false,
+            tags: expense.tags || null,  // Copy tags from recurring expense
           })
         }
       }
