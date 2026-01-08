@@ -74,16 +74,38 @@ export default function MonthlyHistoryPage() {
         .lte('date', end)
         .order('date', { ascending: false })
 
+      // Helper to parse date string as local date (not UTC)
+      const parse_local_date = (date_string: string) => {
+        const [year, month, day] = date_string.split('-').map(Number)
+        return new Date(year, month - 1, day)
+      }
+
+      // Helper to check if purchase is truly upcoming (projected AND date in future)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
+      const is_truly_upcoming = (purchase: any) => {
+        if (!purchase.is_projected) return false
+        const purchase_date = parse_local_date(purchase.date)
+        return purchase_date >= today
+      }
+
       // Get categories with budgets
       const { data: categories } = await supabase
         .from('categories')
         .select('*')
         .eq('user_id', user.id)
 
-      // Calculate spending per category (actual only)
+      // Calculate spending per category (actual + past projected)
       const categories_with_spent = (categories || []).map(cat => {
         const spent = (purchases || [])
-          .filter(p => p.category_id === cat.id && !p.is_projected)
+          .filter(p => {
+            if (p.category_id !== cat.id) return false
+            // Include regular purchases OR projected with date in past
+            if (!p.is_projected) return true
+            const purchase_date = parse_local_date(p.date)
+            return purchase_date < today
+          })
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
         return {
           name: cat.name,
@@ -156,7 +178,12 @@ export default function MonthlyHistoryPage() {
         .eq('user_id', user.id)
 
       const total_spending = (purchases || [])
-        .filter(p => !p.is_projected)
+        .filter(p => {
+          // Include regular purchases OR projected with date in past
+          if (!p.is_projected) return true
+          const purchase_date = parse_local_date(p.date)
+          return purchase_date < today
+        })
         .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
 
       setMonthlyData({
@@ -170,7 +197,7 @@ export default function MonthlyHistoryPage() {
           category: p.category.name,
           amount: parseFloat(p.actual_cost.toString()),
           is_split: p.is_split,
-          is_projected: p.is_projected
+          is_projected: is_truly_upcoming(p) // Only show as projected if truly upcoming
         })),
         categories: categories_with_spent,
         income_sources,

@@ -9,6 +9,19 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '4.4.5',
+    date: '2026-01-08',
+    title: 'History Page Fix - Past Recurring Charges',
+    features: [],
+    bugFixes: [
+      'FIXED: History page now correctly shows past recurring charges as "Paid" instead of "Upcoming"',
+      'FIXED: Past recurring charges now count toward spending totals in history page',
+      'FIXED: Category spending calculations in history now include past projected purchases',
+      'IMPROVED: History page now uses same logic as Dashboard and Transactions for determining paid vs upcoming',
+    ],
+    breaking: [],
+  },
+  {
     version: '4.4.4',
     date: '2026-01-08',
     title: 'Critical: Duplicate Recurring Charge Fix',
