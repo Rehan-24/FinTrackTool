@@ -9,6 +9,21 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '4.4.4',
+    date: '2026-01-08',
+    title: 'Dashboard Upcoming Charges Display',
+    features: [
+      '📊 Added dedicated "Upcoming" card to dashboard summary showing projected charges',
+      '🔍 Added detailed console logging for debugging projected purchase calculations',
+      '✨ Dashboard now matches transaction page layout with 5 summary cards',
+    ],
+    bugFixes: [
+      'IMPROVED: Dashboard now clearly displays total upcoming charges in summary',
+      'IMPROVED: Better visibility of projected vs actual spending',
+    ],
+    breaking: [],
+  },
+  {
     version: '4.4.3',
     date: '2026-01-08',
     title: 'Duplicate Recurring Purchase Fix',

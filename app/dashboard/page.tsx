@@ -98,6 +98,10 @@ export default function DashboardPage() {
       const today = new Date()
       today.setHours(0, 0, 0, 0)
       
+      console.log('[Dashboard] Today:', today.toISOString().split('T')[0])
+      console.log('[Dashboard] Total purchases fetched:', purchases?.length || 0)
+      console.log('[Dashboard] Projected purchases:', purchases?.filter(p => p.is_projected).length || 0)
+      
       const cats_with_spent = (cats || []).map(cat => {
         // Actual spent: NOT projected OR projected but date has passed (paid recurring)
         const actual_spent = (purchases || [])
@@ -111,13 +115,23 @@ export default function DashboardPage() {
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
         
         // Projected: is_projected AND date in future
-        const projected_spent = (purchases || [])
+        const projected_purchases = (purchases || [])
           .filter(p => {
             if (p.category_id !== cat.id || !p.is_projected) return false
             const purchase_date = parse_local_date(p.date)
             return purchase_date >= today
           })
+        
+        const projected_spent = projected_purchases
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
+        
+        if (projected_purchases.length > 0) {
+          console.log(`[Dashboard] Category ${cat.name}:`, {
+            projected_count: projected_purchases.length,
+            projected_amount: projected_spent,
+            dates: projected_purchases.map(p => p.date)
+          })
+        }
         
         const total_spent = actual_spent + projected_spent
         return { ...cat, spent: actual_spent, projected: projected_spent, total: total_spent }
@@ -178,6 +192,14 @@ export default function DashboardPage() {
   const is_over_budget = budget_percentage > 100
   const net_cashflow = monthly_income - total_spent
 
+  console.log('[Dashboard] Final Totals:', {
+    total_spent,
+    total_projected,
+    total_with_projected,
+    category_count: categories.length,
+    categories_with_projected: categories.filter(c => (c.projected || 0) > 0).length
+  })
+
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
   }
@@ -200,7 +222,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
           <div className="bg-white rounded-lg p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-600">Income</span>
@@ -217,6 +239,15 @@ export default function DashboardPage() {
             </div>
             <div className="text-3xl font-bold text-gray-800">${total_spent.toFixed(2)}</div>
             <div className="text-sm text-gray-500 mt-1">of ${total_budget.toFixed(2)} budget</div>
+          </div>
+
+          <div className="bg-white rounded-lg p-6 border border-yellow-200 bg-yellow-50">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-yellow-700">Upcoming</span>
+              <Receipt className="text-yellow-500" size={20} />
+            </div>
+            <div className="text-3xl font-bold text-yellow-600">${total_projected.toFixed(2)}</div>
+            <div className="text-sm text-yellow-600 mt-1">projected charges</div>
           </div>
           
           <div className="bg-white rounded-lg p-6 border border-gray-200">
