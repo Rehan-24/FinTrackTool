@@ -6,6 +6,18 @@ import { useRouter } from 'next/navigation'
 import { Home, Receipt, DollarSign, TrendingUp, Settings, LogOut, Plus } from 'lucide-react'
 import Link from 'next/link'
 
+// Soccer Goal Icon Component
+const SoccerGoal = ({ size = 24, className = '' }: { size?: number, className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M2 10 L2 20 L22 20 L22 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M2 10 L7 6 L17 6 L22 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 6 L7 20" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"/>
+    <path d="M12 6 L12 20" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"/>
+    <path d="M17 6 L17 20" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"/>
+    <path d="M2 15 L22 15" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"/>
+  </svg>
+)
+
 export default function DashboardLayout({
   children,
 }: {
@@ -64,7 +76,7 @@ export default function DashboardLayout({
             onClick={() => window.dispatchEvent(new CustomEvent('show-version-notes'))}
             className="text-xs text-gray-500 mt-1 hover:text-blue-600 cursor-pointer transition"
           >
-            v4.4.0
+            v4.4.1
           </button>
         </div>
         
@@ -119,7 +131,7 @@ export default function DashboardLayout({
             href="/dashboard/goals"
             className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700"
           >
-            <TrendingUp size={20} />
+            <SoccerGoal size={20} />
             Goals
           </Link>
           <Link 
@@ -167,7 +179,7 @@ export default function DashboardLayout({
           <span className="text-xs mt-1">Assets</span>
         </Link>
         <Link href="/dashboard/goals" className="flex flex-col items-center text-gray-600">
-          <TrendingUp size={24} />
+          <SoccerGoal size={24} />
           <span className="text-xs mt-1">Goals</span>
         </Link>
       </div>

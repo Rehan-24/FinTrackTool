@@ -9,6 +9,23 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '4.4.1',
+    date: '2026-01-08',
+    title: 'Critical Bug Fixes & Asset Editing',
+    features: [
+      '✏️ Edit asset name and type after creation',
+      '🎨 Color-coded asset cards (blue=retirement, purple=general, green=investments, red=debt)',
+      '⚽ Soccer goal icon in sidebar navigation',
+    ],
+    bugFixes: [
+      'FIXED: Upcoming filter now correctly excludes past-dated recurring expenses',
+      'FIXED: Upcoming total only counts truly future transactions',
+      'FIXED: Past recurring expenses no longer counted as "upcoming"',
+      'FIXED: Persistent "0" display under budget categories (aggressive fix)',
+    ],
+    breaking: [],
+  },
+  {
     version: '4.4.0',
     date: '2026-01-07',
     title: 'Asset Types & Major UX Improvements',

@@ -124,8 +124,11 @@ export default function TransactionsPage() {
     if (filter_type === 'actual' && p.is_projected) {
       return false
     }
-    if (filter_type === 'projected' && !p.is_projected) {
-      return false
+    if (filter_type === 'projected') {
+      // Only show truly upcoming (projected AND future date)
+      if (!is_truly_upcoming(p)) {
+        return false
+      }
     }
     
     // Tag filter
@@ -209,8 +212,9 @@ export default function TransactionsPage() {
     .filter(p => !p.is_projected)
     .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
 
-  const total_projected = purchases
-    .filter(p => p.is_projected)
+  // Only count truly upcoming (projected AND future date)
+  const truly_upcoming_purchases = purchases.filter(p => is_truly_upcoming(p))
+  const total_projected = truly_upcoming_purchases
     .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
 
   if (loading) {
@@ -248,7 +252,7 @@ export default function TransactionsPage() {
             <div className="text-sm text-yellow-700 mb-1">Upcoming (Projected)</div>
             <div className="text-3xl font-bold text-yellow-600">${total_projected.toFixed(2)}</div>
             <div className="text-sm text-yellow-600 mt-1">
-              {purchases.filter(p => p.is_projected).length} upcoming
+              {truly_upcoming_purchases.length} upcoming
             </div>
           </div>
 

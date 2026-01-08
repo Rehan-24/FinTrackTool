@@ -295,8 +295,8 @@ export default function DashboardPage() {
                 const isOverBudget = percentage > 100
 
                 return (
-                  <div key={cat.id} className="overflow-hidden" style={{fontSize: '1rem'}}>
-                    <div className="flex justify-between items-center mb-2">
+                  <div key={cat.id} className="overflow-hidden" style={{fontSize: '1rem', display: 'block'}}>
+                    <div className="flex justify-between items-center mb-2" style={{display: 'flex'}}>
                       <div className="flex items-center gap-2">
                         <div
                           className="w-3 h-3 rounded-full"
@@ -319,7 +319,7 @@ export default function DashboardPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1">
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1" style={{fontSize: '0px', lineHeight: '0'}}>
                       <div
                         className="rounded-full h-2.5 transition-all"
                         style={{

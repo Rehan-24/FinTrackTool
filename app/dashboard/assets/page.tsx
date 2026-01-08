@@ -28,6 +28,8 @@ export default function AssetsPage() {
   
   // Form states
   const [show_add_form, setShowAddForm] = useState(false)
+  const [show_edit_form, setShowEditForm] = useState(false)
+  const [edit_asset, setEditAsset] = useState<Asset | null>(null)
   const [asset_name, setAssetName] = useState('')
   const [initial_value, setInitialValue] = useState('')
   const [update_value, setUpdateValue] = useState('')
@@ -162,6 +164,40 @@ export default function AssetsPage() {
     }
   }
 
+  const start_edit_asset = (asset: Asset) => {
+    setEditAsset(asset)
+    setAssetName(asset.name)
+    setAssetType(asset.asset_type)
+    setShowEditForm(true)
+  }
+
+  const save_edit_asset = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!edit_asset) return
+
+    try {
+      const { error } = await supabase
+        .from('assets')
+        .update({
+          name: asset_name,
+          asset_type: asset_type,
+        })
+        .eq('id', edit_asset.id)
+
+      if (error) throw error
+
+      setShowEditForm(false)
+      setEditAsset(null)
+      setAssetName('')
+      setAssetType('general')
+      load_assets()
+      alert('Asset updated successfully!')
+    } catch (err) {
+      console.error('Error updating asset:', err)
+      alert('Failed to update asset')
+    }
+  }
+
   const update_asset_value = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!selected_asset) return
@@ -238,12 +274,20 @@ export default function AssetsPage() {
     return (
       <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
         <div className="p-8">
-          <button
-            onClick={() => setSelectedAsset(null)}
-            className="text-blue-600 hover:text-blue-700 mb-6"
-          >
-            ← Back to Assets
-          </button>
+          <div className="flex justify-between items-center mb-6">
+            <button
+              onClick={() => setSelectedAsset(null)}
+              className="text-blue-600 hover:text-blue-700"
+            >
+              ← Back to Assets
+            </button>
+            <button
+              onClick={() => start_edit_asset(selected_asset)}
+              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+            >
+              Edit Asset
+            </button>
+          </div>
 
           {/* Current Value Card */}
           <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-8 mb-6">
@@ -509,6 +553,70 @@ export default function AssetsPage() {
           </div>
         )}
 
+        {/* Edit Asset Modal */}
+        {show_edit_form && edit_asset && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Edit Asset</h3>
+              <form onSubmit={save_edit_asset} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Asset Name
+                  </label>
+                  <input
+                    type="text"
+                    value={asset_name}
+                    onChange={(e) => setAssetName(e.target.value)}
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                {/* Asset Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Asset Type
+                  </label>
+                  <select
+                    value={asset_type}
+                    onChange={(e) => setAssetType(e.target.value)}
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="general">General</option>
+                    <option value="investments">Investments</option>
+                    <option value="retirement">Retirement</option>
+                    <option value="debt">Debt (counts negative)</option>
+                    {custom_types.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditForm(false)
+                      setEditAsset(null)
+                      setAssetName('')
+                      setAssetType('general')
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-green-700"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
         {/* Assets Grid */}
         {assets.length === 0 ? (
           <div className="text-center py-16 text-gray-500">
@@ -520,11 +628,19 @@ export default function AssetsPage() {
             {assets.map((asset) => {
               const change = calculate_change(parseFloat(asset.current_value.toString()), history)
               
+              // Determine border color based on asset type
+              const border_color = 
+                asset.asset_type === 'retirement' ? 'border-blue-500' :
+                asset.asset_type === 'general' ? 'border-purple-500' :
+                asset.asset_type === 'investments' ? 'border-green-500' :
+                asset.asset_type === 'debt' ? 'border-red-500' :
+                'border-gray-200'
+              
               return (
                 <button
                   key={asset.id}
                   onClick={() => setSelectedAsset(asset)}
-                  className="bg-white rounded-lg p-6 border border-gray-200 text-left hover:shadow-lg transition"
+                  className={`bg-white rounded-lg p-6 border-2 ${border_color} text-left hover:shadow-lg transition`}
                 >
                   <div className="flex justify-between items-start mb-4">
                     <div>
