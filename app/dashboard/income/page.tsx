@@ -438,15 +438,15 @@ export default function IncomePage() {
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
-      <div className="p-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800">Income</h2>
-            <p className="text-gray-600 mt-1">Track your earnings</p>
+      <div className="p-4 md:p-8">
+        <div className="mb-6 md:mb-8">
+          <div className="mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Income</h2>
+            <p className="text-gray-600 mt-1 text-sm md:text-base">Track your earnings</p>
           </div>
           <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-emerald-700 transition"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-emerald-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-emerald-700 transition"
           >
             <Plus size={20} />
             Add Income
@@ -454,32 +454,32 @@ export default function IncomePage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-lg p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 md:gap-6 mb-4 md:mb-6">
+          <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-lg p-4 md:p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm opacity-90">Income This Month</span>
-              <TrendingUp size={20} />
+              <span className="text-xs md:text-sm opacity-90">Income This Month</span>
+              <TrendingUp size={18} />
             </div>
-            <div className="text-4xl font-bold">${monthly_total.toFixed(2)}</div>
-            <div className="text-sm mt-2 opacity-80">
+            <div className="text-3xl md:text-4xl font-bold">${monthly_total.toFixed(2)}</div>
+            <div className="text-xs md:text-sm mt-2 opacity-80">
               {format(new Date(parseInt(filter_month.split('-')[0]), parseInt(filter_month.split('-')[1]) - 1, 1), 'MMMM yyyy')}
             </div>
           </div>
 
-          <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg p-6">
+          <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg p-4 md:p-6">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-sm opacity-90">Estimated Monthly (Recurring)</span>
-              <TrendingUp size={20} />
+              <span className="text-xs md:text-sm opacity-90">Estimated Monthly (Recurring)</span>
+              <TrendingUp size={18} />
             </div>
-            <div className="text-4xl font-bold">${recurring_estimate.toFixed(2)}</div>
-            <div className="text-sm mt-2 opacity-80">
+            <div className="text-3xl md:text-4xl font-bold">${recurring_estimate.toFixed(2)}</div>
+            <div className="text-xs md:text-sm mt-2 opacity-80">
               {income.filter(i => i.is_recurring).length} recurring sources
             </div>
           </div>
         </div>
 
         {/* Filter */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 mb-4 md:mb-6">
           <label className="block text-sm font-medium text-gray-700 mb-2">
             View Month
           </label>
@@ -487,7 +487,7 @@ export default function IncomePage() {
             type="month"
             value={filter_month}
             onChange={(e) => setFilterMonth(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
           />
         </div>
 

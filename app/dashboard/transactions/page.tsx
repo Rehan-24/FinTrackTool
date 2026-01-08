@@ -223,15 +223,15 @@ export default function TransactionsPage() {
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
-      <div className="p-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800">Transactions</h2>
-            <p className="text-gray-600 mt-1">View and filter your purchases</p>
+      <div className="p-4 md:p-8">
+        <div className="mb-6 md:mb-8">
+          <div className="mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Transactions</h2>
+            <p className="text-gray-600 mt-1 text-sm md:text-base">View and filter your purchases</p>
           </div>
           <Link
             href="/dashboard/add"
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+            className="hidden md:flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
           >
             <Plus size={20} />
             Add Purchase
@@ -239,39 +239,39 @@ export default function TransactionsPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
-            <div className="text-sm text-gray-600 mb-1">Actual Spending</div>
-            <div className="text-3xl font-bold text-gray-800">${total_actual.toFixed(2)}</div>
-            <div className="text-sm text-gray-500 mt-1">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 mb-4 md:mb-6">
+          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
+            <div className="text-xs md:text-sm text-gray-600 mb-1">Actual Spending</div>
+            <div className="text-2xl md:text-3xl font-bold text-gray-800">${total_actual.toFixed(2)}</div>
+            <div className="text-xs md:text-sm text-gray-500 mt-1">
               {purchases.filter(p => !p.is_projected).length} transactions
             </div>
           </div>
 
-          <div className="bg-white rounded-lg p-6 border border-yellow-200 bg-yellow-50">
-            <div className="text-sm text-yellow-700 mb-1">Upcoming (Projected)</div>
-            <div className="text-3xl font-bold text-yellow-600">${total_projected.toFixed(2)}</div>
-            <div className="text-sm text-yellow-600 mt-1">
+          <div className="bg-white rounded-lg p-4 md:p-6 border border-yellow-200 bg-yellow-50">
+            <div className="text-xs md:text-sm text-yellow-700 mb-1">Upcoming (Projected)</div>
+            <div className="text-2xl md:text-3xl font-bold text-yellow-600">${total_projected.toFixed(2)}</div>
+            <div className="text-xs md:text-sm text-yellow-600 mt-1">
               {truly_upcoming_purchases.length} upcoming
             </div>
           </div>
 
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
-            <div className="text-sm text-gray-600 mb-1">Total (if all paid)</div>
-            <div className="text-3xl font-bold text-gray-800">
+          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
+            <div className="text-xs md:text-sm text-gray-600 mb-1">Total (if all paid)</div>
+            <div className="text-2xl md:text-3xl font-bold text-gray-800">
               ${(total_actual + total_projected).toFixed(2)}
             </div>
-            <div className="text-sm text-gray-500 mt-1">
+            <div className="text-xs md:text-sm text-gray-500 mt-1">
               {purchases.length} total
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 mb-4 md:mb-6">
           <div className="flex items-center gap-2 mb-4">
-            <Filter size={20} className="text-gray-600" />
-            <h3 className="text-lg font-semibold text-gray-800">Filters</h3>
+            <Filter size={18} className="text-gray-600" />
+            <h3 className="text-base md:text-lg font-semibold text-gray-800">Filters</h3>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

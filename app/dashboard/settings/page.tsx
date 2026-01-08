@@ -145,15 +145,15 @@ export default function SettingsPage() {
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
-      <div className="p-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800">Settings</h2>
-            <p className="text-gray-600 mt-1">Manage your budget categories</p>
+      <div className="p-4 md:p-8">
+        <div className="mb-6 md:mb-8">
+          <div className="mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Categories</h2>
+            <p className="text-gray-600 mt-1 text-sm md:text-base">Manage your spending categories</p>
           </div>
           <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
           >
             <Plus size={20} />
             Add Category

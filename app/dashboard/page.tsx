@@ -326,7 +326,7 @@ export default function DashboardPage() {
                 const isOverBudget = percentage > 100
 
                 return (
-                  <div key={cat.id} className="overflow-hidden">
+                  <div key={cat.id}>
                     <div className="flex justify-between items-center mb-2">
                       <div className="flex items-center gap-2">
                         <div

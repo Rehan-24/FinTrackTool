@@ -440,15 +440,15 @@ export default function AssetsPage() {
   // Main assets list view
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
-      <div className="p-8">
-        <div className="flex justify-between items-center mb-8">
-          <div>
-            <h2 className="text-3xl font-bold text-gray-800">Assets</h2>
-            <p className="text-gray-600 mt-1">Track your savings and investments</p>
+      <div className="p-4 md:p-8">
+        <div className="mb-6 md:mb-8">
+          <div className="mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Assets</h2>
+            <p className="text-gray-600 mt-1 text-sm md:text-base">Track your savings and investments</p>
           </div>
           <button
             onClick={() => setShowAddForm(true)}
-            className="flex items-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition"
+            className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition"
           >
             <Plus size={20} />
             New Asset

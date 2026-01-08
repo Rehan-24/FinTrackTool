@@ -9,17 +9,52 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.1',
+    date: '2026-01-08',
+    title: 'Mobile Optimization & Layout Improvements',
+    features: [
+      'Comprehensive mobile optimization for History, Transactions, and Income pages',
+      'Redesigned page headers - Add buttons now below title/description on Assets, Recurring, Goals, Categories',
+      'Full-width buttons on mobile for better touch targets',
+      'Responsive text sizes throughout (smaller on mobile, larger on desktop)',
+      'Optimized padding and spacing for mobile screens',
+      'Categories page now properly labeled everywhere (no more "Settings")',
+    ],
+    bugFixes: [
+      'FIXED: Categories page header now says "Categories" instead of "Settings"',
+      'FIXED: Removed duplicate description text on Categories page',
+      'IMPROVED: History page cards now responsive (2-col mobile, 3-col desktop)',
+      'IMPROVED: Transactions page hides "Add Purchase" button on mobile (use bottom nav)',
+      'IMPROVED: Income page cards optimized for mobile viewing',
+      'IMPROVED: All page headers now mobile-friendly with responsive text',
+    ],
+    breaking: [],
+  },
+  {
+    version: '5.0.1',
+    date: '2026-01-08',
+    title: 'Bug Fix - Removed Mystery "0" Text & Import Fix',
+    features: [],
+    bugFixes: [
+      'FIXED: Removed "0" text appearing below category progress bars',
+      'FIXED: Removed overflow-hidden class causing unwanted text nodes',
+      'FIXED: Added missing format import from date-fns to recurring page',
+      'IMPROVED: Removed all emojis from version notes for more professional appearance',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.0.0',
     date: '2026-01-08',
-    title: '📱 Mobile Makeover - Complete Navigation Redesign',
+    title: 'Mobile Makeover - Complete Navigation Redesign',
     features: [
-      '📱 NEW Mobile Navigation - Completely redesigned bottom nav',
-      '🕐 History Tab - Now correctly navigates to Monthly History page (not Transactions)',
-      '📋 More Menu - NEW! Access all pages from one menu (Transactions, Recurring, Income, Goals, Categories, Sign Out)',
-      '📊 Mobile Optimization - Dashboard cards now 2-column grid on mobile',
-      '🎯 Better Touch Targets - Larger tap areas for mobile users',
-      '📐 Responsive Padding - Optimized spacing for small screens',
-      '🔤 Adaptive Text Sizes - Smaller fonts on mobile, larger on desktop',
+      'NEW Mobile Navigation - Completely redesigned bottom nav',
+      'History Tab - Now correctly navigates to Monthly History page (not Transactions)',
+      'More Menu - NEW! Access all pages from one menu (Transactions, Recurring, Income, Goals, Categories, Sign Out)',
+      'Mobile Optimization - Dashboard cards now 2-column grid on mobile',
+      'Better Touch Targets - Larger tap areas for mobile users',
+      'Responsive Padding - Optimized spacing for small screens',
+      'Adaptive Text Sizes - Smaller fonts on mobile, larger on desktop',
     ],
     bugFixes: [
       'FIXED: Mobile "History" tab was going to Transactions instead of History page',
@@ -36,8 +71,8 @@ export const VERSION_NOTES: VersionNote[] = [
     date: '2026-01-08',
     title: 'Dashboard Cleanup & UI Improvements',
     features: [
-      '📊 Renamed "Settings" to "Categories" with bar chart icon',
-      '✨ Cleaner category display without unnecessary styling hacks',
+      'Renamed "Settings" to "Categories" with bar chart icon',
+      'Cleaner category display without unnecessary styling hacks',
     ],
     bugFixes: [
       'FIXED: Removed mysterious "0" text appearing below categories with no upcoming charges',
@@ -65,14 +100,14 @@ export const VERSION_NOTES: VersionNote[] = [
     date: '2026-01-08',
     title: 'Critical: Duplicate Recurring Charge Fix',
     features: [
-      '📊 Added dedicated "Upcoming" card to dashboard summary showing projected charges',
-      '🔍 Added detailed console logging for debugging projected purchase calculations',
-      '✨ Dashboard now matches transaction page layout with 5 summary cards',
+      'Added dedicated "Upcoming" card to dashboard summary showing projected charges',
+      'Added detailed console logging for debugging projected purchase calculations',
+      'Dashboard now matches transaction page layout with 5 summary cards',
     ],
     bugFixes: [
-      '🔥 CRITICAL FIX: Recurring charges no longer duplicate when page refreshes or multiple tabs open',
-      '🔥 Added database unique constraint to prevent duplicate projected purchases',
-      '🔥 Sync function now handles race conditions gracefully',
+      'CRITICAL FIX: Recurring charges no longer duplicate when page refreshes or multiple tabs open',
+      'Added database unique constraint to prevent duplicate projected purchases',
+      'Sync function now handles race conditions gracefully',
       'IMPROVED: Dashboard now clearly displays total upcoming charges in summary',
       'IMPROVED: Better visibility of projected vs actual spending',
     ],
@@ -98,7 +133,7 @@ export const VERSION_NOTES: VersionNote[] = [
     date: '2026-01-08',
     title: 'Critical Recurring Payment Fixes',
     features: [
-      '✅ Edit asset modal now displays immediately (no back button needed)',
+      'Edit asset modal now displays immediately (no back button needed)',
     ],
     bugFixes: [
       'FIXED: Paid recurring expenses now show correctly on dashboard',
@@ -114,9 +149,9 @@ export const VERSION_NOTES: VersionNote[] = [
     date: '2026-01-08',
     title: 'Critical Bug Fixes & Asset Editing',
     features: [
-      '✏️ Edit asset name and type after creation',
-      '🎨 Color-coded asset cards (blue=retirement, purple=general, green=investments, red=debt)',
-      '⚽ Soccer goal icon in sidebar navigation',
+      'Edit asset name and type after creation',
+      'Color-coded asset cards (blue=retirement, purple=general, green=investments, red=debt)',
+      'Soccer goal icon in sidebar navigation',
     ],
     bugFixes: [
       'FIXED: Upcoming filter now correctly excludes past-dated recurring expenses',
@@ -131,12 +166,12 @@ export const VERSION_NOTES: VersionNote[] = [
     date: '2026-01-07',
     title: 'Asset Types & Major UX Improvements',
     features: [
-      '🏦 Asset categorization: Track debt, retirement, investments, and general assets separately',
-      '✨ Custom asset types: Create your own categories',
-      '📊 Asset summary by category: See your net worth breakdown at a glance',
-      '💰 Improved per-month savings calculation using actual days',
-      '🎯 Better recurring expense handling - past due items no longer show as "upcoming"',
-      '📅 Recent transactions now only shows paid items (not future projected)',
+      'Asset categorization: Track debt, retirement, investments, and general assets separately',
+      'Custom asset types: Create your own categories',
+      'Asset summary by category: See your net worth breakdown at a glance',
+      'Improved per-month savings calculation using actual days',
+      'Better recurring expense handling - past due items no longer show as "upcoming"',
+      'Recent transactions now only shows paid items (not future projected)',
     ],
     bugFixes: [
       'Fixed persistent "0" display under budget categories',
@@ -151,10 +186,10 @@ export const VERSION_NOTES: VersionNote[] = [
     date: '2026-01-06',
     title: 'Income/Recurring Dates & History Fixes',
     features: [
-      '📅 Start/end dates for income sources',
-      '📅 Start/end dates for recurring expenses',
-      '⚠️ Warning when changing income/recurring values',
-      '📊 Fixed asset value history ordering',
+      'Start/end dates for income sources',
+      'Start/end dates for recurring expenses',
+      'Warning when changing income/recurring values',
+      'Fixed asset value history ordering',
     ],
     bugFixes: [
       'Fixed major date timezone issue (purchases showing day behind)',
@@ -168,9 +203,9 @@ export const VERSION_NOTES: VersionNote[] = [
     date: '2026-01-05',
     title: 'Tag System & UX Improvements',
     features: [
-      '🏷️ Tag autocomplete in transaction edit',
-      '✅ Auto-save tags on submit (no Enter needed)',
-      '📅 "Upcoming" checkbox for new purchases',
+      'Tag autocomplete in transaction edit',
+      'Auto-save tags on submit (no Enter needed)',
+      '"Upcoming" checkbox for new purchases',
     ],
     bugFixes: [
       'Fixed past recurring showing as "Upcoming"',
@@ -183,11 +218,11 @@ export const VERSION_NOTES: VersionNote[] = [
     date: '2026-01-04',
     title: 'Transaction Management & Features',
     features: [
-      '✏️ Full transaction edit functionality',
-      '🗑️ Transaction delete with confirmation',
-      '📅 Yearly recurring with specific month + day selection',
-      '🎯 Goals auto-sync with linked asset values',
-      '📱 Version display in sidebar',
+      'Full transaction edit functionality',
+      'Transaction delete with confirmation',
+      'Yearly recurring with specific month + day selection',
+      'Goals auto-sync with linked asset values',
+      'Version display in sidebar',
     ],
     bugFixes: [
       'Fixed category "0" display issue',
