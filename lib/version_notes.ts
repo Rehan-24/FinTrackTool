@@ -9,6 +9,19 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '4.4.3',
+    date: '2026-01-08',
+    title: 'Duplicate Recurring Purchase Fix',
+    features: [],
+    bugFixes: [
+      'FIXED: Recurring expenses no longer counted twice on dashboard',
+      'FIXED: Projected purchases sync now preserves past recurring (prevents re-creation)',
+      'FIXED: Only future projected purchases are regenerated on sync',
+      'FIXED: Duplicate check now prevents any duplicate purchases for same date+description',
+    ],
+    breaking: [],
+  },
+  {
     version: '4.4.2',
     date: '2026-01-08',
     title: 'Critical Recurring Payment Fixes',

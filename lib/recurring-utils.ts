@@ -43,7 +43,7 @@ export async function generate_projected_purchases(user_id: string, start_date: 
       }
 
       if (next_date && !isAfter(next_date, end_date)) {
-        // Check if actual purchase already exists for this date
+        // Check if purchase already exists for this date (projected or actual)
         const { data: existing } = await supabase
           .from('purchases')
           .select('id')
@@ -51,9 +51,9 @@ export async function generate_projected_purchases(user_id: string, start_date: 
           .eq('category_id', expense.category_id)
           .eq('date', next_date.toISOString().split('T')[0])
           .eq('description', expense.name)
-          .single()
 
-        if (!existing) {
+        // Don't create if ANY purchase exists for this date + description
+        if (!existing || existing.length === 0) {
           projected_purchases.push({
             user_id,
             category_id: expense.category_id,
@@ -81,22 +81,34 @@ export async function generate_projected_purchases(user_id: string, start_date: 
 export async function sync_projected_purchases(user_id: string, month: Date) {
   const start = startOfMonth(month)
   const end = endOfMonth(month)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
 
-  // Delete old projected purchases for this month
+  // Delete only FUTURE projected purchases for this month
+  // Keep past ones (they represent paid recurring expenses)
   await supabase
     .from('purchases')
     .delete()
     .eq('user_id', user_id)
     .eq('is_projected', true)
-    .gte('date', start.toISOString().split('T')[0])
+    .gte('date', today.toISOString().split('T')[0])  // Only future dates
     .lte('date', end.toISOString().split('T')[0])
 
-  // Generate new projected purchases
+  // Generate new projected purchases for the entire month
   const projected = await generate_projected_purchases(user_id, start, end)
 
   if (projected && projected.length > 0) {
-    await supabase
-      .from('purchases')
-      .insert(projected)
+    // Only insert future projected purchases
+    const future_projected = projected.filter(p => {
+      const purchase_date = new Date(p.date)
+      purchase_date.setHours(0, 0, 0, 0)
+      return purchase_date >= today
+    })
+    
+    if (future_projected.length > 0) {
+      await supabase
+        .from('purchases')
+        .insert(future_projected)
+    }
   }
 }
