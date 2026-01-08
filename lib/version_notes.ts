@@ -11,17 +11,22 @@ export const VERSION_NOTES: VersionNote[] = [
   {
     version: '4.4.4',
     date: '2026-01-08',
-    title: 'Dashboard Upcoming Charges Display',
+    title: 'Critical: Duplicate Recurring Charge Fix',
     features: [
       '📊 Added dedicated "Upcoming" card to dashboard summary showing projected charges',
       '🔍 Added detailed console logging for debugging projected purchase calculations',
       '✨ Dashboard now matches transaction page layout with 5 summary cards',
     ],
     bugFixes: [
+      '🔥 CRITICAL FIX: Recurring charges no longer duplicate when page refreshes or multiple tabs open',
+      '🔥 Added database unique constraint to prevent duplicate projected purchases',
+      '🔥 Sync function now handles race conditions gracefully',
       'IMPROVED: Dashboard now clearly displays total upcoming charges in summary',
       'IMPROVED: Better visibility of projected vs actual spending',
     ],
-    breaking: [],
+    breaking: [
+      'MIGRATION REQUIRED: Run migration_v4.4.4_unique_projected.sql in Supabase SQL Editor',
+    ],
   },
   {
     version: '4.4.3',

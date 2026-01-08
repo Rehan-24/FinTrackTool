@@ -106,9 +106,18 @@ export async function sync_projected_purchases(user_id: string, month: Date) {
     })
     
     if (future_projected.length > 0) {
-      await supabase
-        .from('purchases')
-        .insert(future_projected)
+      // Insert each purchase individually to handle duplicates gracefully
+      // This prevents partial failures from race conditions
+      for (const purchase of future_projected) {
+        const { error } = await supabase
+          .from('purchases')
+          .insert(purchase)
+        
+        // Ignore duplicate errors (happens if another sync is running)
+        if (error && !error.message.includes('duplicate') && !error.message.includes('unique')) {
+          console.error('[Sync] Error inserting projected purchase:', error)
+        }
+      }
     }
   }
 }
