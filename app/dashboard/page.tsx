@@ -3,7 +3,8 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { sync_projected_purchases } from '@/lib/recurring-utils'
-import { DollarSign, TrendingUp, PieChart, Receipt } from 'lucide-react'
+import { VERSION_NOTES, CURRENT_VERSION, VersionNote } from '@/lib/version_notes'
+import { DollarSign, TrendingUp, PieChart, Receipt, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import Link from 'next/link'
 
@@ -35,6 +36,25 @@ export default function DashboardPage() {
   const [monthly_income, setMonthlyIncome] = useState(0)
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState<any>(null)
+  const [show_version_notes, setShowVersionNotes] = useState(false)
+
+  useEffect(() => {
+    load_dashboard()
+    check_version_notes()
+    
+    // Listen for version number clicks
+    const handle_show_notes = () => setShowVersionNotes(true)
+    window.addEventListener('show-version-notes', handle_show_notes)
+    return () => window.removeEventListener('show-version-notes', handle_show_notes)
+  }, [])
+
+  const check_version_notes = () => {
+    const last_seen = localStorage.getItem('last_seen_version')
+    if (last_seen !== CURRENT_VERSION) {
+      setShowVersionNotes(true)
+      localStorage.setItem('last_seen_version', CURRENT_VERSION)
+    }
+  }
 
   useEffect(() => {
     load_dashboard()
@@ -69,19 +89,34 @@ export default function DashboardPage() {
         .order('date', { ascending: false })
 
       // Calculate spending per category (INCLUDING projected for budget view)
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      
       const cats_with_spent = (cats || []).map(cat => {
         const actual_spent = (purchases || [])
           .filter(p => p.category_id === cat.id && !p.is_projected)
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
+        // Only count projected that are actually in the future
         const projected_spent = (purchases || [])
-          .filter(p => p.category_id === cat.id && p.is_projected)
+          .filter(p => {
+            if (p.category_id !== cat.id || !p.is_projected) return false
+            const purchase_date = parse_local_date(p.date)
+            return purchase_date >= today
+          })
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
         const total_spent = actual_spent + projected_spent
         return { ...cat, spent: actual_spent, projected: projected_spent, total: total_spent }
       })
 
       setCategories(cats_with_spent)
-      setRecentPurchases((purchases || []).slice(0, 5))
+      
+      // Filter recent purchases to only show paid (not upcoming/future)
+      const paid_purchases = (purchases || []).filter(p => {
+        if (!p.is_projected) return true // Always show actual purchases
+        const purchase_date = parse_local_date(p.date)
+        return purchase_date < today // Only show projected if date has passed
+      })
+      setRecentPurchases(paid_purchases.slice(0, 5))
 
       // Get income for current month
       const { data: income_data } = await supabase
@@ -91,17 +126,22 @@ export default function DashboardPage() {
         .gte('date', start)
         .lte('date', end)
 
-      // Calculate monthly income (including estimated recurring)
+      // Calculate monthly income (using current month, inclusive)
       let total_income = 0
       if (income_data) {
+        const today = new Date()
+        const days_in_month = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+        
         income_data.forEach(inc => {
           const amt = parseFloat(inc.amount.toString())
           if (!inc.is_recurring) {
+            // One-time income counts fully
             total_income += amt
           } else {
+            // Recurring income: estimate for full month
             if (inc.frequency === 'monthly') total_income += amt
-            if (inc.frequency === 'bi-weekly') total_income += amt * 2.17
-            if (inc.frequency === 'weekly') total_income += amt * 4.33
+            if (inc.frequency === 'bi-weekly') total_income += (amt * days_in_month) / 14
+            if (inc.frequency === 'weekly') total_income += (amt * days_in_month) / 7
             if (inc.frequency === 'yearly') total_income += amt / 12
           }
         })
@@ -239,9 +279,9 @@ export default function DashboardPage() {
         {/* Budget by Category */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Budget by Category</h3>
-          <div className="space-y-4">
+          <div className="space-y-4" style={{fontSize: '0'}}>
             {categories.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-gray-500" style={{fontSize: '1rem'}}>
                 <p>No categories yet.</p>
                 <Link href="/dashboard/settings" className="text-blue-600 hover:underline">
                   Add your first category
@@ -255,7 +295,7 @@ export default function DashboardPage() {
                 const isOverBudget = percentage > 100
 
                 return (
-                  <div key={cat.id} className="overflow-hidden">
+                  <div key={cat.id} className="overflow-hidden" style={{fontSize: '1rem'}}>
                     <div className="flex justify-between items-center mb-2">
                       <div className="flex items-center gap-2">
                         <div
@@ -366,6 +406,74 @@ export default function DashboardPage() {
           )}
         </div>
       </div>
+
+      {/* Version Notes Modal */}
+      {show_version_notes && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-800">
+                  🎉 What's New in v{VERSION_NOTES[0].version}
+                </h3>
+                <p className="text-gray-600 text-sm mt-1">{VERSION_NOTES[0].title}</p>
+              </div>
+              <button
+                onClick={() => setShowVersionNotes(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {VERSION_NOTES[0].features.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-800 mb-3">✨ New Features</h4>
+                <ul className="space-y-2">
+                  {VERSION_NOTES[0].features.map((feature, idx) => (
+                    <li key={idx} className="text-gray-700 pl-4">
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {VERSION_NOTES[0].bugFixes.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-800 mb-3">🐛 Bug Fixes</h4>
+                <ul className="space-y-2">
+                  {VERSION_NOTES[0].bugFixes.map((fix, idx) => (
+                    <li key={idx} className="text-gray-700 pl-4">
+                      • {fix}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {VERSION_NOTES[0].breaking.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold text-red-600 mb-3">⚠️ Breaking Changes</h4>
+                <ul className="space-y-2">
+                  {VERSION_NOTES[0].breaking.map((change, idx) => (
+                    <li key={idx} className="text-red-700 pl-4">
+                      • {change}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <button
+              onClick={() => setShowVersionNotes(false)}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+            >
+              Got it!
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

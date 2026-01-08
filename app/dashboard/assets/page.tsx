@@ -10,6 +10,7 @@ type Asset = {
   name: string
   current_value: number
   last_updated: string
+  asset_type: string
 }
 
 type AssetHistory = {
@@ -30,9 +31,14 @@ export default function AssetsPage() {
   const [asset_name, setAssetName] = useState('')
   const [initial_value, setInitialValue] = useState('')
   const [update_value, setUpdateValue] = useState('')
+  const [asset_type, setAssetType] = useState('general')
+  const [custom_types, setCustomTypes] = useState<string[]>([])
+  const [show_add_custom_type, setShowAddCustomType] = useState(false)
+  const [new_custom_type, setNewCustomType] = useState('')
 
   useEffect(() => {
     load_assets()
+    load_custom_types()
   }, [])
 
   useEffect(() => {
@@ -71,6 +77,46 @@ export default function AssetsPage() {
     if (data) setHistory(data)
   }
 
+  const load_custom_types = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { data } = await supabase
+        .from('custom_asset_types')
+        .select('type_name')
+        .eq('user_id', user.id)
+        .order('type_name')
+
+      if (data) setCustomTypes(data.map(t => t.type_name))
+    } catch (err) {
+      console.error('Error loading custom types:', err)
+    }
+  }
+
+  const add_custom_type = async () => {
+    if (!new_custom_type.trim()) return
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error } = await supabase
+        .from('custom_asset_types')
+        .insert({ user_id: user.id, type_name: new_custom_type.trim() })
+
+      if (error) throw error
+
+      setNewCustomType('')
+      setShowAddCustomType(false)
+      load_custom_types()
+      setAssetType(new_custom_type.trim())
+    } catch (err) {
+      console.error('Error adding custom type:', err)
+      alert('Failed to add custom type')
+    }
+  }
+
   const add_asset = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -89,6 +135,7 @@ export default function AssetsPage() {
           name: asset_name,
           current_value: value,
           last_updated: today,
+          asset_type: asset_type,
         })
         .select()
         .single()
@@ -107,6 +154,7 @@ export default function AssetsPage() {
       setShowAddForm(false)
       setAssetName('')
       setInitialValue('')
+      setAssetType('general')
       load_assets()
     } catch (err) {
       console.error('Error adding asset:', err)
@@ -163,6 +211,23 @@ export default function AssetsPage() {
   }
 
   const total_value = assets.reduce((sum, a) => sum + parseFloat(a.current_value.toString()), 0)
+
+  // Calculate totals by asset type
+  const summary_by_type = {
+    debt: assets.filter(a => a.asset_type === 'debt').reduce((sum, a) => sum + parseFloat(a.current_value.toString()), 0),
+    retirement: assets.filter(a => a.asset_type === 'retirement').reduce((sum, a) => sum + parseFloat(a.current_value.toString()), 0),
+    general: assets.filter(a => a.asset_type === 'general').reduce((sum, a) => sum + parseFloat(a.current_value.toString()), 0),
+    investments: assets.filter(a => a.asset_type === 'investments').reduce((sum, a) => sum + parseFloat(a.current_value.toString()), 0),
+  }
+  
+  // Add custom types to summary
+  const custom_summary: Record<string, number> = {}
+  custom_types.forEach(type => {
+    custom_summary[type] = assets.filter(a => a.asset_type === type).reduce((sum, a) => sum + parseFloat(a.current_value.toString()), 0)
+  })
+  
+  // Net worth = all assets - debt (debt is stored as positive, so subtract)
+  const net_worth = summary_by_type.retirement + summary_by_type.general + summary_by_type.investments - summary_by_type.debt + Object.values(custom_summary).reduce((sum, val) => sum + val, 0)
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
@@ -273,12 +338,49 @@ export default function AssetsPage() {
           </button>
         </div>
 
-        {/* Total Value Card */}
+        {/* Total Value Cards */}
         {assets.length > 0 && (
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-6 mb-6">
-            <div className="text-sm opacity-90 mb-1">Total Assets</div>
-            <div className="text-4xl font-bold">${total_value.toLocaleString()}</div>
-          </div>
+          <>
+            <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-6 mb-4">
+              <div className="text-sm opacity-90 mb-1">Net Worth</div>
+              <div className="text-4xl font-bold">${net_worth.toLocaleString()}</div>
+              <div className="text-xs opacity-75 mt-1">Total Assets - Debt</div>
+            </div>
+
+            {/* Category Breakdown */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              {summary_by_type.retirement > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">Retirement</div>
+                  <div className="text-xl font-bold text-gray-800">${summary_by_type.retirement.toLocaleString()}</div>
+                </div>
+              )}
+              {summary_by_type.investments > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">Investments</div>
+                  <div className="text-xl font-bold text-gray-800">${summary_by_type.investments.toLocaleString()}</div>
+                </div>
+              )}
+              {summary_by_type.general > 0 && (
+                <div className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">General</div>
+                  <div className="text-xl font-bold text-gray-800">${summary_by_type.general.toLocaleString()}</div>
+                </div>
+              )}
+              {summary_by_type.debt > 0 && (
+                <div className="bg-white border border-red-200 rounded-lg p-4">
+                  <div className="text-xs text-red-500 mb-1">Debt</div>
+                  <div className="text-xl font-bold text-red-600">-${summary_by_type.debt.toLocaleString()}</div>
+                </div>
+              )}
+              {Object.entries(custom_summary).map(([type, value]) => value > 0 && (
+                <div key={type} className="bg-white border border-gray-200 rounded-lg p-4">
+                  <div className="text-xs text-gray-500 mb-1">{type}</div>
+                  <div className="text-xl font-bold text-gray-800">${value.toLocaleString()}</div>
+                </div>
+              ))}
+            </div>
+          </>
         )}
 
         {/* Add Asset Modal */}
@@ -318,6 +420,71 @@ export default function AssetsPage() {
                     />
                   </div>
                 </div>
+
+                {/* Asset Type */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Asset Type
+                  </label>
+                  <select
+                    value={asset_type}
+                    onChange={(e) => setAssetType(e.target.value)}
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="general">General</option>
+                    <option value="investments">Investments</option>
+                    <option value="retirement">Retirement</option>
+                    <option value="debt">Debt (counts negative)</option>
+                    {custom_types.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                  
+                  {/* Add Custom Type Button */}
+                  {!show_add_custom_type ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowAddCustomType(true)}
+                      className="mt-2 text-sm text-green-600 hover:text-green-700"
+                    >
+                      + Add custom type
+                    </button>
+                  ) : (
+                    <div className="mt-2 flex gap-2">
+                      <input
+                        type="text"
+                        value={new_custom_type}
+                        onChange={(e) => setNewCustomType(e.target.value)}
+                        placeholder="Custom type name"
+                        className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            e.preventDefault()
+                            add_custom_type()
+                          }
+                        }}
+                      />
+                      <button
+                        type="button"
+                        onClick={add_custom_type}
+                        className="px-3 py-2 bg-green-600 text-white rounded-lg text-sm hover:bg-green-700"
+                      >
+                        Add
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowAddCustomType(false)
+                          setNewCustomType('')
+                        }}
+                        className="px-3 py-2 border border-gray-300 rounded-lg text-sm hover:bg-gray-50"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-3">
                   <button
                     type="button"
@@ -362,13 +529,23 @@ export default function AssetsPage() {
                   <div className="flex justify-between items-start mb-4">
                     <div>
                       <h3 className="font-semibold text-gray-800 text-lg">{asset.name}</h3>
-                      <p className="text-sm text-gray-500">
-                        Updated {format(new Date(asset.last_updated), 'MMM d')}
-                      </p>
+                      <div className="flex items-center gap-2 mt-1">
+                        <span className={`px-2 py-0.5 text-xs rounded-full ${
+                          asset.asset_type === 'debt' ? 'bg-red-100 text-red-700' :
+                          asset.asset_type === 'retirement' ? 'bg-blue-100 text-blue-700' :
+                          asset.asset_type === 'investments' ? 'bg-purple-100 text-purple-700' :
+                          'bg-gray-100 text-gray-700'
+                        }`}>
+                          {asset.asset_type}
+                        </span>
+                        <p className="text-sm text-gray-500">
+                          Updated {format(new Date(asset.last_updated), 'MMM d')}
+                        </p>
+                      </div>
                     </div>
                   </div>
                   <div className="text-2xl font-bold text-gray-800 mb-2">
-                    ${parseFloat(asset.current_value.toString()).toLocaleString()}
+                    {asset.asset_type === 'debt' ? '-' : ''}${parseFloat(asset.current_value.toString()).toLocaleString()}
                   </div>
                 </button>
               )

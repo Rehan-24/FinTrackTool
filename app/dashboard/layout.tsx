@@ -60,7 +60,12 @@ export default function DashboardLayout({
       <div className="hidden lg:flex lg:w-64 bg-white border-r border-gray-200 flex-col">
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-2xl font-bold text-blue-600">Finance Tracker</h1>
-          <p className="text-xs text-gray-500 mt-1">v4.3.2</p>
+          <button
+            onClick={() => window.dispatchEvent(new CustomEvent('show-version-notes'))}
+            className="text-xs text-gray-500 mt-1 hover:text-blue-600 cursor-pointer transition"
+          >
+            v4.4.0
+          </button>
         </div>
         
         <nav className="flex-1 p-4 space-y-2">

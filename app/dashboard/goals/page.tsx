@@ -5,6 +5,18 @@ import { supabase } from '@/lib/supabase'
 import { Plus, Target, TrendingUp, Calendar, DollarSign, Edit2, Trash2, X } from 'lucide-react'
 import { format, differenceInMonths, isBefore } from 'date-fns'
 
+// Soccer Goal Icon Component
+const SoccerGoal = ({ size = 24, className = '' }: { size?: number, className?: string }) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
+    <path d="M2 10 L2 20 L22 20 L22 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+    <path d="M2 10 L7 6 L17 6 L22 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+    <path d="M7 6 L7 20" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"/>
+    <path d="M12 6 L12 20" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"/>
+    <path d="M17 6 L17 20" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"/>
+    <path d="M2 15 L22 15" stroke="currentColor" strokeWidth="1.5" strokeOpacity="0.5"/>
+  </svg>
+)
+
 type Goal = {
   id: string
   name: string
@@ -342,7 +354,7 @@ export default function GoalsPage() {
         {/* Goals List */}
         {goals.length === 0 ? (
           <div className="text-center py-16 text-gray-500">
-            <Target size={48} className="mx-auto mb-4 opacity-50" />
+            <SoccerGoal size={48} className="mx-auto mb-4 opacity-50" />
             <p className="text-lg mb-4">No goals yet.</p>
             <p>Set your first financial goal to start saving!</p>
           </div>
