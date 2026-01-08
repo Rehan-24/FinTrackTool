@@ -9,6 +9,29 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.0.0',
+    date: '2026-01-08',
+    title: '📱 Mobile Makeover - Complete Navigation Redesign',
+    features: [
+      '📱 NEW Mobile Navigation - Completely redesigned bottom nav',
+      '🕐 History Tab - Now correctly navigates to Monthly History page (not Transactions)',
+      '📋 More Menu - NEW! Access all pages from one menu (Transactions, Recurring, Income, Goals, Categories, Sign Out)',
+      '📊 Mobile Optimization - Dashboard cards now 2-column grid on mobile',
+      '🎯 Better Touch Targets - Larger tap areas for mobile users',
+      '📐 Responsive Padding - Optimized spacing for small screens',
+      '🔤 Adaptive Text Sizes - Smaller fonts on mobile, larger on desktop',
+    ],
+    bugFixes: [
+      'FIXED: Mobile "History" tab was going to Transactions instead of History page',
+      'FIXED: Goals taking up valuable bottom nav space on mobile',
+      'IMPROVED: Dashboard now properly responsive with 2-column card layout on mobile',
+      'IMPROVED: Hidden "Add Purchase" button on mobile (use center + button instead)',
+    ],
+    breaking: [
+      'Mobile navigation completely redesigned - users will need to learn new layout',
+    ],
+  },
+  {
     version: '4.4.6',
     date: '2026-01-08',
     title: 'Dashboard Cleanup & UI Improvements',

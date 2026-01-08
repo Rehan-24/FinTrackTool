@@ -26,6 +26,7 @@ export default function DashboardLayout({
   const router = useRouter()
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
+  const [show_mobile_menu, setShowMobileMenu] = useState(false)
 
   useEffect(() => {
     const get_user = async () => {
@@ -76,7 +77,7 @@ export default function DashboardLayout({
             onClick={() => window.dispatchEvent(new CustomEvent('show-version-notes'))}
             className="text-xs text-gray-500 mt-1 hover:text-blue-600 cursor-pointer transition"
           >
-            v4.4.6
+            v5.0.0
           </button>
         </div>
         
@@ -161,12 +162,14 @@ export default function DashboardLayout({
 
       {/* Mobile Bottom Nav */}
       <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 flex justify-around p-3 z-50">
-        <Link href="/dashboard" className="flex flex-col items-center text-gray-600">
+        <Link href="/dashboard" className="flex flex-col items-center text-gray-600 hover:text-blue-600">
           <Home size={24} />
           <span className="text-xs mt-1">Home</span>
         </Link>
-        <Link href="/dashboard/transactions" className="flex flex-col items-center text-gray-600">
-          <Receipt size={24} />
+        <Link href="/dashboard/history" className="flex flex-col items-center text-gray-600 hover:text-blue-600">
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
           <span className="text-xs mt-1">History</span>
         </Link>
         <Link href="/dashboard/add" className="flex flex-col items-center text-gray-600 -mt-6">
@@ -174,15 +177,112 @@ export default function DashboardLayout({
             <Plus size={28} className="text-white" />
           </div>
         </Link>
-        <Link href="/dashboard/assets" className="flex flex-col items-center text-gray-600">
+        <Link href="/dashboard/assets" className="flex flex-col items-center text-gray-600 hover:text-blue-600">
           <DollarSign size={24} />
           <span className="text-xs mt-1">Assets</span>
         </Link>
-        <Link href="/dashboard/goals" className="flex flex-col items-center text-gray-600">
-          <SoccerGoal size={24} />
-          <span className="text-xs mt-1">Goals</span>
-        </Link>
+        <button 
+          onClick={() => setShowMobileMenu(true)}
+          className="flex flex-col items-center text-gray-600 hover:text-blue-600"
+        >
+          <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+          </svg>
+          <span className="text-xs mt-1">More</span>
+        </button>
       </div>
+
+      {/* Mobile More Menu Modal */}
+      {show_mobile_menu && (
+        <div className="lg:hidden fixed inset-0 bg-black bg-opacity-50 z-[60] flex items-end">
+          <div className="bg-white w-full rounded-t-3xl max-h-[80vh] overflow-y-auto">
+            <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+              <h3 className="text-xl font-bold text-gray-800">Menu</h3>
+              <button 
+                onClick={() => setShowMobileMenu(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-4">
+              <Link 
+                href="/dashboard/transactions"
+                onClick={() => setShowMobileMenu(false)}
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg"
+              >
+                <Receipt size={24} className="text-gray-600" />
+                <div>
+                  <div className="font-medium text-gray-800">Transactions</div>
+                  <div className="text-sm text-gray-500">View all purchases</div>
+                </div>
+              </Link>
+              <Link 
+                href="/dashboard/recurring"
+                onClick={() => setShowMobileMenu(false)}
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg"
+              >
+                <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+                <div>
+                  <div className="font-medium text-gray-800">Recurring Expenses</div>
+                  <div className="text-sm text-gray-500">Manage subscriptions</div>
+                </div>
+              </Link>
+              <Link 
+                href="/dashboard/income"
+                onClick={() => setShowMobileMenu(false)}
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg"
+              >
+                <TrendingUp size={24} className="text-gray-600" />
+                <div>
+                  <div className="font-medium text-gray-800">Income</div>
+                  <div className="text-sm text-gray-500">Track earnings</div>
+                </div>
+              </Link>
+              <Link 
+                href="/dashboard/goals"
+                onClick={() => setShowMobileMenu(false)}
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg"
+              >
+                <SoccerGoal size={24} className="text-gray-600" />
+                <div>
+                  <div className="font-medium text-gray-800">Goals</div>
+                  <div className="text-sm text-gray-500">Financial targets</div>
+                </div>
+              </Link>
+              <Link 
+                href="/dashboard/settings"
+                onClick={() => setShowMobileMenu(false)}
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg"
+              >
+                <BarChart3 size={24} className="text-gray-600" />
+                <div>
+                  <div className="font-medium text-gray-800">Categories</div>
+                  <div className="text-sm text-gray-500">Manage budgets</div>
+                </div>
+              </Link>
+              <div className="border-t border-gray-200 mt-4 pt-4">
+                <button 
+                  onClick={() => {
+                    setShowMobileMenu(false)
+                    handle_signout()
+                  }}
+                  className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg w-full text-left text-red-600"
+                >
+                  <LogOut size={24} />
+                  <div>
+                    <div className="font-medium">Sign Out</div>
+                  </div>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

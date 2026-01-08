@@ -206,15 +206,15 @@ export default function DashboardPage() {
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
-      <div className="p-8">
-        <div className="flex justify-between items-center mb-8">
+      <div className="p-4 md:p-8">
+        <div className="flex justify-between items-center mb-6 md:mb-8">
           <div>
-            <h2 className="text-3xl font-bold text-gray-800">Dashboard</h2>
-            <p className="text-gray-600 mt-1">{format(new Date(), 'MMMM yyyy')}</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h2>
+            <p className="text-gray-600 mt-1 text-sm md:text-base">{format(new Date(), 'MMMM yyyy')}</p>
           </div>
           <Link
             href="/dashboard/add"
-            className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+            className="hidden md:flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
           >
             <Receipt size={20} />
             Add Purchase
@@ -222,37 +222,37 @@ export default function DashboardPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-6 md:mb-8">
+          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Income</span>
-              <TrendingUp className="text-emerald-500" size={20} />
+              <span className="text-gray-600 text-sm md:text-base">Income</span>
+              <TrendingUp className="text-emerald-500" size={18} />
             </div>
-            <div className="text-3xl font-bold text-gray-800">${monthly_income.toFixed(2)}</div>
-            <div className="text-sm text-gray-500 mt-1">this month</div>
+            <div className="text-2xl md:text-3xl font-bold text-gray-800">${monthly_income.toFixed(2)}</div>
+            <div className="text-xs md:text-sm text-gray-500 mt-1">this month</div>
           </div>
 
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
+          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Spending</span>
-              <TrendingUp className="text-red-500" size={20} />
+              <span className="text-gray-600 text-sm md:text-base">Spending</span>
+              <TrendingUp className="text-red-500" size={18} />
             </div>
-            <div className="text-3xl font-bold text-gray-800">${total_spent.toFixed(2)}</div>
-            <div className="text-sm text-gray-500 mt-1">of ${total_budget.toFixed(2)} budget</div>
+            <div className="text-2xl md:text-3xl font-bold text-gray-800">${total_spent.toFixed(2)}</div>
+            <div className="text-xs md:text-sm text-gray-500 mt-1">of ${total_budget.toFixed(2)}</div>
           </div>
           
-          <div className="bg-white rounded-lg p-6 border border-gray-200">
+          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600">Net Cashflow</span>
-              <DollarSign className={net_cashflow >= 0 ? "text-green-500" : "text-red-500"} size={20} />
+              <span className="text-gray-600 text-sm md:text-base">Cashflow</span>
+              <DollarSign className={net_cashflow >= 0 ? "text-green-500" : "text-red-500"} size={18} />
             </div>
-            <div className={`text-3xl font-bold ${net_cashflow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-2xl md:text-3xl font-bold ${net_cashflow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {net_cashflow >= 0 ? '+' : ''}${net_cashflow.toFixed(2)}
             </div>
-            <div className="text-sm text-gray-500 mt-1">income - spending</div>
+            <div className="text-xs md:text-sm text-gray-500 mt-1 hidden md:block">income - spending</div>
           </div>
 
-          <div className={`rounded-lg p-6 border-2 ${
+          <div className={`rounded-lg p-4 md:p-6 border-2 ${
             is_over_budget 
               ? 'bg-red-50 border-red-200' 
               : budget_percentage > 80 
@@ -308,9 +308,9 @@ export default function DashboardPage() {
         </div>
 
         {/* Budget by Category */}
-        <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
-          <h3 className="text-lg font-semibold text-gray-800 mb-4">Budget by Category</h3>
-          <div className="space-y-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 mb-6 md:mb-8">
+          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Budget by Category</h3>
+          <div className="space-y-3 md:space-y-4">
             {categories.length === 0 ? (
               <div className="text-center py-8 text-gray-500">
                 <p>No categories yet.</p>
