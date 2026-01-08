@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Home, Receipt, DollarSign, TrendingUp, Settings, LogOut, Plus } from 'lucide-react'
+import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus } from 'lucide-react'
 import Link from 'next/link'
 
 // Soccer Goal Icon Component
@@ -76,7 +76,7 @@ export default function DashboardLayout({
             onClick={() => window.dispatchEvent(new CustomEvent('show-version-notes'))}
             className="text-xs text-gray-500 mt-1 hover:text-blue-600 cursor-pointer transition"
           >
-            v4.4.5
+            v4.4.6
           </button>
         </div>
         
@@ -138,8 +138,8 @@ export default function DashboardLayout({
             href="/dashboard/settings"
             className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700"
           >
-            <Settings size={20} />
-            Settings
+            <BarChart3 size={20} />
+            Categories
           </Link>
         </nav>
 

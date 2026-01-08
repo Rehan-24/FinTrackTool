@@ -9,6 +9,22 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '4.4.6',
+    date: '2026-01-08',
+    title: 'Dashboard Cleanup & UI Improvements',
+    features: [
+      '📊 Renamed "Settings" to "Categories" with bar chart icon',
+      '✨ Cleaner category display without unnecessary styling hacks',
+    ],
+    bugFixes: [
+      'FIXED: Removed mysterious "0" text appearing below categories with no upcoming charges',
+      'FIXED: Removed unnecessary fontSize: 0 CSS hack causing display issues',
+      'IMPROVED: Removed redundant "Upcoming" card from dashboard summary',
+      'IMPROVED: Dashboard now has cleaner 4-card layout matching original design',
+    ],
+    breaking: [],
+  },
+  {
     version: '4.4.5',
     date: '2026-01-08',
     title: 'History Page Fix - Past Recurring Charges',

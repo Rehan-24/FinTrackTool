@@ -222,7 +222,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
           <div className="bg-white rounded-lg p-6 border border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <span className="text-gray-600">Income</span>
@@ -239,15 +239,6 @@ export default function DashboardPage() {
             </div>
             <div className="text-3xl font-bold text-gray-800">${total_spent.toFixed(2)}</div>
             <div className="text-sm text-gray-500 mt-1">of ${total_budget.toFixed(2)} budget</div>
-          </div>
-
-          <div className="bg-white rounded-lg p-6 border border-yellow-200 bg-yellow-50">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-yellow-700">Upcoming</span>
-              <Receipt className="text-yellow-500" size={20} />
-            </div>
-            <div className="text-3xl font-bold text-yellow-600">${total_projected.toFixed(2)}</div>
-            <div className="text-sm text-yellow-600 mt-1">projected charges</div>
           </div>
           
           <div className="bg-white rounded-lg p-6 border border-gray-200">
@@ -319,9 +310,9 @@ export default function DashboardPage() {
         {/* Budget by Category */}
         <div className="bg-white rounded-lg border border-gray-200 p-6 mb-8">
           <h3 className="text-lg font-semibold text-gray-800 mb-4">Budget by Category</h3>
-          <div className="space-y-4" style={{fontSize: '0'}}>
+          <div className="space-y-4">
             {categories.length === 0 ? (
-              <div className="text-center py-8 text-gray-500" style={{fontSize: '1rem'}}>
+              <div className="text-center py-8 text-gray-500">
                 <p>No categories yet.</p>
                 <Link href="/dashboard/settings" className="text-blue-600 hover:underline">
                   Add your first category
@@ -335,8 +326,8 @@ export default function DashboardPage() {
                 const isOverBudget = percentage > 100
 
                 return (
-                  <div key={cat.id} className="overflow-hidden" style={{fontSize: '1rem', display: 'block'}}>
-                    <div className="flex justify-between items-center mb-2" style={{display: 'flex'}}>
+                  <div key={cat.id} className="overflow-hidden">
+                    <div className="flex justify-between items-center mb-2">
                       <div className="flex items-center gap-2">
                         <div
                           className="w-3 h-3 rounded-full"
@@ -359,7 +350,7 @@ export default function DashboardPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1" style={{fontSize: '0px', lineHeight: '0'}}>
+                    <div className="w-full bg-gray-200 rounded-full h-2.5 mb-1">
                       <div
                         className="rounded-full h-2.5 transition-all"
                         style={{
