@@ -191,6 +191,16 @@ export default function AssetsPage() {
       setAssetName('')
       setAssetType('general')
       load_assets()
+      
+      // Update selected_asset if it was edited
+      if (selected_asset && selected_asset.id === edit_asset.id) {
+        setSelectedAsset({
+          ...selected_asset,
+          name: asset_name,
+          asset_type: asset_type,
+        })
+      }
+      
       alert('Asset updated successfully!')
     } catch (err) {
       console.error('Error updating asset:', err)
@@ -360,6 +370,69 @@ export default function AssetsPage() {
             </div>
           </div>
         </div>
+
+        {/* Edit Asset Modal (in detail view) */}
+        {show_edit_form && edit_asset && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg p-6 max-w-md w-full">
+              <h3 className="text-xl font-bold text-gray-800 mb-4">Edit Asset</h3>
+              <form onSubmit={save_edit_asset} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Asset Name
+                  </label>
+                  <input
+                    type="text"
+                    value={asset_name}
+                    onChange={(e) => setAssetName(e.target.value)}
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Asset Type
+                  </label>
+                  <select
+                    value={asset_type}
+                    onChange={(e) => setAssetType(e.target.value)}
+                    className="w-full px-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500 focus:border-transparent"
+                  >
+                    <option value="general">General</option>
+                    <option value="investments">Investments</option>
+                    <option value="retirement">Retirement</option>
+                    <option value="debt">Debt (counts negative)</option>
+                    {custom_types.map(type => (
+                      <option key={type} value={type}>{type}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="flex gap-3">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowEditForm(false)
+                      setEditAsset(null)
+                      setAssetName('')
+                      setAssetType('general')
+                    }}
+                    className="flex-1 px-4 py-3 border border-gray-300 rounded-lg font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    className="flex-1 bg-green-600 text-white px-4 py-3 rounded-lg font-medium hover:bg-green-700"
+                  >
+                    Save Changes
+                  </button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
       </div>
     )
   }

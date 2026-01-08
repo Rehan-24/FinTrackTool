@@ -5,7 +5,6 @@ import { supabase } from '@/lib/supabase'
 import { Plus, Trash2, ToggleLeft, ToggleRight, Edit2, X } from 'lucide-react'
 import { format } from 'date-fns'
 
-
 type Category = {
   id: string
   name: string

@@ -9,6 +9,22 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '4.4.2',
+    date: '2026-01-08',
+    title: 'Critical Recurring Payment Fixes',
+    features: [
+      '✅ Edit asset modal now displays immediately (no back button needed)',
+    ],
+    bugFixes: [
+      'FIXED: Paid recurring expenses now show correctly on dashboard',
+      'FIXED: Subscription totals now accurate (paid vs upcoming properly separated)',
+      'FIXED: ReferenceError crash when filtering transactions (parse_local_date hoisting issue)',
+      'FIXED: Paid recurring now appears in "Actual Paid" filter on transactions page',
+      'FIXED: Dashboard categories now correctly count paid recurring in spent amount',
+    ],
+    breaking: [],
+  },
+  {
     version: '4.4.1',
     date: '2026-01-08',
     title: 'Critical Bug Fixes & Asset Editing',

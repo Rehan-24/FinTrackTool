@@ -56,6 +56,12 @@ export default function DashboardPage() {
     }
   }
 
+  // Helper to parse date string as local date (not UTC)
+  const parse_local_date = (date_string: string) => {
+    const [year, month, day] = date_string.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+
   useEffect(() => {
     load_dashboard()
   }, [])
@@ -93,10 +99,18 @@ export default function DashboardPage() {
       today.setHours(0, 0, 0, 0)
       
       const cats_with_spent = (cats || []).map(cat => {
+        // Actual spent: NOT projected OR projected but date has passed (paid recurring)
         const actual_spent = (purchases || [])
-          .filter(p => p.category_id === cat.id && !p.is_projected)
+          .filter(p => {
+            if (p.category_id !== cat.id) return false
+            if (!p.is_projected) return true // Regular purchases
+            // Include projected if date has passed (paid recurring)
+            const purchase_date = parse_local_date(p.date)
+            return purchase_date < today
+          })
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
-        // Only count projected that are actually in the future
+        
+        // Projected: is_projected AND date in future
         const projected_spent = (purchases || [])
           .filter(p => {
             if (p.category_id !== cat.id || !p.is_projected) return false
@@ -104,6 +118,7 @@ export default function DashboardPage() {
             return purchase_date >= today
           })
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
+        
         const total_spent = actual_spent + projected_spent
         return { ...cat, spent: actual_spent, projected: projected_spent, total: total_spent }
       })
@@ -162,12 +177,6 @@ export default function DashboardPage() {
   const budget_percentage = total_budget > 0 ? (total_with_projected / total_budget) * 100 : 0
   const is_over_budget = budget_percentage > 100
   const net_cashflow = monthly_income - total_spent
-
-  // Helper to parse date string as local date (not UTC)
-  const parse_local_date = (date_string: string) => {
-    const [year, month, day] = date_string.split('-').map(Number)
-    return new Date(year, month - 1, day)
-  }
 
   if (loading) {
     return <div className="flex items-center justify-center h-screen">Loading...</div>
