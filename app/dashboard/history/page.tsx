@@ -702,45 +702,128 @@ export default function MonthlyHistoryPage() {
                           color: data.color
                         }))
                       } else {
-                        // Group by tags
-                        const tag_map = new Map<string, number>()
+                        // Group by tags - inherit category colors
+                        const tag_map = new Map<string, { value: number; color: string }>()
                         monthly_data.purchases
                           .filter(p => !p.is_projected) // Only actual spending
                           .forEach((p: any) => {
                             if (p.tags && p.tags.length > 0) {
                               p.tags.forEach((tag: string) => {
-                                tag_map.set(tag, (tag_map.get(tag) || 0) + p.amount)
+                                const existing = tag_map.get(tag)
+                                const category_color = monthly_data.categories.find(c => c.name === p.category)?.color || '#94a3b8'
+                                if (existing) {
+                                  existing.value += p.amount
+                                } else {
+                                  tag_map.set(tag, { value: p.amount, color: category_color })
+                                }
                               })
                             } else {
-                              // If no tags, use category name
-                              tag_map.set(p.category, (tag_map.get(p.category) || 0) + p.amount)
+                              // If no tags, use category name with category color
+                              const existing = tag_map.get(p.category)
+                              const category_color = monthly_data.categories.find(c => c.name === p.category)?.color || '#94a3b8'
+                              if (existing) {
+                                existing.value += p.amount
+                              } else {
+                                tag_map.set(p.category, { value: p.amount, color: category_color })
+                              }
                             }
                           })
-                        // Generate colors for tags
-                        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
                         return Array.from(tag_map.entries())
-                          .map(([name, value], idx) => ({
+                          .map(([name, data]) => ({
                             name,
-                            value,
-                            color: colors[idx % colors.length]
+                            value: data.value,
+                            color: data.color
                           }))
                           .sort((a, b) => b.value - a.value)
                       }
                     })()}
                     cx="50%"
                     cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    labelLine={true}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
+                      // Only show label if slice is > 5%
+                      if (percent < 0.05) return null
+                      const RADIAN = Math.PI / 180
+                      const radius = outerRadius + 25
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN)
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN)
+                      return (
+                        <text 
+                          x={x} 
+                          y={y} 
+                          fill="#374151" 
+                          textAnchor={x > cx ? 'start' : 'end'} 
+                          dominantBaseline="central"
+                          fontSize="12"
+                        >
+                          {`${name} (${(percent * 100).toFixed(0)}%)`}
+                        </text>
+                      )
+                    }}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                   >
                     {(() => {
-                      const data = chart_view === 'categories'
-                        ? Array.from(new Set(monthly_data.purchases.filter(p => !p.is_projected).map(p => p.category)))
-                        : []
-                      return data.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={monthly_data.categories.find(c => c.name === entry)?.color || '#94a3b8'} />
+                      // Get the actual data that was passed to the Pie
+                      const pie_data = (() => {
+                        if (chart_view === 'categories') {
+                          const category_map = new Map<string, { value: number; color: string }>()
+                          monthly_data.purchases
+                            .filter(p => !p.is_projected)
+                            .forEach(p => {
+                              const existing = category_map.get(p.category)
+                              if (existing) {
+                                existing.value += p.amount
+                              } else {
+                                category_map.set(p.category, {
+                                  value: p.amount,
+                                  color: monthly_data.categories.find(c => c.name === p.category)?.color || '#94a3b8'
+                                })
+                              }
+                            })
+                          return Array.from(category_map.entries()).map(([name, data]) => ({
+                            name,
+                            value: data.value,
+                            color: data.color
+                          }))
+                        } else {
+                          const tag_map = new Map<string, { value: number; color: string }>()
+                          monthly_data.purchases
+                            .filter(p => !p.is_projected)
+                            .forEach((p: any) => {
+                              if (p.tags && p.tags.length > 0) {
+                                p.tags.forEach((tag: string) => {
+                                  const existing = tag_map.get(tag)
+                                  const category_color = monthly_data.categories.find(c => c.name === p.category)?.color || '#94a3b8'
+                                  if (existing) {
+                                    existing.value += p.amount
+                                  } else {
+                                    tag_map.set(tag, { value: p.amount, color: category_color })
+                                  }
+                                })
+                              } else {
+                                const existing = tag_map.get(p.category)
+                                const category_color = monthly_data.categories.find(c => c.name === p.category)?.color || '#94a3b8'
+                                if (existing) {
+                                  existing.value += p.amount
+                                } else {
+                                  tag_map.set(p.category, { value: p.amount, color: category_color })
+                                }
+                              }
+                            })
+                          return Array.from(tag_map.entries())
+                            .map(([name, data]) => ({
+                              name,
+                              value: data.value,
+                              color: data.color
+                            }))
+                            .sort((a, b) => b.value - a.value)
+                        }
+                      })()
+                      
+                      return pie_data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
                       ))
                     })()}
                   </Pie>

@@ -514,43 +514,130 @@ export default function TransactionsPage() {
                           color: data.color
                         }))
                       } else {
-                        // Group by tags
-                        const tag_map = new Map<string, number>()
+                        // Group by tags - inherit category colors
+                        const tag_map = new Map<string, { value: number; color: string }>()
                         actual_purchases.forEach(p => {
                           if (p.tags && p.tags.length > 0) {
                             p.tags.forEach((tag: string) => {
-                              tag_map.set(tag, (tag_map.get(tag) || 0) + parseFloat(p.actual_cost.toString()))
+                              const existing = tag_map.get(tag)
+                              if (existing) {
+                                existing.value += parseFloat(p.actual_cost.toString())
+                              } else {
+                                tag_map.set(tag, { 
+                                  value: parseFloat(p.actual_cost.toString()),
+                                  color: p.category.color // Inherit category color
+                                })
+                              }
                             })
                           } else {
-                            // If no tags, use category name
-                            tag_map.set(p.category.name, (tag_map.get(p.category.name) || 0) + parseFloat(p.actual_cost.toString()))
+                            // If no tags, use category name with category color
+                            const existing = tag_map.get(p.category.name)
+                            if (existing) {
+                              existing.value += parseFloat(p.actual_cost.toString())
+                            } else {
+                              tag_map.set(p.category.name, {
+                                value: parseFloat(p.actual_cost.toString()),
+                                color: p.category.color
+                              })
+                            }
                           }
                         })
-                        // Generate colors for tags
-                        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
                         return Array.from(tag_map.entries())
-                          .map(([name, value], idx) => ({
+                          .map(([name, data]) => ({
                             name,
-                            value,
-                            color: colors[idx % colors.length]
+                            value: data.value,
+                            color: data.color
                           }))
                           .sort((a, b) => b.value - a.value)
                       }
                     })()}
                     cx="50%"
                     cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    labelLine={true}
+                    label={({ cx, cy, midAngle, innerRadius, outerRadius, percent, index, name }) => {
+                      // Only show label if slice is > 5%
+                      if (percent < 0.05) return null
+                      const RADIAN = Math.PI / 180
+                      const radius = outerRadius + 25
+                      const x = cx + radius * Math.cos(-midAngle * RADIAN)
+                      const y = cy + radius * Math.sin(-midAngle * RADIAN)
+                      return (
+                        <text 
+                          x={x} 
+                          y={y} 
+                          fill="#374151" 
+                          textAnchor={x > cx ? 'start' : 'end'} 
+                          dominantBaseline="central"
+                          fontSize="12"
+                        >
+                          {`${name} (${(percent * 100).toFixed(0)}%)`}
+                        </text>
+                      )
+                    }}
                     outerRadius={80}
                     fill="#8884d8"
                     dataKey="value"
                   >
                     {(() => {
                       const actual_purchases = filtered_purchases.filter(p => !is_truly_upcoming(p))
-                      const data = chart_view === 'categories'
-                        ? Array.from(new Set(actual_purchases.map(p => ({ name: p.category.name, color: p.category.color }))))
-                        : []
-                      return data.map((entry, index) => (
+                      // Recreate the same data structure used for the pie
+                      const pie_data = (() => {
+                        if (chart_view === 'categories') {
+                          const category_map = new Map<string, { value: number; color: string }>()
+                          actual_purchases.forEach(p => {
+                            const existing = category_map.get(p.category.name)
+                            if (existing) {
+                              existing.value += parseFloat(p.actual_cost.toString())
+                            } else {
+                              category_map.set(p.category.name, {
+                                value: parseFloat(p.actual_cost.toString()),
+                                color: p.category.color
+                              })
+                            }
+                          })
+                          return Array.from(category_map.entries()).map(([name, data]) => ({
+                            name,
+                            value: data.value,
+                            color: data.color
+                          }))
+                        } else {
+                          const tag_map = new Map<string, { value: number; color: string }>()
+                          actual_purchases.forEach(p => {
+                            if (p.tags && p.tags.length > 0) {
+                              p.tags.forEach((tag: string) => {
+                                const existing = tag_map.get(tag)
+                                if (existing) {
+                                  existing.value += parseFloat(p.actual_cost.toString())
+                                } else {
+                                  tag_map.set(tag, { 
+                                    value: parseFloat(p.actual_cost.toString()),
+                                    color: p.category.color
+                                  })
+                                }
+                              })
+                            } else {
+                              const existing = tag_map.get(p.category.name)
+                              if (existing) {
+                                existing.value += parseFloat(p.actual_cost.toString())
+                              } else {
+                                tag_map.set(p.category.name, {
+                                  value: parseFloat(p.actual_cost.toString()),
+                                  color: p.category.color
+                                })
+                              }
+                            }
+                          })
+                          return Array.from(tag_map.entries())
+                            .map(([name, data]) => ({
+                              name,
+                              value: data.value,
+                              color: data.color
+                            }))
+                            .sort((a, b) => b.value - a.value)
+                        }
+                      })()
+                      
+                      return pie_data.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={entry.color} />
                       ))
                     })()}

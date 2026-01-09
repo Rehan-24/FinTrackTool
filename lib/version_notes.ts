@@ -9,6 +9,27 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.1.4',
+    date: '2026-01-09',
+    title: 'PWA Support - Add to Home Screen',
+    features: [
+      'Sleek minimalist app icon with blue-purple gradient',
+      'Add to Home Screen support for iOS and Android',
+      'PWA (Progressive Web App) manifest',
+      'Standalone app mode - no browser UI when launched from home screen',
+      'Custom splash screen and theme colors',
+      'Icon generation script for easy customization',
+    ],
+    bugFixes: [
+      'FIXED: Transactions page chart now uses correct category colors',
+      'FIXED: Pie chart labels now positioned outside to prevent overlap',
+      'FIXED: Small slices (<5%) hide labels to reduce clutter',
+      'IMPROVED: Tags now inherit colors from their categories',
+      'IMPROVED: Label lines connect slices to text for clarity',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.1.3',
     date: '2026-01-09',
     title: 'Beta Charts & Dashboard Improvements',
