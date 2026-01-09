@@ -11,10 +11,14 @@ export const VERSION_NOTES: VersionNote[] = [
   {
     version: '5.1.2',
     date: '2026-01-09',
-    title: 'Aggressive Mobile Optimization',
-    features: [],
+    title: 'Aggressive Mobile Optimization + Health Check',
+    features: [
+      'Health check endpoint for keeping Render awake (/api/health)',
+    ],
     bugFixes: [
       'FIXED: History page now properly fits mobile screens without zoom',
+      'FIXED: Transactions page mobile optimization',
+      'FIXED: Income page mobile optimization',
       'FIXED: Reduced padding from 16px to 12px on mobile',
       'FIXED: Text sizes reduced - titles from 24px to 20px on mobile',
       'FIXED: Category items use 12px text on mobile',
@@ -22,6 +26,7 @@ export const VERSION_NOTES: VersionNote[] = [
       'FIXED: Table padding reduced to 8px on mobile',
       'FIXED: Date format shortened to "MMM d" on mobile tables',
       'IMPROVED: All spacing optimized for small screens',
+      'IMPROVED: Desktop view completely unchanged',
     ],
     breaking: [],
   },
