@@ -37,6 +37,7 @@ type MonthlyData = {
   assets_snapshot: Array<{
     name: string
     value: number
+    type: string
   }>
 }
 
@@ -174,7 +175,7 @@ export default function MonthlyHistoryPage() {
       // Get assets snapshot
       const { data: assets } = await supabase
         .from('assets')
-        .select('name, current_value')
+        .select('name, current_value, type')
         .eq('user_id', user.id)
 
       const total_spending = (purchases || [])
@@ -204,7 +205,8 @@ export default function MonthlyHistoryPage() {
         recurring: recurring_total,
         assets_snapshot: (assets || []).map(a => ({
           name: a.name,
-          value: parseFloat(a.current_value.toString())
+          value: parseFloat(a.current_value.toString()),
+          type: a.type
         }))
       })
 
@@ -549,15 +551,17 @@ export default function MonthlyHistoryPage() {
               {monthly_data.assets_snapshot.map((asset, idx) => (
                 <div key={idx} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
                   <span className="font-medium text-gray-700">{asset.name}</span>
-                  <span className="text-lg font-bold text-gray-800">
-                    ${asset.value.toLocaleString()}
+                  <span className={`text-lg font-bold ${asset.type === 'debt' ? 'text-red-600' : 'text-gray-800'}`}>
+                    {asset.type === 'debt' ? '-' : ''}${asset.value.toLocaleString()}
                   </span>
                 </div>
               ))}
               <div className="flex justify-between items-center p-3 bg-green-50 rounded-lg border-t-2 border-green-600">
-                <span className="font-bold text-gray-800">Total Assets</span>
+                <span className="font-bold text-gray-800">Net Worth</span>
                 <span className="text-xl font-bold text-green-600">
-                  ${monthly_data.assets_snapshot.reduce((sum, a) => sum + a.value, 0).toLocaleString()}
+                  ${monthly_data.assets_snapshot.reduce((sum, a) => 
+                    sum + (a.type === 'debt' ? -a.value : a.value), 0
+                  ).toLocaleString()}
                 </span>
               </div>
             </div>

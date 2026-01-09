@@ -9,6 +9,26 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.1.1',
+    date: '2026-01-08',
+    title: 'Critical Fixes & New Features',
+    features: [
+      'Keep me signed in - Option to stay logged in across sessions',
+      'Forgot password - Password reset functionality via email',
+      'Auto-show version notes - Only displayed once after updates',
+      'Better mobile viewport - Proper scaling without zoom issues',
+    ],
+    bugFixes: [
+      'FIXED: History page now correctly calculates net worth (debt subtracts from assets)',
+      'FIXED: Debt displays in red with negative sign on history page',
+      'FIXED: Transactions "Add Purchase" button no longer spans full width on desktop',
+      'FIXED: Mobile viewport settings prevent forced zoom-out',
+      'IMPROVED: Version notes only show on first login after update',
+      'IMPROVED: Session management with keep signed in option',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.1',
     date: '2026-01-08',
     title: 'Mobile Optimization & Layout Improvements',

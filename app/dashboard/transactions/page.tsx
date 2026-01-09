@@ -224,14 +224,14 @@ export default function TransactionsPage() {
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
       <div className="p-4 md:p-8">
-        <div className="mb-6 md:mb-8">
-          <div className="mb-4">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 md:mb-8 gap-4">
+          <div>
             <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Transactions</h2>
             <p className="text-gray-600 mt-1 text-sm md:text-base">View and filter your purchases</p>
           </div>
           <Link
             href="/dashboard/add"
-            className="hidden md:flex items-center justify-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+            className="hidden md:flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
           >
             <Plus size={20} />
             Add Purchase

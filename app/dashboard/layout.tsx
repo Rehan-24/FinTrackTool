@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation'
 import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus } from 'lucide-react'
 import Link from 'next/link'
 
+import { CURRENT_VERSION } from '@/lib/version_notes'
+
 // Soccer Goal Icon Component
 const SoccerGoal = ({ size = 24, className = '' }: { size?: number, className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
@@ -39,6 +41,16 @@ export default function DashboardLayout({
       
       setUser(user)
       setLoading(false)
+
+      // Check if user should see version notes
+      const last_seen_version = localStorage.getItem('last_seen_version')
+      if (!last_seen_version || last_seen_version !== CURRENT_VERSION) {
+        // Show version notes after a short delay
+        setTimeout(() => {
+          window.dispatchEvent(new CustomEvent('show-version-notes'))
+          localStorage.setItem('last_seen_version', CURRENT_VERSION)
+        }, 1000)
+      }
     }
 
     get_user()
@@ -77,7 +89,7 @@ export default function DashboardLayout({
             onClick={() => window.dispatchEvent(new CustomEvent('show-version-notes'))}
             className="text-xs text-gray-500 mt-1 hover:text-blue-600 cursor-pointer transition"
           >
-            v5.1
+            v5.1.1
           </button>
         </div>
         
