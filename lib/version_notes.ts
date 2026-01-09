@@ -9,6 +9,23 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.1.2',
+    date: '2026-01-09',
+    title: 'Aggressive Mobile Optimization',
+    features: [],
+    bugFixes: [
+      'FIXED: History page now properly fits mobile screens without zoom',
+      'FIXED: Reduced padding from 16px to 12px on mobile',
+      'FIXED: Text sizes reduced - titles from 24px to 20px on mobile',
+      'FIXED: Category items use 12px text on mobile',
+      'FIXED: Progress bars thinner on mobile (6px vs 10px)',
+      'FIXED: Table padding reduced to 8px on mobile',
+      'FIXED: Date format shortened to "MMM d" on mobile tables',
+      'IMPROVED: All spacing optimized for small screens',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.1.1',
     date: '2026-01-08',
     title: 'Critical Fixes & New Features',

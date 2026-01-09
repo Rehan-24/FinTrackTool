@@ -428,24 +428,22 @@ export default function MonthlyHistoryPage() {
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
-      <div className="p-4 md:p-8">
+      <div className="p-3 md:p-8">
         {/* Header */}
-        <div className="mb-6 md:mb-8">
-          <div className="mb-4">
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Monthly History</h2>
-            <p className="text-gray-600 mt-1 text-sm md:text-base">Review past financial data</p>
-          </div>
+        <div className="mb-4 md:mb-8">
+          <h2 className="text-xl md:text-3xl font-bold text-gray-800">Monthly History</h2>
+          <p className="text-gray-600 mt-1 text-xs md:text-base">Review past financial data</p>
           <button
             onClick={export_to_excel}
-            className="w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-green-700 transition"
+            className="mt-3 w-full md:w-auto flex items-center justify-center gap-2 bg-green-600 text-white px-4 py-2 md:px-6 md:py-3 rounded-lg text-sm font-medium hover:bg-green-700 transition"
           >
-            <Download size={20} />
+            <Download size={18} />
             Export to Excel
           </button>
         </div>
 
         {/* Month Selector */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 mb-4 md:mb-6">
+        <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-6 mb-3 md:mb-6">
           <div className="flex items-center justify-between">
             <button
               onClick={go_prev_month}
@@ -453,7 +451,7 @@ export default function MonthlyHistoryPage() {
             >
               <ChevronLeft size={24} />
             </button>
-            <h3 className="text-2xl font-bold text-gray-800">
+            <h3 className="text-lg md:text-2xl font-bold text-gray-800">
               {format(selected_month, 'MMMM yyyy')}
             </h3>
             <button
@@ -467,71 +465,71 @@ export default function MonthlyHistoryPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 mb-6 md:mb-8">
-          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600 text-sm md:text-base">Income</span>
-              <TrendingUp className="text-emerald-500" size={18} />
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-6 mb-3 md:mb-8">
+          <div className="bg-white rounded-lg p-3 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-between mb-1 md:mb-2">
+              <span className="text-gray-600 text-xs md:text-base">Income</span>
+              <TrendingUp className="text-emerald-500" size={16} />
             </div>
-            <div className="text-2xl md:text-3xl font-bold text-gray-800">
+            <div className="text-xl md:text-3xl font-bold text-gray-800">
               ${monthly_data.income.toFixed(2)}
             </div>
             {comparison_data && comparison_data.prev_income > 0 && (
-              <div className={`text-xs md:text-sm mt-2 flex items-center gap-1 ${income_change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {income_change >= 0 ? <TrendingUp size={14} /> : <TrendingDown size={14} />}
+              <div className={`text-xs mt-1 md:mt-2 flex items-center gap-1 ${income_change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {income_change >= 0 ? <TrendingUp size={12} /> : <TrendingDown size={12} />}
                 {Math.abs(income_change).toFixed(1)}% vs last month
               </div>
             )}
           </div>
 
-          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600 text-sm md:text-base">Spending</span>
-              <TrendingDown className="text-red-500" size={18} />
+          <div className="bg-white rounded-lg p-3 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-between mb-1 md:mb-2">
+              <span className="text-gray-600 text-xs md:text-base">Spending</span>
+              <TrendingDown className="text-red-500" size={16} />
             </div>
-            <div className="text-2xl md:text-3xl font-bold text-gray-800">
+            <div className="text-xl md:text-3xl font-bold text-gray-800">
               ${monthly_data.spending.toFixed(2)}
             </div>
             {comparison_data && comparison_data.prev_spending > 0 && (
-              <div className={`text-xs md:text-sm mt-2 flex items-center gap-1 ${spending_change <= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                {spending_change <= 0 ? <TrendingDown size={14} /> : <TrendingUp size={14} />}
+              <div className={`text-xs mt-1 md:mt-2 flex items-center gap-1 ${spending_change <= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                {spending_change <= 0 ? <TrendingDown size={12} /> : <TrendingUp size={12} />}
                 {Math.abs(spending_change).toFixed(1)}% vs last month
               </div>
             )}
           </div>
 
-          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
-            <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-600 text-sm md:text-base">Net Cashflow</span>
-              <TrendingUp className={monthly_data.net_cashflow >= 0 ? 'text-green-500' : 'text-red-500'} size={18} />
+          <div className="bg-white rounded-lg p-3 md:p-6 border border-gray-200">
+            <div className="flex items-center justify-between mb-1 md:mb-2">
+              <span className="text-gray-600 text-xs md:text-base">Net Cashflow</span>
+              <TrendingUp className={monthly_data.net_cashflow >= 0 ? 'text-green-500' : 'text-red-500'} size={16} />
             </div>
-            <div className={`text-2xl md:text-3xl font-bold ${monthly_data.net_cashflow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+            <div className={`text-xl md:text-3xl font-bold ${monthly_data.net_cashflow >= 0 ? 'text-green-600' : 'text-red-600'}`}>
               {monthly_data.net_cashflow >= 0 ? '+' : ''}${monthly_data.net_cashflow.toFixed(2)}
             </div>
-            <div className="text-xs md:text-sm text-gray-500 mt-2">
+            <div className="text-xs mt-1 md:mt-2 text-gray-500">
               {monthly_data.net_cashflow >= 0 ? 'Saved' : 'Over budget'}
             </div>
           </div>
         </div>
 
         {/* Budget by Category */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 mb-4 md:mb-6">
-          <h3 className="text-base md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Budget by Category</h3>
-          <div className="space-y-3 md:space-y-4">
+        <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-6 mb-3 md:mb-6">
+          <h3 className="text-sm md:text-lg font-semibold text-gray-800 mb-2 md:mb-4">Budget by Category</h3>
+          <div className="space-y-2 md:space-y-4">
             {monthly_data.categories.map((cat, idx) => (
               <div key={idx}>
-                <div className="flex justify-between items-center mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full" style={{backgroundColor: cat.color}}></div>
-                    <span className="font-medium text-gray-700">{cat.name}</span>
+                <div className="flex justify-between items-center mb-1 md:mb-2">
+                  <div className="flex items-center gap-1 md:gap-2">
+                    <div className="w-2 h-2 md:w-3 md:h-3 rounded-full" style={{backgroundColor: cat.color}}></div>
+                    <span className="text-xs md:text-base font-medium text-gray-700">{cat.name}</span>
                   </div>
-                  <span className="text-gray-600 font-medium">
+                  <span className="text-xs md:text-base text-gray-600 font-medium whitespace-nowrap ml-2">
                     ${cat.spent.toFixed(2)} / ${cat.budget.toFixed(2)}
                   </span>
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-2.5">
+                <div className="w-full bg-gray-200 rounded-full h-1.5 md:h-2.5">
                   <div 
-                    className="rounded-full h-2.5" 
+                    className="rounded-full h-1.5 md:h-2.5" 
                     style={{
                       width: `${Math.min((cat.spent / cat.budget) * 100, 100)}%`, 
                       backgroundColor: cat.color
@@ -570,31 +568,31 @@ export default function MonthlyHistoryPage() {
 
         {/* Transactions */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
-          <div className="p-6 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-800">
+          <div className="p-3 md:p-6 border-b border-gray-200">
+            <h3 className="text-sm md:text-lg font-semibold text-gray-800">
               All Transactions
             </h3>
-            <div className="text-sm text-gray-600 mt-1">
+            <div className="text-xs md:text-sm text-gray-600 mt-1">
               {actual_purchases.length} paid • {projected_purchases.length} upcoming
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-xs md:text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Description
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
                 </tr>
@@ -609,30 +607,30 @@ export default function MonthlyHistoryPage() {
                 ) : (
                   monthly_data.purchases.map((purchase, idx) => (
                     <tr key={idx} className={`hover:bg-gray-50 ${purchase.is_projected ? 'bg-yellow-50' : ''}`}>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {format(new Date(purchase.date), 'MMM d, yyyy')}
+                      <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap text-gray-600">
+                        {format(new Date(purchase.date), 'MMM d')}
                       </td>
-                      <td className="px-6 py-4 text-sm text-gray-800">
+                      <td className="px-2 md:px-6 py-2 md:py-4 text-gray-800">
                         <div className="font-medium">{purchase.description}</div>
                         {purchase.is_split && (
-                          <div className="text-xs text-gray-500">Split payment</div>
+                          <div className="text-xs text-gray-500">Split</div>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                      <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap text-gray-700">
                         {purchase.category}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap">
                         {purchase.is_projected ? (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
+                          <span className="px-1 md:px-2 py-0.5 md:py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
                             Upcoming
                           </span>
                         ) : (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                          <span className="px-1 md:px-2 py-0.5 md:py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
                             Paid
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-800">
+                      <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap text-right font-medium text-gray-800">
                         ${purchase.amount.toFixed(2)}
                       </td>
                     </tr>

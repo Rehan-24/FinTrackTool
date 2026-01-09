@@ -223,11 +223,11 @@ export default function TransactionsPage() {
 
   return (
     <div className="flex-1 overflow-y-auto pb-20 lg:pb-0">
-      <div className="p-4 md:p-8">
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-6 md:mb-8 gap-4">
+      <div className="p-3 md:p-8">
+        <div className="flex flex-col md:flex-row md:justify-between md:items-center mb-4 md:mb-8 gap-3 md:gap-4">
           <div>
-            <h2 className="text-2xl md:text-3xl font-bold text-gray-800">Transactions</h2>
-            <p className="text-gray-600 mt-1 text-sm md:text-base">View and filter your purchases</p>
+            <h2 className="text-xl md:text-3xl font-bold text-gray-800">Transactions</h2>
+            <p className="text-gray-600 mt-1 text-xs md:text-base">View and filter your purchases</p>
           </div>
           <Link
             href="/dashboard/add"
@@ -239,39 +239,39 @@ export default function TransactionsPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-6 mb-4 md:mb-6">
-          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-6 mb-3 md:mb-6">
+          <div className="bg-white rounded-lg p-3 md:p-6 border border-gray-200">
             <div className="text-xs md:text-sm text-gray-600 mb-1">Actual Spending</div>
-            <div className="text-2xl md:text-3xl font-bold text-gray-800">${total_actual.toFixed(2)}</div>
-            <div className="text-xs md:text-sm text-gray-500 mt-1">
+            <div className="text-xl md:text-3xl font-bold text-gray-800">${total_actual.toFixed(2)}</div>
+            <div className="text-xs text-gray-500 mt-1">
               {purchases.filter(p => !p.is_projected).length} transactions
             </div>
           </div>
 
-          <div className="bg-white rounded-lg p-4 md:p-6 border border-yellow-200 bg-yellow-50">
+          <div className="bg-white rounded-lg p-3 md:p-6 border border-yellow-200 bg-yellow-50">
             <div className="text-xs md:text-sm text-yellow-700 mb-1">Upcoming (Projected)</div>
-            <div className="text-2xl md:text-3xl font-bold text-yellow-600">${total_projected.toFixed(2)}</div>
-            <div className="text-xs md:text-sm text-yellow-600 mt-1">
+            <div className="text-xl md:text-3xl font-bold text-yellow-600">${total_projected.toFixed(2)}</div>
+            <div className="text-xs text-yellow-600 mt-1">
               {truly_upcoming_purchases.length} upcoming
             </div>
           </div>
 
-          <div className="bg-white rounded-lg p-4 md:p-6 border border-gray-200">
+          <div className="bg-white rounded-lg p-3 md:p-6 border border-gray-200">
             <div className="text-xs md:text-sm text-gray-600 mb-1">Total (if all paid)</div>
-            <div className="text-2xl md:text-3xl font-bold text-gray-800">
+            <div className="text-xl md:text-3xl font-bold text-gray-800">
               ${(total_actual + total_projected).toFixed(2)}
             </div>
-            <div className="text-xs md:text-sm text-gray-500 mt-1">
+            <div className="text-xs text-gray-500 mt-1">
               {purchases.length} total
             </div>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="bg-white rounded-lg border border-gray-200 p-4 md:p-6 mb-4 md:mb-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Filter size={18} className="text-gray-600" />
-            <h3 className="text-base md:text-lg font-semibold text-gray-800">Filters</h3>
+        <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-6 mb-3 md:mb-6">
+          <div className="flex items-center gap-2 mb-3 md:mb-4">
+            <Filter size={16} className="text-gray-600" />
+            <h3 className="text-sm md:text-lg font-semibold text-gray-800">Filters</h3>
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -361,25 +361,25 @@ export default function TransactionsPage() {
         {/* Transactions Table */}
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <div className="overflow-x-auto">
-            <table className="w-full">
+            <table className="w-full text-xs md:text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Description
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Category
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Tags
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
                   </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-2 md:px-6 py-2 md:py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Amount
                   </th>
                 </tr>
@@ -387,7 +387,7 @@ export default function TransactionsPage() {
               <tbody className="divide-y divide-gray-200">
                 {filtered_purchases.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">
+                    <td colSpan={5} className="px-2 md:px-6 py-4 md:py-8 text-center text-gray-500">
                       No transactions found for the selected filters.
                     </td>
                   </tr>
@@ -400,28 +400,28 @@ export default function TransactionsPage() {
                       onClick={() => setSelectedPurchase(purchase)}
                       className={`hover:bg-gray-50 cursor-pointer ${is_upcoming ? 'bg-yellow-50' : ''}`}
                     >
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {format(parse_local_date(purchase.date), 'MMM d, yyyy')}
+                      <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap text-gray-600">
+                        {format(parse_local_date(purchase.date), 'MMM d')}
                       </td>
-                      <td className="px-6 py-4 text-sm">
+                      <td className="px-2 md:px-6 py-2 md:py-4">
                         <div className="font-medium text-gray-800">{purchase.description}</div>
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <div className="flex items-center gap-2">
+                      <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-1 md:gap-2">
                           <div
-                            className="w-3 h-3 rounded-full"
+                            className="w-2 h-2 md:w-3 md:h-3 rounded-full"
                             style={{ backgroundColor: purchase.category.color }}
                           />
                           <span className="text-gray-700">{purchase.category.name}</span>
                         </div>
                       </td>
-                      <td className="px-6 py-4 text-sm">
+                      <td className="px-2 md:px-6 py-2 md:py-4">
                         {purchase.tags && purchase.tags.length > 0 ? (
                           <div className="flex flex-wrap gap-1">
                             {purchase.tags.map((tag: string) => (
                               <span
                                 key={tag}
-                                className="px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full"
+                                className="px-1 md:px-2 py-0.5 bg-blue-100 text-blue-700 text-xs rounded-full"
                               >
                                 {tag}
                               </span>
@@ -431,18 +431,18 @@ export default function TransactionsPage() {
                           <span className="text-gray-400 text-xs">-</span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                      <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap">
                         {is_upcoming ? (
-                          <span className="px-2 py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
+                          <span className="px-1 md:px-2 py-0.5 md:py-1 bg-yellow-100 text-yellow-700 text-xs rounded-full font-medium">
                             Upcoming
                           </span>
                         ) : (
-                          <span className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
+                          <span className="px-1 md:px-2 py-0.5 md:py-1 bg-green-100 text-green-700 text-xs rounded-full font-medium">
                             Paid
                           </span>
                         )}
                       </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-gray-800">
+                      <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap text-right font-medium text-gray-800">
                         ${parseFloat(purchase.actual_cost.toString()).toFixed(2)}
                       </td>
                     </tr>
