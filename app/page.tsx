@@ -227,21 +227,24 @@ export default function LoginPage() {
             {loading ? 'Loading...' : is_signup ? 'Sign Up' : 'Sign In'}
           </button>
         </form>
+        )}
 
-        <div className="mt-6 text-center">
-          <button
-            onClick={() => {
-              setIsSignup(!is_signup)
-              setError(null)
-              setSuccessMessage(null)
-            }}
-            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-          >
-            {is_signup
-              ? 'Already have an account? Sign in'
-              : "Don't have an account? Sign up"}
-          </button>
-        </div>
+        {!show_forgot_password && (
+          <div className="mt-6 text-center">
+            <button
+              onClick={() => {
+                setIsSignup(!is_signup)
+                setError(null)
+                setSuccessMessage(null)
+              }}
+              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+            >
+              {is_signup
+                ? 'Already have an account? Sign in'
+                : "Don't have an account? Sign up"}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )
