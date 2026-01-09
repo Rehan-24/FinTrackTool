@@ -9,6 +9,25 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.1.3',
+    date: '2026-01-09',
+    title: 'Beta Charts & Dashboard Improvements',
+    features: [
+      'BETA: Spending analysis pie charts on History and Transactions pages',
+      'Toggle between category view and tags view in charts',
+      'Items without tags show under their category name',
+      'Dashboard budget card now shows "Budget Remaining" as main number',
+      'Changed "x remaining" to "x spent" for clarity',
+      'Social Security and Medicare already included in salary deductions',
+    ],
+    bugFixes: [
+      'IMPROVED: Budget card now highlights remaining budget instead of spent',
+      'IMPROVED: Chart colors match category colors in category view',
+      'IMPROVED: Charts only show actual spending (no projected purchases)',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.1.2',
     date: '2026-01-09',
     title: 'Aggressive Mobile Optimization + Health Check',

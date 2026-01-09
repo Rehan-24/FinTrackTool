@@ -6,6 +6,7 @@ import { sync_projected_purchases } from '@/lib/recurring-utils'
 import { Download, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isBefore, isAfter } from 'date-fns'
 import * as XLSX from 'xlsx'
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 
 type MonthlyData = {
   month: string
@@ -49,6 +50,7 @@ export default function MonthlyHistoryPage() {
     prev_spending: number
     prev_income: number
   } | null>(null)
+  const [chart_view, setChartView] = useState<'categories' | 'tags'>('categories')
 
   useEffect(() => {
     load_month_data()
@@ -69,7 +71,7 @@ export default function MonthlyHistoryPage() {
       // Get purchases (including projected)
       const { data: purchases } = await supabase
         .from('purchases')
-        .select('*, category:categories(name, color)')
+        .select('*, category:categories(name, color), tags')
         .eq('user_id', user.id)
         .gte('date', start)
         .lte('date', end)
@@ -640,6 +642,115 @@ export default function MonthlyHistoryPage() {
             </table>
           </div>
         </div>
+
+        {/* Beta Feature: Spending Analysis Charts */}
+        {monthly_data.purchases.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-6 mt-3 md:mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-sm md:text-lg font-semibold text-gray-800">Spending Analysis</h3>
+                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Beta</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setChartView('categories')}
+                  className={`px-3 py-1 text-xs md:text-sm rounded-lg transition ${
+                    chart_view === 'categories'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  By Category
+                </button>
+                <button
+                  onClick={() => setChartView('tags')}
+                  className={`px-3 py-1 text-xs md:text-sm rounded-lg transition ${
+                    chart_view === 'tags'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  By Tags
+                </button>
+              </div>
+            </div>
+
+            <div className="h-64 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={(() => {
+                      if (chart_view === 'categories') {
+                        // Group by category
+                        const category_map = new Map<string, { value: number; color: string }>()
+                        monthly_data.purchases
+                          .filter(p => !p.is_projected) // Only actual spending
+                          .forEach(p => {
+                            const existing = category_map.get(p.category)
+                            if (existing) {
+                              existing.value += p.amount
+                            } else {
+                              category_map.set(p.category, {
+                                value: p.amount,
+                                color: monthly_data.categories.find(c => c.name === p.category)?.color || '#94a3b8'
+                              })
+                            }
+                          })
+                        return Array.from(category_map.entries()).map(([name, data]) => ({
+                          name,
+                          value: data.value,
+                          color: data.color
+                        }))
+                      } else {
+                        // Group by tags
+                        const tag_map = new Map<string, number>()
+                        monthly_data.purchases
+                          .filter(p => !p.is_projected) // Only actual spending
+                          .forEach((p: any) => {
+                            if (p.tags && p.tags.length > 0) {
+                              p.tags.forEach((tag: string) => {
+                                tag_map.set(tag, (tag_map.get(tag) || 0) + p.amount)
+                              })
+                            } else {
+                              // If no tags, use category name
+                              tag_map.set(p.category, (tag_map.get(p.category) || 0) + p.amount)
+                            }
+                          })
+                        // Generate colors for tags
+                        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
+                        return Array.from(tag_map.entries())
+                          .map(([name, value], idx) => ({
+                            name,
+                            value,
+                            color: colors[idx % colors.length]
+                          }))
+                          .sort((a, b) => b.value - a.value)
+                      }
+                    })()}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {(() => {
+                      const data = chart_view === 'categories'
+                        ? Array.from(new Set(monthly_data.purchases.filter(p => !p.is_projected).map(p => p.category)))
+                        : []
+                      return data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={monthly_data.categories.find(c => c.name === entry)?.color || '#94a3b8'} />
+                      ))
+                    })()}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

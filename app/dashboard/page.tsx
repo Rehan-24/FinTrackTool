@@ -260,7 +260,7 @@ export default function DashboardPage() {
                 : 'bg-green-50 border-green-200'
           }`}>
             <div className="flex items-center justify-between mb-2">
-              <span className="text-gray-700 font-medium">Total Budget</span>
+              <span className="text-gray-700 font-medium text-sm md:text-base">Budget Remaining</span>
               <PieChart className={
                 is_over_budget 
                   ? "text-red-500" 
@@ -269,19 +269,19 @@ export default function DashboardPage() {
                     : "text-green-500"
               } size={20} />
             </div>
-            <div className={`text-3xl font-bold ${
+            <div className={`text-3xl md:text-4xl font-bold ${
               is_over_budget 
                 ? 'text-red-600' 
                 : budget_percentage > 80 
                   ? 'text-yellow-600' 
                   : 'text-green-600'
             }`}>
-              ${total_with_projected.toFixed(2)}
+              {is_over_budget ? '-' : ''}${Math.abs(budget_remaining).toFixed(2)}
             </div>
-            <div className="text-sm text-gray-600 mt-1">
-              of ${total_budget.toFixed(2)} budget
+            <div className="text-xs md:text-sm text-gray-600 mt-1">
+              ${total_with_projected.toFixed(2)} spent
             </div>
-            <div className={`text-sm font-medium mt-2 ${
+            <div className={`text-xs md:text-sm font-medium mt-2 ${
               is_over_budget 
                 ? 'text-red-700' 
                 : budget_percentage > 80 
@@ -289,8 +289,8 @@ export default function DashboardPage() {
                   : 'text-green-700'
             }`}>
               {is_over_budget 
-                ? `Over by $${Math.abs(budget_remaining).toFixed(2)}` 
-                : `$${budget_remaining.toFixed(2)} remaining`}
+                ? `Over budget` 
+                : `of $${total_budget.toFixed(2)} budget`}
             </div>
             <div className="w-full bg-gray-200 rounded-full h-2 mt-3">
               <div

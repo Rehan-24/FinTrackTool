@@ -6,6 +6,7 @@ import { sync_projected_purchases } from '@/lib/recurring-utils'
 import { Filter, Plus, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import Link from 'next/link'
+import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
 
 type Category = {
   id: string
@@ -46,6 +47,7 @@ export default function TransactionsPage() {
   const [filter_type, setFilterType] = useState<string>('all') // all, actual, projected
   const [filter_tag, setFilterTag] = useState<string>('all')
   const [filter_payment_method, setFilterPaymentMethod] = useState<string>('all')
+  const [chart_view, setChartView] = useState<'categories' | 'tags'>('categories')
 
   // View/Edit modal
   const [selected_purchase, setSelectedPurchase] = useState<Purchase | null>(null)
@@ -453,6 +455,113 @@ export default function TransactionsPage() {
             </table>
           </div>
         </div>
+
+        {/* Beta Feature: Spending Analysis Charts */}
+        {filtered_purchases.length > 0 && (
+          <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-6 mt-3 md:mt-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h3 className="text-sm md:text-lg font-semibold text-gray-800">Spending Analysis</h3>
+                <span className="text-xs text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full">Beta</span>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setChartView('categories')}
+                  className={`px-3 py-1 text-xs md:text-sm rounded-lg transition ${
+                    chart_view === 'categories'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  By Category
+                </button>
+                <button
+                  onClick={() => setChartView('tags')}
+                  className={`px-3 py-1 text-xs md:text-sm rounded-lg transition ${
+                    chart_view === 'tags'
+                      ? 'bg-blue-600 text-white'
+                      : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+                  }`}
+                >
+                  By Tags
+                </button>
+              </div>
+            </div>
+
+            <div className="h-64 md:h-80">
+              <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                  <Pie
+                    data={(() => {
+                      const actual_purchases = filtered_purchases.filter(p => !is_truly_upcoming(p))
+                      if (chart_view === 'categories') {
+                        // Group by category
+                        const category_map = new Map<string, { value: number; color: string }>()
+                        actual_purchases.forEach(p => {
+                          const existing = category_map.get(p.category.name)
+                          if (existing) {
+                            existing.value += parseFloat(p.actual_cost.toString())
+                          } else {
+                            category_map.set(p.category.name, {
+                              value: parseFloat(p.actual_cost.toString()),
+                              color: p.category.color
+                            })
+                          }
+                        })
+                        return Array.from(category_map.entries()).map(([name, data]) => ({
+                          name,
+                          value: data.value,
+                          color: data.color
+                        }))
+                      } else {
+                        // Group by tags
+                        const tag_map = new Map<string, number>()
+                        actual_purchases.forEach(p => {
+                          if (p.tags && p.tags.length > 0) {
+                            p.tags.forEach((tag: string) => {
+                              tag_map.set(tag, (tag_map.get(tag) || 0) + parseFloat(p.actual_cost.toString()))
+                            })
+                          } else {
+                            // If no tags, use category name
+                            tag_map.set(p.category.name, (tag_map.get(p.category.name) || 0) + parseFloat(p.actual_cost.toString()))
+                          }
+                        })
+                        // Generate colors for tags
+                        const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#84cc16']
+                        return Array.from(tag_map.entries())
+                          .map(([name, value], idx) => ({
+                            name,
+                            value,
+                            color: colors[idx % colors.length]
+                          }))
+                          .sort((a, b) => b.value - a.value)
+                      }
+                    })()}
+                    cx="50%"
+                    cy="50%"
+                    labelLine={false}
+                    label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                    outerRadius={80}
+                    fill="#8884d8"
+                    dataKey="value"
+                  >
+                    {(() => {
+                      const actual_purchases = filtered_purchases.filter(p => !is_truly_upcoming(p))
+                      const data = chart_view === 'categories'
+                        ? Array.from(new Set(actual_purchases.map(p => ({ name: p.category.name, color: p.category.color }))))
+                        : []
+                      return data.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.color} />
+                      ))
+                    })()}
+                  </Pie>
+                  <Tooltip formatter={(value: number) => `$${value.toFixed(2)}`} />
+                  <Legend />
+                </PieChart>
+              </ResponsiveContainer>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* View/Edit Modal */}
