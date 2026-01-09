@@ -242,7 +242,6 @@ export default function LoginPage() {
               : "Don't have an account? Sign up"}
           </button>
         </div>
-        )}
       </div>
     </div>
   )
