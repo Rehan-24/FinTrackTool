@@ -62,6 +62,48 @@ export default function DashboardPage() {
     return new Date(year, month - 1, day)
   }
 
+  // Helper: Count how many times a recurring income occurs in a date range
+  const count_income_occurrences_dashboard = (
+    income_entry: any, 
+    range_start: Date, 
+    range_end: Date
+  ) => {
+    const start_date = new Date(income_entry.date)
+    let count = 0
+    
+    if (start_date > range_end) return 0
+    
+    // Determine frequency in days
+    let freq_days = 0
+    if (income_entry.frequency === 'weekly') freq_days = 7
+    else if (income_entry.frequency === 'bi-weekly') freq_days = 14
+    else if (income_entry.frequency === 'monthly') freq_days = 30 // approximate
+    else if (income_entry.frequency === 'yearly') freq_days = 365
+    
+    if (income_entry.frequency === 'monthly') {
+      // For monthly, count months between dates
+      let current = new Date(start_date)
+      while (current <= range_end) {
+        if (current >= range_start) {
+          count++
+        }
+        // Move to next month, same day
+        current = new Date(current.getFullYear(), current.getMonth() + 1, start_date.getDate())
+      }
+    } else {
+      // For weekly, bi-weekly, yearly
+      let current = new Date(start_date)
+      while (current <= range_end) {
+        if (current >= range_start) {
+          count++
+        }
+        current.setDate(current.getDate() + freq_days)
+      }
+    }
+    
+    return count
+  }
+
   useEffect(() => {
     load_dashboard()
   }, [])
@@ -153,28 +195,31 @@ export default function DashboardPage() {
       // Get income for current month
       const { data: income_data } = await supabase
         .from('income')
-        .select('amount, frequency, is_recurring')
+        .select('*')
         .eq('user_id', current_user.id)
         .gte('date', start)
         .lte('date', end)
 
-      // Calculate monthly income (using current month, inclusive)
+      // Calculate expected income for full month (including future)
       let total_income = 0
       if (income_data) {
-        const today = new Date()
-        const days_in_month = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+        const month_start = startOfMonth(new Date())
+        const month_end = endOfMonth(new Date())
         
         income_data.forEach(inc => {
           const amt = parseFloat(inc.amount.toString())
+          
           if (!inc.is_recurring) {
             // One-time income counts fully
             total_income += amt
           } else {
-            // Recurring income: estimate for full month
-            if (inc.frequency === 'monthly') total_income += amt
-            if (inc.frequency === 'bi-weekly') total_income += (amt * days_in_month) / 14
-            if (inc.frequency === 'weekly') total_income += (amt * days_in_month) / 7
-            if (inc.frequency === 'yearly') total_income += amt / 12
+            // Recurring income: count actual occurrences in this month
+            const occurrences = count_income_occurrences_dashboard(
+              inc, 
+              month_start, 
+              month_end
+            )
+            total_income += occurrences * amt
           }
         })
       }

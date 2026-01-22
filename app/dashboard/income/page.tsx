@@ -398,6 +398,112 @@ export default function IncomePage() {
     }).reduce((sum, i) => sum + parseFloat(i.amount.toString()), 0)
   }
 
+  // Calculate actual income earned so far this month
+  const get_actual_earned = () => {
+    const [year, month] = filter_month.split('-')
+    const start = startOfMonth(new Date(parseInt(year), parseInt(month) - 1))
+    const end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1))
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    let total = 0
+    
+    income.forEach(inc => {
+      const amt = parseFloat(inc.amount.toString())
+      
+      if (!inc.is_recurring) {
+        // One-time income: count if date is in month AND has passed
+        const income_date = new Date(inc.date)
+        if (income_date >= start && income_date <= end && income_date <= today) {
+          total += amt
+        }
+      } else {
+        // Recurring income: count actual occurrences that have passed
+        const occurrences = count_income_occurrences(inc, start, end, today)
+        total += occurrences * amt
+      }
+    })
+    
+    return total
+  }
+  
+  // Calculate expected income remaining this month
+  const get_expected_remaining = () => {
+    const [year, month] = filter_month.split('-')
+    const start = startOfMonth(new Date(parseInt(year), parseInt(month) - 1))
+    const end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1))
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const tomorrow = new Date(today)
+    tomorrow.setDate(tomorrow.getDate() + 1)
+    
+    let total = 0
+    
+    income.forEach(inc => {
+      const amt = parseFloat(inc.amount.toString())
+      
+      if (!inc.is_recurring) {
+        // One-time income: count if date is in month AND in future
+        const income_date = new Date(inc.date)
+        if (income_date >= start && income_date <= end && income_date >= tomorrow) {
+          total += amt
+        }
+      } else {
+        // Recurring income: count future occurrences
+        const occurrences = count_income_occurrences(inc, start, end, null, tomorrow)
+        total += occurrences * amt
+      }
+    })
+    
+    return total
+  }
+  
+  // Helper: Count how many times a recurring income occurs in a date range
+  const count_income_occurrences = (
+    income_entry: any, 
+    range_start: Date, 
+    range_end: Date, 
+    cutoff_date?: Date | null,  // Only count up to this date (for past)
+    from_date?: Date  // Only count from this date onwards (for future)
+  ) => {
+    const start_date = new Date(income_entry.date)
+    let count = 0
+    
+    // Determine the actual start of our counting
+    const count_start = from_date && from_date > start_date ? from_date : start_date
+    if (count_start > range_end) return 0
+    
+    // Determine frequency in days
+    let freq_days = 0
+    if (income_entry.frequency === 'weekly') freq_days = 7
+    else if (income_entry.frequency === 'bi-weekly') freq_days = 14
+    else if (income_entry.frequency === 'monthly') freq_days = 30 // approximate, we'll handle monthly specially
+    else if (income_entry.frequency === 'yearly') freq_days = 365
+    
+    if (income_entry.frequency === 'monthly') {
+      // For monthly, count months between dates
+      let current = new Date(count_start)
+      while (current <= range_end) {
+        if (current >= range_start && (!cutoff_date || current <= cutoff_date)) {
+          count++
+        }
+        // Move to next month, same day
+        current = new Date(current.getFullYear(), current.getMonth() + 1, start_date.getDate())
+      }
+    } else {
+      // For weekly, bi-weekly, yearly
+      let current = new Date(count_start)
+      while (current <= range_end) {
+        if (current >= range_start && (!cutoff_date || current <= cutoff_date)) {
+          count++
+        }
+        current.setDate(current.getDate() + freq_days)
+      }
+    }
+    
+    return count
+  }
+
   const get_recurring_monthly = () => {
     return income.reduce((sum, i) => {
       if (!i.is_recurring) return sum
@@ -410,7 +516,8 @@ export default function IncomePage() {
     }, 0)
   }
 
-  const monthly_total = get_monthly_income()
+  const actual_earned = get_actual_earned()
+  const expected_remaining = get_expected_remaining()
   const recurring_estimate = get_recurring_monthly()
 
   // Helper to check if income is expired
@@ -452,21 +559,32 @@ export default function IncomePage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-2 md:gap-6 mb-3 md:mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-2 md:gap-6 mb-3 md:mb-6">
           <div className="bg-gradient-to-br from-emerald-500 to-emerald-600 text-white rounded-lg p-3 md:p-6">
             <div className="flex items-center justify-between mb-1 md:mb-2">
-              <span className="text-xs md:text-sm opacity-90">Income This Month</span>
+              <span className="text-xs md:text-sm opacity-90">Earned This Month</span>
               <TrendingUp size={16} />
             </div>
-            <div className="text-2xl md:text-4xl font-bold">${monthly_total.toFixed(2)}</div>
+            <div className="text-2xl md:text-4xl font-bold">${actual_earned.toFixed(2)}</div>
             <div className="text-xs mt-1 md:mt-2 opacity-80">
-              {format(new Date(parseInt(filter_month.split('-')[0]), parseInt(filter_month.split('-')[1]) - 1, 1), 'MMMM yyyy')}
+              Received so far in {format(new Date(parseInt(filter_month.split('-')[0]), parseInt(filter_month.split('-')[1]) - 1, 1), 'MMMM yyyy')}
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-3 md:p-6">
+            <div className="flex items-center justify-between mb-1 md:mb-2">
+              <span className="text-xs md:text-sm opacity-90">Expected Remaining</span>
+              <TrendingUp size={16} />
+            </div>
+            <div className="text-2xl md:text-4xl font-bold">${expected_remaining.toFixed(2)}</div>
+            <div className="text-xs mt-1 md:mt-2 opacity-80">
+              Still to be received this month
             </div>
           </div>
 
           <div className="bg-gradient-to-br from-teal-500 to-teal-600 text-white rounded-lg p-3 md:p-6">
             <div className="flex items-center justify-between mb-1 md:mb-2">
-              <span className="text-xs md:text-sm opacity-90">Estimated Monthly (Recurring)</span>
+              <span className="text-xs md:text-sm opacity-90">Monthly Average (Recurring)</span>
               <TrendingUp size={16} />
             </div>
             <div className="text-2xl md:text-4xl font-bold">${recurring_estimate.toFixed(2)}</div>

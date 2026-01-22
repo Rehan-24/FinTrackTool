@@ -9,6 +9,23 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.2.1',
+    date: '2026-01-09',
+    title: 'CRITICAL FIX: Recurring Income Calculations',
+    features: [
+      'NEW: "Earned This Month" shows actual income received so far',
+      'NEW: "Expected Remaining" shows income still to be received this month',
+      'IMPROVED: Dashboard "Income This Month" now counts actual occurrences',
+    ],
+    bugFixes: [
+      'CRITICAL FIX: Bi-weekly income now properly counts 3 paychecks in months like January',
+      'FIXED: Recurring income calculations now count actual pay dates, not estimates',
+      'FIXED: Weekly/bi-weekly/monthly income accurately reflects real occurrences',
+      'FIXED: Income page now shows accurate totals for recurring payments',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.2.0',
     date: '2026-01-09',
     title: 'Improved Transaction Filters - Search Button',
