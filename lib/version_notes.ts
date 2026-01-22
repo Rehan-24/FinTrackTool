@@ -9,6 +9,22 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.2.0',
+    date: '2026-01-09',
+    title: 'Improved Transaction Filters - Search Button',
+    features: [
+      'NEW: Search button - filters only apply when you click "Search"',
+      'NEW: Month dropdown with all 12 months',
+      'NEW: Year dropdown (±5 years from current)',
+      'NEW: Text search box to find transactions by description',
+      'NEW: Clear Filters button to reset all at once',
+      'IMPROVED: No more page reloading while typing',
+      'IMPROVED: Cleaner, more responsive filter experience',
+    ],
+    bugFixes: [],
+    breaking: [],
+  },
+  {
     version: '5.1.5',
     date: '2026-01-09',
     title: 'CRITICAL FIX: Recurring Expenses Now Generate Actual Purchases',

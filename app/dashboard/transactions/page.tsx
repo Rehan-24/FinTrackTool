@@ -41,12 +41,24 @@ export default function TransactionsPage() {
   const [available_payment_methods, setAvailablePaymentMethods] = useState<string[]>([])
   const [loading, setLoading] = useState(true)
   
-  // Filters
-  const [filter_month, setFilterMonth] = useState<string>(format(new Date(), 'yyyy-MM'))
-  const [filter_category, setFilterCategory] = useState<string>('all')
-  const [filter_type, setFilterType] = useState<string>('all') // all, actual, projected
-  const [filter_tag, setFilterTag] = useState<string>('all')
-  const [filter_payment_method, setFilterPaymentMethod] = useState<string>('all')
+  // Current applied filters (what's actually filtering the data)
+  const [applied_month, setAppliedMonth] = useState<string>(format(new Date(), 'MMMM'))
+  const [applied_year, setAppliedYear] = useState<string>(format(new Date(), 'yyyy'))
+  const [applied_category, setAppliedCategory] = useState<string>('all')
+  const [applied_type, setAppliedType] = useState<string>('all')
+  const [applied_tag, setAppliedTag] = useState<string>('all')
+  const [applied_payment_method, setAppliedPaymentMethod] = useState<string>('all')
+  const [applied_search_text, setAppliedSearchText] = useState<string>('')
+  
+  // Draft filters (what user is currently selecting before clicking Search)
+  const [draft_month, setDraftMonth] = useState<string>(format(new Date(), 'MMMM'))
+  const [draft_year, setDraftYear] = useState<string>(format(new Date(), 'yyyy'))
+  const [draft_category, setDraftCategory] = useState<string>('all')
+  const [draft_type, setDraftType] = useState<string>('all')
+  const [draft_tag, setDraftTag] = useState<string>('all')
+  const [draft_payment_method, setDraftPaymentMethod] = useState<string>('all')
+  const [draft_search_text, setDraftSearchText] = useState<string>('')
+  
   const [chart_view, setChartView] = useState<'categories' | 'tags'>('categories')
 
   // View/Edit modal
@@ -55,7 +67,41 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     load_data()
-  }, [filter_month])
+  }, [applied_month, applied_year])
+
+  const apply_filters = () => {
+    // Copy draft filters to applied filters
+    setAppliedMonth(draft_month)
+    setAppliedYear(draft_year)
+    setAppliedCategory(draft_category)
+    setAppliedType(draft_type)
+    setAppliedTag(draft_tag)
+    setAppliedPaymentMethod(draft_payment_method)
+    setAppliedSearchText(draft_search_text)
+  }
+
+  const clear_filters = () => {
+    const current_month = format(new Date(), 'MMMM')
+    const current_year = format(new Date(), 'yyyy')
+    
+    // Reset draft
+    setDraftMonth(current_month)
+    setDraftYear(current_year)
+    setDraftCategory('all')
+    setDraftType('all')
+    setDraftTag('all')
+    setDraftPaymentMethod('all')
+    setDraftSearchText('')
+    
+    // Apply reset
+    setAppliedMonth(current_month)
+    setAppliedYear(current_year)
+    setAppliedCategory('all')
+    setAppliedType('all')
+    setAppliedTag('all')
+    setAppliedPaymentMethod('all')
+    setAppliedSearchText('')
+  }
 
   const load_data = async () => {
     setLoading(true)
@@ -63,9 +109,13 @@ export default function TransactionsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // Convert month name + year to date
+      const month_names = ['January', 'February', 'March', 'April', 'May', 'June', 
+                          'July', 'August', 'September', 'October', 'November', 'December']
+      const month_index = month_names.indexOf(applied_month)
+      const selected_date = new Date(parseInt(applied_year), month_index, 1)
+      
       // Sync projected purchases for selected month
-      const [year, month] = filter_month.split('-')
-      const selected_date = new Date(parseInt(year), parseInt(month) - 1, 1)
       await sync_projected_purchases(user.id, selected_date)
 
       const start = format(startOfMonth(selected_date), 'yyyy-MM-dd')
@@ -118,15 +168,15 @@ export default function TransactionsPage() {
 
   const filtered_purchases = purchases.filter(p => {
     // Category filter
-    if (filter_category !== 'all' && p.category_id !== filter_category) {
+    if (applied_category !== 'all' && p.category_id !== applied_category) {
       return false
     }
     
     // Type filter
-    if (filter_type === 'actual' && p.is_projected) {
+    if (applied_type === 'actual' && p.is_projected) {
       return false
     }
-    if (filter_type === 'projected') {
+    if (applied_type === 'projected') {
       // Only show truly upcoming (projected AND future date)
       if (!is_truly_upcoming(p)) {
         return false
@@ -134,16 +184,25 @@ export default function TransactionsPage() {
     }
     
     // Tag filter
-    if (filter_tag !== 'all') {
+    if (applied_tag !== 'all') {
       const purchase_tags = p.tags || []
-      if (!purchase_tags.includes(filter_tag)) {
+      if (!purchase_tags.includes(applied_tag)) {
         return false
       }
     }
     
     // Payment method filter
-    if (filter_payment_method !== 'all') {
-      if (p.payment_method !== filter_payment_method) {
+    if (applied_payment_method !== 'all') {
+      if (p.payment_method !== applied_payment_method) {
+        return false
+      }
+    }
+    
+    // Text search filter (search in description)
+    if (applied_search_text.trim() !== '') {
+      const search_lower = applied_search_text.toLowerCase()
+      const description_lower = p.description.toLowerCase()
+      if (!description_lower.includes(search_lower)) {
         return false
       }
     }
@@ -276,27 +335,76 @@ export default function TransactionsPage() {
             <h3 className="text-sm md:text-lg font-semibold text-gray-800">Filters</h3>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {/* Month Dropdown */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
                 Month
               </label>
+              <select
+                value={draft_month}
+                onChange={(e) => setDraftMonth(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
+              </select>
+            </div>
+
+            {/* Year Dropdown */}
+            <div>
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                Year
+              </label>
+              <select
+                value={draft_year}
+                onChange={(e) => setDraftYear(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                {Array.from({ length: 10 }, (_, i) => {
+                  const year = new Date().getFullYear() - 5 + i
+                  return (
+                    <option key={year} value={year.toString()}>
+                      {year}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+
+            {/* Text Search */}
+            <div>
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                Search Description
+              </label>
               <input
-                type="month"
-                value={filter_month}
-                onChange={(e) => setFilterMonth(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                type="text"
+                value={draft_search_text}
+                onChange={(e) => setDraftSearchText(e.target.value)}
+                placeholder="e.g. Amazon, Costco..."
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
 
+            {/* Category */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
                 Category
               </label>
               <select
-                value={filter_category}
-                onChange={(e) => setFilterCategory(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={draft_category}
+                onChange={(e) => setDraftCategory(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Categories</option>
                 {categories.map((cat) => (
@@ -307,14 +415,15 @@ export default function TransactionsPage() {
               </select>
             </div>
 
+            {/* Type */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
                 Type
               </label>
               <select
-                value={filter_type}
-                onChange={(e) => setFilterType(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={draft_type}
+                onChange={(e) => setDraftType(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Transactions</option>
                 <option value="actual">Actual Only</option>
@@ -322,14 +431,15 @@ export default function TransactionsPage() {
               </select>
             </div>
 
+            {/* Tag */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
                 Tag
               </label>
               <select
-                value={filter_tag}
-                onChange={(e) => setFilterTag(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={draft_tag}
+                onChange={(e) => setDraftTag(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Tags</option>
                 {available_tags.map((tag) => (
@@ -340,14 +450,15 @@ export default function TransactionsPage() {
               </select>
             </div>
 
+            {/* Payment Method */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
                 Payment Method
               </label>
               <select
-                value={filter_payment_method}
-                onChange={(e) => setFilterPaymentMethod(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                value={draft_payment_method}
+                onChange={(e) => setDraftPaymentMethod(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 <option value="all">All Payment Methods</option>
                 {available_payment_methods.map((method) => (
@@ -357,6 +468,22 @@ export default function TransactionsPage() {
                 ))}
               </select>
             </div>
+          </div>
+
+          {/* Search and Clear Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={apply_filters}
+              className="flex-1 md:flex-none md:px-6 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+            >
+              Search
+            </button>
+            <button
+              onClick={clear_filters}
+              className="flex-1 md:flex-none md:px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition"
+            >
+              Clear Filters
+            </button>
           </div>
         </div>
 
