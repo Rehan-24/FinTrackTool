@@ -14,12 +14,20 @@ type MonthlyData = {
   spending: number
   net_cashflow: number
   purchases: Array<{
+    id: string
     date: string
     description: string
     category: string
+    category_id: string
+    category_color: string
     amount: number
+    total_amount: number
+    actual_cost: number
     is_split: boolean
     is_projected: boolean
+    tags: string[] | null
+    payment_method: string | null
+    full_purchase: any
   }>
   categories: Array<{
     name: string
@@ -50,6 +58,7 @@ export default function MonthlyHistoryPage() {
     prev_spending: number
     prev_income: number
   } | null>(null)
+  const [selected_purchase, setSelectedPurchase] = useState<any>(null)  // For view modal
   const [chart_view, setChartView] = useState<'categories' | 'tags'>('categories')
 
   useEffect(() => {
@@ -195,12 +204,20 @@ export default function MonthlyHistoryPage() {
         spending: total_spending,
         net_cashflow: total_income - total_spending,
         purchases: (purchases || []).map(p => ({
+          id: p.id,
           date: p.date,
           description: p.description,
           category: p.category.name,
+          category_id: p.category_id,
+          category_color: p.category.color,
           amount: parseFloat(p.actual_cost.toString()),
+          total_amount: parseFloat(p.total_amount.toString()),
+          actual_cost: parseFloat(p.actual_cost.toString()),
           is_split: p.is_split,
-          is_projected: is_truly_upcoming(p) // Only show as projected if truly upcoming
+          is_projected: is_truly_upcoming(p), // Only show as projected if truly upcoming
+          tags: p.tags,
+          payment_method: p.payment_method,
+          full_purchase: p  // Store full purchase for modal
         })),
         categories: categories_with_spent,
         income_sources,
@@ -518,28 +535,38 @@ export default function MonthlyHistoryPage() {
         <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-6 mb-3 md:mb-6">
           <h3 className="text-sm md:text-lg font-semibold text-gray-800 mb-2 md:mb-4">Budget by Category</h3>
           <div className="space-y-2 md:space-y-4">
-            {monthly_data.categories.map((cat, idx) => (
-              <div key={idx}>
-                <div className="flex justify-between items-center mb-1 md:mb-2">
-                  <div className="flex items-center gap-1 md:gap-2">
-                    <div className="w-2 h-2 md:w-3 md:h-3 rounded-full" style={{backgroundColor: cat.color}}></div>
-                    <span className="text-xs md:text-base font-medium text-gray-700">{cat.name}</span>
+            {monthly_data.categories.map((cat, idx) => {
+              const percentage = cat.budget > 0 ? (cat.spent / cat.budget) * 100 : 0
+              const isOverBudget = percentage > 100
+              
+              return (
+                <div key={idx}>
+                  <div className="flex justify-between items-center mb-1 md:mb-2">
+                    <div className="flex items-center gap-1 md:gap-2">
+                      <div className="w-2 h-2 md:w-3 md:h-3 rounded-full" style={{backgroundColor: cat.color}}></div>
+                      <span className="text-xs md:text-base font-medium text-gray-700">{cat.name}</span>
+                    </div>
+                    <span className={`text-xs md:text-base font-medium whitespace-nowrap ml-2 ${isOverBudget ? 'text-red-600' : 'text-gray-600'}`}>
+                      ${cat.spent.toFixed(2)} / ${cat.budget.toFixed(2)}
+                    </span>
                   </div>
-                  <span className="text-xs md:text-base text-gray-600 font-medium whitespace-nowrap ml-2">
-                    ${cat.spent.toFixed(2)} / ${cat.budget.toFixed(2)}
-                  </span>
+                  <div className="w-full bg-gray-200 rounded-full h-1.5 md:h-2.5">
+                    <div 
+                      className="rounded-full h-1.5 md:h-2.5" 
+                      style={{
+                        width: `${Math.min(percentage, 100)}%`, 
+                        backgroundColor: isOverBudget ? '#EF4444' : cat.color
+                      }}
+                    ></div>
+                  </div>
+                  {isOverBudget && (
+                    <div className="text-xs text-red-600 mt-1">
+                      Over budget by ${(cat.spent - cat.budget).toFixed(2)}
+                    </div>
+                  )}
                 </div>
-                <div className="w-full bg-gray-200 rounded-full h-1.5 md:h-2.5">
-                  <div 
-                    className="rounded-full h-1.5 md:h-2.5" 
-                    style={{
-                      width: `${Math.min((cat.spent / cat.budget) * 100, 100)}%`, 
-                      backgroundColor: cat.color
-                    }}
-                  ></div>
-                </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
 
@@ -608,7 +635,11 @@ export default function MonthlyHistoryPage() {
                   </tr>
                 ) : (
                   monthly_data.purchases.map((purchase, idx) => (
-                    <tr key={idx} className={`hover:bg-gray-50 ${purchase.is_projected ? 'bg-yellow-50' : ''}`}>
+                    <tr 
+                      key={idx} 
+                      onClick={() => setSelectedPurchase(purchase.full_purchase)}
+                      className={`cursor-pointer transition ${purchase.is_projected ? 'bg-yellow-50 hover:bg-yellow-100' : 'hover:bg-gray-100'}`}
+                    >
                       <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap text-gray-600">
                         {format(new Date(purchase.date), 'MMM d')}
                       </td>
@@ -835,6 +866,104 @@ export default function MonthlyHistoryPage() {
           </div>
         )}
       </div>
+
+      {/* View Transaction Modal */}
+      {selected_purchase && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Transaction Details</h2>
+                <button
+                  onClick={() => setSelectedPurchase(null)}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Date</label>
+                    <div className="text-gray-800">{format(new Date(selected_purchase.date), 'MMM d, yyyy')}</div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Amount</label>
+                    <div className="text-2xl font-bold text-gray-800">
+                      ${parseFloat(selected_purchase.actual_cost.toString()).toFixed(2)}
+                    </div>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Description</label>
+                  <div className="text-gray-800">{selected_purchase.description}</div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-gray-500 mb-1">Category</label>
+                  <div className="flex items-center gap-2">
+                    <div
+                      className="w-4 h-4 rounded-full"
+                      style={{ backgroundColor: selected_purchase.category.color }}
+                    />
+                    <span className="text-gray-800">{selected_purchase.category.name}</span>
+                  </div>
+                </div>
+
+                {selected_purchase.tags && selected_purchase.tags.length > 0 && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Tags</label>
+                    <div className="flex flex-wrap gap-2">
+                      {selected_purchase.tags.map((tag: string, i: number) => (
+                        <span
+                          key={i}
+                          className="px-3 py-1 bg-blue-100 text-blue-700 text-sm rounded-full"
+                        >
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {selected_purchase.payment_method && (
+                  <div>
+                    <label className="block text-sm font-medium text-gray-500 mb-1">Payment Method</label>
+                    <div className="text-gray-800">{selected_purchase.payment_method}</div>
+                  </div>
+                )}
+
+                {selected_purchase.is_split && (
+                  <div className="bg-blue-50 p-4 rounded-lg">
+                    <label className="block text-sm font-medium text-blue-700 mb-2">Split Payment</label>
+                    <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div>
+                        <span className="text-blue-600">Total:</span>
+                        <span className="ml-2 font-medium">${parseFloat(selected_purchase.total_amount.toString()).toFixed(2)}</span>
+                      </div>
+                      <div>
+                        <span className="text-blue-600">Your cost:</span>
+                        <span className="ml-2 font-medium">${parseFloat(selected_purchase.actual_cost.toString()).toFixed(2)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                <div className="flex gap-3 pt-4">
+                  <button
+                    onClick={() => setSelectedPurchase(null)}
+                    className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition"
+                  >
+                    Close
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

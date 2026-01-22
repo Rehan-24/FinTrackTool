@@ -58,6 +58,12 @@ export default function IncomePage() {
   const [edit_income, setEditIncome] = useState<Income | null>(null)
   const [filter_month, setFilterMonth] = useState<string>(format(new Date(), 'yyyy-MM'))
   
+  // Draft and applied filters for search button
+  const [applied_month, setAppliedMonth] = useState<string>(format(new Date(), 'MMMM'))
+  const [applied_year, setAppliedYear] = useState<string>(format(new Date(), 'yyyy'))
+  const [draft_month, setDraftMonth] = useState<string>(format(new Date(), 'MMMM'))
+  const [draft_year, setDraftYear] = useState<string>(format(new Date(), 'yyyy'))
+  
   // Form state
   const [source, setSource] = useState('')
   const [amount, setAmount] = useState('')
@@ -80,6 +86,30 @@ export default function IncomePage() {
   useEffect(() => {
     load_income()
   }, [])
+
+  // Update filter_month when applied values change
+  useEffect(() => {
+    const month_names = ['January', 'February', 'March', 'April', 'May', 'June', 
+                        'July', 'August', 'September', 'October', 'November', 'December']
+    const month_index = month_names.indexOf(applied_month) + 1
+    const month_str = month_index.toString().padStart(2, '0')
+    setFilterMonth(`${applied_year}-${month_str}`)
+  }, [applied_month, applied_year])
+
+  const apply_filters = () => {
+    setAppliedMonth(draft_month)
+    setAppliedYear(draft_year)
+  }
+
+  const clear_filters = () => {
+    const current_month = format(new Date(), 'MMMM')
+    const current_year = format(new Date(), 'yyyy')
+    
+    setDraftMonth(current_month)
+    setDraftYear(current_year)
+    setAppliedMonth(current_month)
+    setAppliedYear(current_year)
+  }
 
   const load_income = async () => {
     try {
@@ -596,15 +626,71 @@ export default function IncomePage() {
 
         {/* Filter */}
         <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-6 mb-3 md:mb-6">
-          <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
-            View Month
-          </label>
-          <input
-            type="month"
-            value={filter_month}
-            onChange={(e) => setFilterMonth(e.target.value)}
-            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-          />
+          <h3 className="text-sm md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Filter</h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Month Dropdown */}
+            <div>
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                Month
+              </label>
+              <select
+                value={draft_month}
+                onChange={(e) => setDraftMonth(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              >
+                <option value="January">January</option>
+                <option value="February">February</option>
+                <option value="March">March</option>
+                <option value="April">April</option>
+                <option value="May">May</option>
+                <option value="June">June</option>
+                <option value="July">July</option>
+                <option value="August">August</option>
+                <option value="September">September</option>
+                <option value="October">October</option>
+                <option value="November">November</option>
+                <option value="December">December</option>
+              </select>
+            </div>
+
+            {/* Year Dropdown */}
+            <div>
+              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                Year
+              </label>
+              <select
+                value={draft_year}
+                onChange={(e) => setDraftYear(e.target.value)}
+                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+              >
+                {Array.from({ length: 10 }, (_, i) => {
+                  const year = new Date().getFullYear() - 5 + i
+                  return (
+                    <option key={year} value={year.toString()}>
+                      {year}
+                    </option>
+                  )
+                })}
+              </select>
+            </div>
+          </div>
+
+          {/* Search and Clear Buttons */}
+          <div className="flex gap-3">
+            <button
+              onClick={apply_filters}
+              className="flex-1 md:flex-none md:px-6 py-2 bg-emerald-600 text-white rounded-lg font-medium hover:bg-emerald-700 transition"
+            >
+              Search
+            </button>
+            <button
+              onClick={clear_filters}
+              className="flex-1 md:flex-none md:px-6 py-2 bg-gray-100 text-gray-700 rounded-lg font-medium hover:bg-gray-200 transition"
+            >
+              Clear Filters
+            </button>
+          </div>
         </div>
 
         {/* Add/Edit Form Modal */}

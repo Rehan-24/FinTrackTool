@@ -9,6 +9,20 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.2.2',
+    date: '2026-01-09',
+    title: 'History & Income Page Improvements',
+    features: [
+      'NEW: History page transactions are now clickable to view details',
+      'NEW: History page shows overspent categories with red indicator and amount',
+      'NEW: Income page uses Month/Year dropdowns with Search button',
+      'IMPROVED: Consistent filter UX across Transactions and Income pages',
+      'IMPROVED: History page category bars turn red when over budget',
+    ],
+    bugFixes: [],
+    breaking: [],
+  },
+  {
     version: '5.2.1',
     date: '2026-01-09',
     title: 'CRITICAL FIX: Recurring Income Calculations',

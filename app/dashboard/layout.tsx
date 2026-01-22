@@ -89,7 +89,7 @@ export default function DashboardLayout({
             onClick={() => window.dispatchEvent(new CustomEvent('show-version-notes'))}
             className="text-xs text-gray-500 mt-1 hover:text-blue-600 cursor-pointer transition"
           >
-            v5.2.1
+            v5.2.2
           </button>
         </div>
         
