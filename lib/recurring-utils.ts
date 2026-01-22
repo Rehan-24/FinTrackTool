@@ -84,40 +84,111 @@ export async function sync_projected_purchases(user_id: string, month: Date) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // Delete only FUTURE projected purchases for this month
-  // Keep past ones (they represent paid recurring expenses)
+  // STEP 1: Convert past projected purchases to actual purchases
+  // Get all projected purchases that have passed
+  const { data: past_projected } = await supabase
+    .from('purchases')
+    .select('*')
+    .eq('user_id', user_id)
+    .eq('is_projected', true)
+    .lt('date', today.toISOString().split('T')[0])  // Past dates only
+    .gte('date', start.toISOString().split('T')[0])  // Within this month
+    .lte('date', end.toISOString().split('T')[0])
+
+  // Convert each past projected purchase to actual
+  if (past_projected && past_projected.length > 0) {
+    for (const purchase of past_projected) {
+      await supabase
+        .from('purchases')
+        .update({ is_projected: false })  // Mark as actual, no longer projected
+        .eq('id', purchase.id)
+    }
+  }
+
+  // STEP 2: Delete only FUTURE projected purchases for this month
+  // This allows us to regenerate them fresh
   await supabase
     .from('purchases')
     .delete()
     .eq('user_id', user_id)
     .eq('is_projected', true)
-    .gte('date', today.toISOString().split('T')[0])  // Only future dates
+    .gte('date', today.toISOString().split('T')[0])  // Only today and future dates
     .lte('date', end.toISOString().split('T')[0])
 
-  // Generate new projected purchases for the entire month
+  // STEP 3: Generate new projected purchases for the entire month
   const projected = await generate_projected_purchases(user_id, start, end)
 
   if (projected && projected.length > 0) {
-    // Only insert future projected purchases
-    const future_projected = projected.filter(p => {
+    // Split into past and future
+    const past_purchases = []
+    const future_projected = []
+    
+    for (const p of projected) {
       const purchase_date = new Date(p.date)
       purchase_date.setHours(0, 0, 0, 0)
-      return purchase_date >= today
-    })
+      
+      if (purchase_date < today) {
+        // Past date - insert as actual purchase (not projected)
+        past_purchases.push({
+          ...p,
+          is_projected: false  // Mark as actual immediately
+        })
+      } else {
+        // Future date - insert as projected
+        future_projected.push(p)
+      }
+    }
     
+    // Insert past purchases as actual
+    if (past_purchases.length > 0) {
+      for (const purchase of past_purchases) {
+        const { error } = await supabase
+          .from('purchases')
+          .insert(purchase)
+        
+        if (error && !error.message.includes('duplicate') && !error.message.includes('unique')) {
+          console.error('[Sync] Error inserting past purchase:', error)
+        }
+      }
+    }
+    
+    // Insert future purchases as projected
     if (future_projected.length > 0) {
-      // Insert each purchase individually to handle duplicates gracefully
-      // This prevents partial failures from race conditions
       for (const purchase of future_projected) {
         const { error } = await supabase
           .from('purchases')
           .insert(purchase)
         
-        // Ignore duplicate errors (happens if another sync is running)
         if (error && !error.message.includes('duplicate') && !error.message.includes('unique')) {
           console.error('[Sync] Error inserting projected purchase:', error)
         }
       }
+    }
+  }
+}
+
+// Convert all past projected purchases to actual purchases
+// Run this periodically to catch any that were missed
+export async function convert_past_projected_to_actual(user_id: string) {
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+
+  // Get all projected purchases with dates in the past
+  const { data: past_projected } = await supabase
+    .from('purchases')
+    .select('*')
+    .eq('user_id', user_id)
+    .eq('is_projected', true)
+    .lt('date', today.toISOString().split('T')[0])
+
+  if (past_projected && past_projected.length > 0) {
+    console.log(`[Cleanup] Converting ${past_projected.length} past projected purchases to actual`)
+    
+    for (const purchase of past_projected) {
+      await supabase
+        .from('purchases')
+        .update({ is_projected: false })
+        .eq('id', purchase.id)
     }
   }
 }

@@ -9,6 +9,21 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.1.5',
+    date: '2026-01-09',
+    title: 'CRITICAL FIX: Recurring Expenses Now Generate Actual Purchases',
+    features: [],
+    bugFixes: [
+      'CRITICAL FIX: Recurring expenses now properly convert to actual purchases when their date arrives',
+      'FIXED: Past projected purchases are automatically converted to actual purchases',
+      'FIXED: Recurring expenses now appear in transaction history after their date',
+      'FIXED: Recurring expenses now count towards spending totals',
+      'FIXED: NEW recurring expenses backfill past dates in current month as actual purchases',
+      'ADDED: Cleanup function runs on app load to catch any missed conversions',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.1.4',
     date: '2026-01-09',
     title: 'PWA Support - Add to Home Screen',

@@ -84,6 +84,7 @@ CREATE TABLE public.recurring_expenses (
   day_of_week INTEGER, -- 0-6 for weekly, null for others
   is_active BOOLEAN DEFAULT TRUE,
   last_generated DATE,
+  end_date DATE, -- Optional end date for recurring expense
   tags TEXT[], -- Array of tags
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );

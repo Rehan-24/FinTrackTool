@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { sync_projected_purchases } from '@/lib/recurring-utils'
+import { sync_projected_purchases, convert_past_projected_to_actual } from '@/lib/recurring-utils'
 import { VERSION_NOTES, CURRENT_VERSION, VersionNote } from '@/lib/version_notes'
 import { DollarSign, TrendingUp, PieChart, Receipt, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
@@ -71,6 +71,9 @@ export default function DashboardPage() {
       const { data: { user: current_user } } = await supabase.auth.getUser()
       if (!current_user) return
       setUser(current_user)
+
+      // CRITICAL: Convert any past projected purchases to actual before syncing
+      await convert_past_projected_to_actual(current_user.id)
 
       // Sync projected purchases for current month
       await sync_projected_purchases(current_user.id, new Date())
