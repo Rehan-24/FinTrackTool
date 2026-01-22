@@ -84,38 +84,17 @@ export async function sync_projected_purchases(user_id: string, month: Date) {
   const today = new Date()
   today.setHours(0, 0, 0, 0)
 
-  // STEP 1: Convert past projected purchases to actual purchases
-  // Get all projected purchases that have passed
-  const { data: past_projected } = await supabase
-    .from('purchases')
-    .select('*')
-    .eq('user_id', user_id)
-    .eq('is_projected', true)
-    .lt('date', today.toISOString().split('T')[0])  // Past dates only
-    .gte('date', start.toISOString().split('T')[0])  // Within this month
-    .lte('date', end.toISOString().split('T')[0])
-
-  // Convert each past projected purchase to actual
-  if (past_projected && past_projected.length > 0) {
-    for (const purchase of past_projected) {
-      await supabase
-        .from('purchases')
-        .update({ is_projected: false })  // Mark as actual, no longer projected
-        .eq('id', purchase.id)
-    }
-  }
-
-  // STEP 2: Delete only FUTURE projected purchases for this month
-  // This allows us to regenerate them fresh
+  // STEP 1: Delete ALL projected purchases for this month (past and future)
+  // This ensures clean slate before we regenerate them
   await supabase
     .from('purchases')
     .delete()
     .eq('user_id', user_id)
     .eq('is_projected', true)
-    .gte('date', today.toISOString().split('T')[0])  // Only today and future dates
+    .gte('date', start.toISOString().split('T')[0])
     .lte('date', end.toISOString().split('T')[0])
 
-  // STEP 3: Generate new projected purchases for the entire month
+  // STEP 2: Generate new purchases for the entire month
   const projected = await generate_projected_purchases(user_id, start, end)
 
   if (projected && projected.length > 0) {
