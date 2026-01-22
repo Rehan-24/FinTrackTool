@@ -20,7 +20,7 @@ jobs:
           echo "Waking up Finance Tracker at $(date)"
           
           # Ping the health endpoint
-          response=$(curl -s -o /dev/null -w "%{http_code}" https://your-app.onrender.com/api/health)
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://fintrack-zse1.onrender.com/api/health)
           
           if [ $response -eq 200 ]; then
             echo "✅ Site is awake! Response: $response"
