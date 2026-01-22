@@ -9,6 +9,18 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.2.3',
+    date: '2026-01-09',
+    title: 'FIX: History Page Income Calculation',
+    features: [],
+    bugFixes: [
+      'FIXED: History page now uses same income calculation as Dashboard',
+      'FIXED: Bi-weekly income properly counts actual occurrences (e.g., 3 in January)',
+      'FIXED: Income totals now match between Dashboard and History pages',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.2.2',
     date: '2026-01-09',
     title: 'History & Income Page Improvements',

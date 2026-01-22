@@ -77,6 +77,47 @@ export default function MonthlyHistoryPage() {
       const start = format(startOfMonth(selected_month), 'yyyy-MM-dd')
       const end = format(endOfMonth(selected_month), 'yyyy-MM-dd')
 
+      // Helper: Count how many times a recurring income occurs in a date range
+      const count_income_occurrences = (
+        income_entry: any, 
+        range_start: Date, 
+        range_end: Date
+      ) => {
+        const start_date = new Date(income_entry.date)
+        let count = 0
+        
+        if (start_date > range_end) return 0
+        
+        // Determine frequency in days
+        let freq_days = 0
+        if (income_entry.frequency === 'weekly') freq_days = 7
+        else if (income_entry.frequency === 'bi-weekly') freq_days = 14
+        else if (income_entry.frequency === 'monthly') freq_days = 30
+        else if (income_entry.frequency === 'yearly') freq_days = 365
+        
+        if (income_entry.frequency === 'monthly') {
+          // For monthly, count months between dates
+          let current = new Date(start_date)
+          while (current <= range_end) {
+            if (current >= range_start) {
+              count++
+            }
+            current = new Date(current.getFullYear(), current.getMonth() + 1, start_date.getDate())
+          }
+        } else {
+          // For weekly, bi-weekly, yearly
+          let current = new Date(start_date)
+          while (current <= range_end) {
+            if (current >= range_start) {
+              count++
+            }
+            current.setDate(current.getDate() + freq_days)
+          }
+        }
+        
+        return count
+      }
+
       // Get purchases (including projected)
       const { data: purchases } = await supabase
         .from('purchases')
@@ -145,6 +186,9 @@ export default function MonthlyHistoryPage() {
       }> = []
 
       if (income_data) {
+        const month_start = startOfMonth(selected_month)
+        const month_end = endOfMonth(selected_month)
+        
         income_data.forEach(inc => {
           const amt = parseFloat(inc.amount.toString())
           income_sources.push({
@@ -156,12 +200,16 @@ export default function MonthlyHistoryPage() {
           })
 
           if (!inc.is_recurring) {
+            // One-time income counts fully
             total_income += amt
           } else {
-            if (inc.frequency === 'monthly') total_income += amt
-            if (inc.frequency === 'bi-weekly') total_income += amt * 2.17
-            if (inc.frequency === 'weekly') total_income += amt * 4.33
-            if (inc.frequency === 'yearly') total_income += amt / 12
+            // Recurring income: count actual occurrences in this month
+            const occurrences = count_income_occurrences(
+              inc, 
+              month_start, 
+              month_end
+            )
+            total_income += occurrences * amt
           }
         })
       }
