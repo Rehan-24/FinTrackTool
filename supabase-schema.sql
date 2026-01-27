@@ -54,6 +54,24 @@ CREATE TABLE public.purchases (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Split payments table (detailed tracking of who owes what)
+CREATE TABLE public.split_payments (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  purchase_id UUID REFERENCES public.purchases(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  person_name TEXT NOT NULL,
+  amount_owed NUMERIC(10, 2) NOT NULL,
+  is_paid_back BOOLEAN DEFAULT FALSE,
+  paid_back_date DATE,
+  notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
+);
+
+CREATE INDEX idx_split_payments_purchase ON public.split_payments(purchase_id);
+CREATE INDEX idx_split_payments_user ON public.split_payments(user_id);
+CREATE INDEX idx_split_payments_status ON public.split_payments(is_paid_back);
+
 -- Assets table
 CREATE TABLE public.assets (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,

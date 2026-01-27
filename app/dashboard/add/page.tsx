@@ -43,6 +43,31 @@ export default function AddPurchasePage() {
   // Custom split amount
   const [custom_owed_back, setCustomOwedBack] = useState('')
   const [use_custom_split, setUseCustomSplit] = useState(false)
+  
+  // Split payment tracking (v5.3)
+  type SplitPerson = {
+    name: string
+    amount: string
+  }
+  const [split_people, setSplitPeople] = useState<SplitPerson[]>([{ name: '', amount: '' }])
+
+  // Update split_people array when num_people changes
+  useEffect(() => {
+    if (is_split && num_people) {
+      const num = parseInt(num_people)
+      if (num >= 2) {
+        // Create array for everyone except the user
+        const people_count = num - 1
+        setSplitPeople(prev => {
+          const new_array = Array(people_count).fill(null).map((_, i) => ({
+            name: prev[i]?.name || '',
+            amount: prev[i]?.amount || ''
+          }))
+          return new_array
+        })
+      }
+    }
+  }, [num_people, is_split])
 
   // Notes
   const [notes, setNotes] = useState('')
@@ -245,6 +270,35 @@ export default function AddPurchasePage() {
       }
 
       console.log('Successfully inserted purchase:', inserted)
+
+      // Insert split payment details if it's a split payment
+      if (is_split && inserted && inserted[0]) {
+        const purchase_id = inserted[0].id
+        
+        // Filter out empty names and prepare split records
+        const split_records = split_people
+          .filter(person => person.name.trim() !== '')
+          .map(person => ({
+            purchase_id,
+            user_id: user.id,
+            person_name: person.name.trim(),
+            amount_owed: use_custom_split && person.amount 
+              ? parseFloat(person.amount) 
+              : parseFloat(total_amount) / parseInt(num_people),
+            is_paid_back: false
+          }))
+
+        if (split_records.length > 0) {
+          const { error: split_error } = await supabase
+            .from('split_payments')
+            .insert(split_records)
+
+          if (split_error) {
+            console.error('Error inserting split payments:', split_error)
+            // Don't fail the whole transaction, just log it
+          }
+        }
+      }
 
       router.push('/dashboard')
     } catch (err) {
@@ -532,6 +586,59 @@ export default function AddPurchasePage() {
                     </div>
                   )}
 
+                  {/* People Who Owe */}
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Who owes you money?
+                    </label>
+                    <div className="space-y-3">
+                      {split_people.map((person, index) => (
+                        <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">Name</label>
+                              <input
+                                type="text"
+                                value={person.name}
+                                onChange={(e) => {
+                                  const new_people = [...split_people]
+                                  new_people[index].name = e.target.value
+                                  setSplitPeople(new_people)
+                                }}
+                                placeholder={`Person ${index + 1}`}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs text-gray-600 mb-1">Amount Owed</label>
+                              <div className="relative">
+                                <span className="absolute left-3 top-2 text-gray-500 text-sm">$</span>
+                                <input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={person.amount}
+                                  onChange={(e) => {
+                                    const new_people = [...split_people]
+                                    new_people[index].amount = e.target.value
+                                    setSplitPeople(new_people)
+                                  }}
+                                  placeholder={
+                                    total_amount && !use_custom_split
+                                      ? (parseFloat(total_amount) / parseInt(num_people)).toFixed(2)
+                                      : '0.00'
+                                  }
+                                  disabled={!use_custom_split}
+                                  className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 text-sm disabled:bg-gray-50"
+                                />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
                   {/* Custom Split Toggle */}
                   <div className="flex items-center gap-2">
                     <input
@@ -545,46 +652,6 @@ export default function AddPurchasePage() {
                       Use custom split (uneven amounts)
                     </label>
                   </div>
-
-                  {/* Custom Amount Input */}
-                  {use_custom_split && (
-                    <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Amount Owed Back to You
-                      </label>
-                      <div className="relative">
-                        <span className="absolute left-4 top-3 text-gray-500">$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          max={total_amount ? parseFloat(total_amount).toString() : undefined}
-                          value={custom_owed_back}
-                          onChange={(e) => setCustomOwedBack(e.target.value)}
-                          placeholder="0.00"
-                          className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
-                        />
-                      </div>
-                      {total_amount && custom_owed_back && (
-                        <div className="mt-3 bg-white rounded p-3 text-sm">
-                          <div className="flex justify-between mb-1">
-                            <span className="text-gray-600">Total:</span>
-                            <span className="font-semibold">${parseFloat(total_amount).toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between mb-1">
-                            <span className="text-gray-600">Owed back to you:</span>
-                            <span className="font-semibold text-green-600">${parseFloat(custom_owed_back).toFixed(2)}</span>
-                          </div>
-                          <div className="flex justify-between border-t border-gray-200 pt-1 mt-1">
-                            <span className="text-gray-600">Your actual cost:</span>
-                            <span className="font-semibold text-blue-600">
-                              ${(parseFloat(total_amount) - parseFloat(custom_owed_back)).toFixed(2)}
-                            </span>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
                 </div>
               )}
             </div>

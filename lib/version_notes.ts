@@ -9,6 +9,24 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.3.0',
+    date: '2026-01-09',
+    title: 'Split Payment Tracking System',
+    features: [
+      'NEW: Splits page to track all split payments',
+      'NEW: Add names when creating split payments',
+      'NEW: Track who owes you money and amounts',
+      'NEW: Mark payments as paid/unpaid with click',
+      'NEW: View payment status per person',
+      'NEW: Filter by Open/Completed status',
+      'NEW: Summary cards showing totals',
+      'IMPROVED: Split payment UI with individual person fields',
+      'IMPROVED: Even split or custom amounts per person',
+    ],
+    bugFixes: [],
+    breaking: [],
+  },
+  {
     version: '5.2.5',
     date: '2026-01-09',
     title: 'Split Payment Filter',
