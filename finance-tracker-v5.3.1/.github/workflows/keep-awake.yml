@@ -1,0 +1,35 @@
+name: Keep Render Awake (Business Hours)
+
+on:
+  schedule:
+    # Ping every 10 minutes during business hours (6 AM - 10 PM Pacific)
+    # 6 AM PT = 2 PM UTC
+    # 10 PM PT = 6 AM UTC (next day)
+    
+    # Weekdays: 6 AM - 10 PM PT (14:00-06:00 UTC, wraps to next day)
+    - cron: '*/10 14-23 * * 1-5'  # 6 AM - 11:50 PM PT
+    - cron: '*/10 0-6 * * 2-6'    # 12:00 AM - 10 PM PT (next day portion)
+    
+    # Weekends: 8 AM - 10 PM PT (16:00-06:00 UTC)
+    - cron: '*/10 16-23 * * 0,6'  # 8 AM - 11:50 PM PT
+    - cron: '*/10 0-6 * * 0,1'    # 12:00 AM - 10 PM PT (next day portion)
+  
+  # Allow manual trigger for testing
+  workflow_dispatch:
+
+jobs:
+  ping-health:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Ping health endpoint
+        run: |
+          echo "Pinging Finance Tracker at $(date)"
+          
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://your-app.onrender.com/api/health)
+          
+          if [ $response -eq 200 ]; then
+            echo "✅ Health check passed: $response"
+          else
+            echo "⚠️ Health check returned: $response"
+          fi

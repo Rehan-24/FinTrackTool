@@ -9,22 +9,6 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
-    version: '5.3.2',
-    date: '2026-01-09',
-    title: 'Split Payment Calculation Fix & Transaction Editing',
-    features: [
-      'NEW: Edit split payment names and amounts in transaction edit modal',
-      'NEW: Add/remove people from splits when editing transactions',
-      'NEW: See total owed back calculated from individual amounts',
-    ],
-    bugFixes: [
-      'FIXED: Custom split calculation - now correctly sums individual amounts',
-      'FIXED: actual_cost now calculated as total - sum(split amounts)',
-      'FIXED: Transactions page shows correct amount paid for custom splits',
-    ],
-    breaking: [],
-  },
-  {
     version: '5.3.1',
     date: '2026-01-09',
     title: 'Edit Split Payments',

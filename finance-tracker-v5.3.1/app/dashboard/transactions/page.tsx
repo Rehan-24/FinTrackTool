@@ -32,14 +32,6 @@ type Purchase = {
     name: string
     color: string
   }
-  split_payments?: SplitPayment[]
-}
-
-type SplitPayment = {
-  id: string
-  person_name: string
-  amount_owed: number
-  is_paid_back: boolean
 }
 
 export default function TransactionsPage() {
@@ -152,26 +144,7 @@ export default function TransactionsPage() {
 
       if (cats) setCategories(cats)
       if (purchase_data) {
-        // Fetch split payments for each split purchase
-        const purchases_with_splits = await Promise.all(
-          purchase_data.map(async (purchase: any) => {
-            if (purchase.is_split) {
-              const { data: splits } = await supabase
-                .from('split_payments')
-                .select('id, person_name, amount_owed, is_paid_back')
-                .eq('purchase_id', purchase.id)
-                .order('person_name')
-              
-              return {
-                ...purchase,
-                split_payments: splits || []
-              }
-            }
-            return purchase
-          })
-        )
-        
-        setPurchases(purchases_with_splits)
+        setPurchases(purchase_data)
         
         // Extract all unique tags
         const all_tags = new Set<string>()
@@ -267,44 +240,12 @@ export default function TransactionsPage() {
 
   const handle_save_edit = async (updated_purchase: any) => {
     try {
-      // Extract split_payments from updated_purchase if they exist
-      const { split_payments, ...purchase_update } = updated_purchase
-      
       const { error } = await supabase
         .from('purchases')
-        .update(purchase_update)
+        .update(updated_purchase)
         .eq('id', selected_purchase!.id)
 
       if (error) throw error
-
-      // If split payments were provided, update them
-      if (split_payments && Array.isArray(split_payments)) {
-        // Delete existing split payments for this purchase
-        await supabase
-          .from('split_payments')
-          .delete()
-          .eq('purchase_id', selected_purchase!.id)
-
-        // Insert new split payments
-        const { data: { user } } = await supabase.auth.getUser()
-        if (user) {
-          const splits_to_insert = split_payments
-            .filter((sp: any) => sp.name.trim() !== '')
-            .map((sp: any) => ({
-              purchase_id: selected_purchase!.id,
-              user_id: user.id,
-              person_name: sp.name.trim(),
-              amount_owed: parseFloat(sp.amount),
-              is_paid_back: false
-            }))
-
-          if (splits_to_insert.length > 0) {
-            await supabase
-              .from('split_payments')
-              .insert(splits_to_insert)
-          }
-        }
-      }
 
       setSelectedPurchase(null)
       setIsEditing(false)
@@ -1052,23 +993,6 @@ function EditTransactionForm({
   const [available_tags, setAvailableTags] = useState<string[]>([])
   const [payment_method, setPaymentMethod] = useState(purchase.payment_method || '')
   const [notes, setNotes] = useState(purchase.notes || '')
-  
-  // Split payments state
-  type SplitPerson = {
-    id?: string
-    name: string
-    amount: string
-  }
-  const [split_people, setSplitPeople] = useState<SplitPerson[]>(() => {
-    if (purchase.split_payments && purchase.split_payments.length > 0) {
-      return purchase.split_payments.map(sp => ({
-        id: sp.id,
-        name: sp.person_name,
-        amount: sp.amount_owed.toString()
-      }))
-    }
-    return [{ name: '', amount: '' }]
-  })
 
   // Load available tags on mount
   useEffect(() => {
@@ -1124,7 +1048,6 @@ function EditTransactionForm({
       tags: final_tags.length > 0 ? final_tags : null,
       payment_method: payment_method.trim() || null,
       notes: notes.trim() || null,
-      split_payments: is_split ? split_people : undefined,
     }
 
     onSave(updated)
@@ -1246,81 +1169,29 @@ function EditTransactionForm({
       </div>
 
       {is_split && (
-        <div className="bg-blue-50 p-4 rounded-lg space-y-4">
+        <div className="grid grid-cols-2 gap-4 bg-blue-50 p-4 rounded-lg">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Who owes you money?
-            </label>
-            <div className="space-y-3">
-              {split_people.map((person, index) => (
-                <div key={index} className="bg-white rounded-lg p-3 border border-gray-200">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Name</label>
-                      <input
-                        type="text"
-                        value={person.name}
-                        onChange={(e) => {
-                          const new_people = [...split_people]
-                          new_people[index].name = e.target.value
-                          setSplitPeople(new_people)
-                        }}
-                        placeholder={`Person ${index + 1}`}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs text-gray-600 mb-1">Amount Owed</label>
-                      <div className="relative">
-                        <span className="absolute left-3 top-2 text-gray-500 text-sm">$</span>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={person.amount}
-                          onChange={(e) => {
-                            const new_people = [...split_people]
-                            new_people[index].amount = e.target.value
-                            setSplitPeople(new_people)
-                          }}
-                          placeholder="0.00"
-                          className="w-full pl-7 pr-3 py-2 border border-gray-300 rounded-lg text-sm"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                  {split_people.length > 1 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const new_people = split_people.filter((_, i) => i !== index)
-                        setSplitPeople(new_people)
-                      }}
-                      className="mt-2 text-xs text-red-600 hover:text-red-700"
-                    >
-                      Remove
-                    </button>
-                  )}
-                </div>
-              ))}
+            <label className="block text-sm font-medium text-gray-700 mb-1">Amount Owed Back</label>
+            <div className="relative">
+              <span className="absolute left-3 top-2 text-gray-500">$</span>
+              <input
+                type="number"
+                step="0.01"
+                value={amount_owed_back}
+                onChange={(e) => setAmountOwedBack(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 border border-gray-300 rounded-lg"
+              />
             </div>
           </div>
-          
-          <button
-            type="button"
-            onClick={() => setSplitPeople([...split_people, { name: '', amount: '' }])}
-            className="w-full px-4 py-2 bg-blue-100 text-blue-700 rounded-lg text-sm font-medium hover:bg-blue-200 transition"
-          >
-            + Add Person
-          </button>
-          
-          <div className="bg-white rounded p-3 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-600">Total owed back:</span>
-              <span className="font-semibold text-green-600">
-                ${split_people.reduce((sum, p) => sum + (parseFloat(p.amount) || 0), 0).toFixed(2)}
-              </span>
-            </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-1">People Owing</label>
+            <input
+              type="number"
+              min="1"
+              value={num_people_owing}
+              onChange={(e) => setNumPeopleOwing(e.target.value)}
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg"
+            />
           </div>
         </div>
       )}

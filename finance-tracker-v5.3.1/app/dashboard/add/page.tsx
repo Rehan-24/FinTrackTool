@@ -226,14 +226,9 @@ export default function AddPurchasePage() {
       }
       
       if (is_split) {
-        if (use_custom_split) {
-          // Calculate total owed back from split_people array
-          owed_back = split_people
-            .filter(person => person.name.trim() !== '')
-            .reduce((sum, person) => {
-              const amount = person.amount ? parseFloat(person.amount) : 0
-              return sum + amount
-            }, 0)
+        if (use_custom_split && custom_owed_back) {
+          // Use custom owed back amount
+          owed_back = parseFloat(custom_owed_back)
           actual = total - owed_back
         } else {
           // Use even split
