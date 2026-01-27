@@ -149,6 +149,22 @@ export default function MonthlyHistoryPage() {
         .select('*')
         .eq('user_id', user.id)
 
+      // Get budget history for this specific month
+      const month_year = format(selected_month, 'yyyy-MM')
+      const { data: budget_history } = await supabase
+        .from('category_budget_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('month_year', month_year)
+
+      // Create budget lookup map
+      const budget_map = new Map()
+      if (budget_history) {
+        budget_history.forEach(h => {
+          budget_map.set(h.category_id, h.monthly_budget)
+        })
+      }
+
       // Calculate spending per category (actual + past projected)
       const categories_with_spent = (categories || []).map(cat => {
         const spent = (purchases || [])
@@ -160,9 +176,15 @@ export default function MonthlyHistoryPage() {
             return purchase_date < today
           })
           .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
+        
+        // Use budget history if exists, otherwise use current budget
+        const budget = budget_map.has(cat.id) 
+          ? budget_map.get(cat.id) 
+          : parseFloat(cat.monthly_budget.toString())
+        
         return {
           name: cat.name,
-          budget: parseFloat(cat.monthly_budget.toString()),
+          budget: budget,
           spent,
           color: cat.color
         }

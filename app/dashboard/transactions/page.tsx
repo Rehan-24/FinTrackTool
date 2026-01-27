@@ -166,6 +166,21 @@ export default function TransactionsPage() {
     }
   }
 
+  // Helper to parse date string as local date (not UTC)
+  const parse_local_date = (date_string: string) => {
+    const [year, month, day] = date_string.split('-').map(Number)
+    return new Date(year, month - 1, day)
+  }
+
+  // Helper to check if purchase is truly upcoming (projected AND date in future)
+  const is_truly_upcoming = (purchase: Purchase) => {
+    if (!purchase.is_projected) return false
+    const purchase_date = parse_local_date(purchase.date)
+    const today = new Date()
+    today.setHours(0, 0, 0, 0) // Reset to start of day
+    return purchase_date >= today
+  }
+
   const filtered_purchases = purchases.filter(p => {
     // Category filter
     if (applied_category !== 'all' && p.category_id !== applied_category) {
@@ -209,21 +224,6 @@ export default function TransactionsPage() {
     
     return true
   })
-
-  // Helper to parse date string as local date (not UTC)
-  const parse_local_date = (date_string: string) => {
-    const [year, month, day] = date_string.split('-').map(Number)
-    return new Date(year, month - 1, day)
-  }
-
-  // Helper to check if purchase is truly upcoming (projected AND date in future)
-  const is_truly_upcoming = (purchase: Purchase) => {
-    if (!purchase.is_projected) return false
-    const purchase_date = parse_local_date(purchase.date)
-    const today = new Date()
-    today.setHours(0, 0, 0, 0) // Reset to start of day
-    return purchase_date >= today
-  }
 
   const handle_save_edit = async (updated_purchase: any) => {
     try {

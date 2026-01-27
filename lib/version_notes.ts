@@ -9,6 +9,21 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.2.4',
+    date: '2026-01-09',
+    title: 'Budget History & Transaction Filter Fix',
+    features: [
+      'NEW: Budget changes now only affect current month and future months',
+      'NEW: Historical months preserve their original budget amounts',
+      'NEW: Category budget history tracking prevents retroactive changes',
+    ],
+    bugFixes: [
+      'FIXED: Transactions page "Upcoming" filter crash',
+      'FIXED: Variable initialization error when filtering projected purchases',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.2.3',
     date: '2026-01-09',
     title: 'FIX: History Page Income Calculation',

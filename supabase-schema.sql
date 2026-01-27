@@ -22,6 +22,19 @@ CREATE TABLE public.categories (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
+-- Category budget history table (tracks monthly budget changes)
+CREATE TABLE public.category_budget_history (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  category_id UUID REFERENCES public.categories(id) ON DELETE CASCADE NOT NULL,
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  month_year TEXT NOT NULL, -- Format: 'YYYY-MM'
+  monthly_budget NUMERIC(10, 2) NOT NULL,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(category_id, month_year)
+);
+
+CREATE INDEX idx_category_budget_history_lookup ON public.category_budget_history(category_id, month_year);
+
 -- Purchases table
 CREATE TABLE public.purchases (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,

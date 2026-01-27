@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, Trash2, Settings as SettingsIcon, Edit2, X } from 'lucide-react'
+import { format } from 'date-fns'
 
 type Category = {
   id: string
@@ -89,16 +90,40 @@ export default function SettingsPage() {
     if (!edit_category) return
     
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const new_budget = parseFloat(monthly_budget)
+      const old_budget = parseFloat(edit_category.monthly_budget.toString())
+
+      // Update the category
       const { error } = await supabase
         .from('categories')
         .update({
           name,
-          monthly_budget: parseFloat(monthly_budget),
+          monthly_budget: new_budget,
           color,
         })
         .eq('id', edit_category.id)
 
       if (error) throw error
+
+      // If budget changed, save history for current month onwards
+      if (new_budget !== old_budget) {
+        const current_month = format(new Date(), 'yyyy-MM')
+        
+        // Insert or update budget history for current month
+        await supabase
+          .from('category_budget_history')
+          .upsert({
+            category_id: edit_category.id,
+            user_id: user.id,
+            month_year: current_month,
+            monthly_budget: new_budget
+          }, {
+            onConflict: 'category_id,month_year'
+          })
+      }
 
       setEditCategory(null)
       reset_form()
