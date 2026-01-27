@@ -9,6 +9,19 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.3.3',
+    date: '2026-01-09',
+    title: 'Mark Split as Complete',
+    features: [
+      'NEW: "Mark Complete" button on open split transactions',
+      'NEW: Marks all unpaid splits as paid with one click',
+      'NEW: Automatically sets paid date to today',
+      'IMPROVED: Quick way to close out fully paid splits',
+    ],
+    bugFixes: [],
+    breaking: [],
+  },
+  {
     version: '5.3.2',
     date: '2026-01-09',
     title: 'Split Payment Calculation Fix & Transaction Editing',

@@ -172,6 +172,28 @@ export default function SplitsPage() {
     }
   }
 
+  const mark_all_paid = async (transaction_id: string) => {
+    if (!confirm('Mark all payments for this transaction as paid?')) return
+
+    try {
+      const { error } = await supabase
+        .from('split_payments')
+        .update({
+          is_paid_back: true,
+          paid_back_date: format(new Date(), 'yyyy-MM-dd')
+        })
+        .eq('purchase_id', transaction_id)
+        .eq('is_paid_back', false) // Only update unpaid ones
+
+      if (error) throw error
+
+      load_splits()
+    } catch (err) {
+      console.error('Error marking all as paid:', err)
+      alert('Failed to mark all as paid')
+    }
+  }
+
   const is_transaction_complete = (transaction: SplitTransaction) => {
     if (transaction.split_payments.length === 0) return false
     return transaction.split_payments.every(sp => sp.is_paid_back)
@@ -317,7 +339,15 @@ export default function SplitsPage() {
                     <div className="text-2xl font-bold text-gray-800">
                       ${parseFloat(transaction.total_amount.toString()).toFixed(2)}
                     </div>
-                    <div className="text-sm text-gray-600">Total</div>
+                    <div className="text-sm text-gray-600 mb-2">Total</div>
+                    {!is_complete && (
+                      <button
+                        onClick={() => mark_all_paid(transaction.id)}
+                        className="px-3 py-1 bg-green-600 text-white text-sm rounded-lg font-medium hover:bg-green-700 transition"
+                      >
+                        Mark Complete
+                      </button>
+                    )}
                   </div>
                 </div>
 
