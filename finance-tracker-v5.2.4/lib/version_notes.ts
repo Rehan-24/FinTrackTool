@@ -9,19 +9,6 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
-    version: '5.2.5',
-    date: '2026-01-09',
-    title: 'Split Payment Filter',
-    features: [
-      'NEW: Filter transactions by split payment status',
-      'NEW: "Split Payments Only" option shows only shared expenses',
-      'NEW: "Non-Split Only" option shows only personal expenses',
-      'IMPROVED: Better filtering control for expense analysis',
-    ],
-    bugFixes: [],
-    breaking: [],
-  },
-  {
     version: '5.2.4',
     date: '2026-01-09',
     title: 'Budget History & Transaction Filter Fix',

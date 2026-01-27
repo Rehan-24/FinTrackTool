@@ -1,0 +1,36 @@
+name: Wake Up Render (Morning)
+
+on:
+  schedule:
+    # Wake up at 6 AM Pacific Time (2 PM UTC) on weekdays
+    - cron: '0 14 * * 1-5'
+    # Wake up at 8 AM Pacific Time (4 PM UTC) on weekends
+    - cron: '0 16 * * 0,6'
+  
+  # Allow manual trigger
+  workflow_dispatch:
+
+jobs:
+  wake-render:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Wake up Render site
+        run: |
+          echo "Waking up Finance Tracker at $(date)"
+          
+          # Ping the health endpoint
+          response=$(curl -s -o /dev/null -w "%{http_code}" https://your-app.onrender.com/api/health)
+          
+          if [ $response -eq 200 ]; then
+            echo "✅ Site is awake! Response: $response"
+          else
+            echo "⚠️ Site responded with: $response"
+            echo "Trying again in 10 seconds..."
+            sleep 10
+            
+            response=$(curl -s -o /dev/null -w "%{http_code}" https://your-app.onrender.com/api/health)
+            echo "Second attempt: $response"
+          fi
+          
+          echo "Wake-up complete at $(date)"

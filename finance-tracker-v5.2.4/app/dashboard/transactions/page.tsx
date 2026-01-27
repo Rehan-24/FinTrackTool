@@ -49,7 +49,6 @@ export default function TransactionsPage() {
   const [applied_tag, setAppliedTag] = useState<string>('all')
   const [applied_payment_method, setAppliedPaymentMethod] = useState<string>('all')
   const [applied_search_text, setAppliedSearchText] = useState<string>('')
-  const [applied_split_filter, setAppliedSplitFilter] = useState<string>('all') // all, split, not-split
   
   // Draft filters (what user is currently selecting before clicking Search)
   const [draft_month, setDraftMonth] = useState<string>(format(new Date(), 'MMMM'))
@@ -59,7 +58,6 @@ export default function TransactionsPage() {
   const [draft_tag, setDraftTag] = useState<string>('all')
   const [draft_payment_method, setDraftPaymentMethod] = useState<string>('all')
   const [draft_search_text, setDraftSearchText] = useState<string>('')
-  const [draft_split_filter, setDraftSplitFilter] = useState<string>('all')
   
   const [chart_view, setChartView] = useState<'categories' | 'tags'>('categories')
 
@@ -80,7 +78,6 @@ export default function TransactionsPage() {
     setAppliedTag(draft_tag)
     setAppliedPaymentMethod(draft_payment_method)
     setAppliedSearchText(draft_search_text)
-    setAppliedSplitFilter(draft_split_filter)
   }
 
   const clear_filters = () => {
@@ -95,7 +92,6 @@ export default function TransactionsPage() {
     setDraftTag('all')
     setDraftPaymentMethod('all')
     setDraftSearchText('')
-    setDraftSplitFilter('all')
     
     // Apply reset
     setAppliedMonth(current_month)
@@ -105,7 +101,6 @@ export default function TransactionsPage() {
     setAppliedTag('all')
     setAppliedPaymentMethod('all')
     setAppliedSearchText('')
-    setAppliedSplitFilter('all')
   }
 
   const load_data = async () => {
@@ -216,14 +211,6 @@ export default function TransactionsPage() {
       if (p.payment_method !== applied_payment_method) {
         return false
       }
-    }
-    
-    // Split payment filter
-    if (applied_split_filter === 'split' && !p.is_split) {
-      return false
-    }
-    if (applied_split_filter === 'not-split' && p.is_split) {
-      return false
     }
     
     // Text search filter (search in description)
@@ -479,22 +466,6 @@ export default function TransactionsPage() {
                     {method}
                   </option>
                 ))}
-              </select>
-            </div>
-
-            {/* Split Payment Filter */}
-            <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
-                Split Payment
-              </label>
-              <select
-                value={draft_split_filter}
-                onChange={(e) => setDraftSplitFilter(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                <option value="all">All Transactions</option>
-                <option value="split">Split Payments Only</option>
-                <option value="not-split">Non-Split Only</option>
               </select>
             </div>
           </div>
