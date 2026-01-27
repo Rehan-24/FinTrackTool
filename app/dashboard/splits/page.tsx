@@ -47,7 +47,7 @@ export default function SplitsPage() {
           description,
           total_amount,
           date,
-          category:categories(name, color)
+          categories(name, color)
         `)
         .eq('user_id', user.id)
         .eq('is_split', true)
@@ -60,15 +60,27 @@ export default function SplitsPage() {
 
       // Get split payment details for each purchase
       const purchases_with_splits = await Promise.all(
-        purchases.map(async (purchase) => {
+        purchases.map(async (purchase: any) => {
           const { data: splits } = await supabase
             .from('split_payments')
             .select('*')
             .eq('purchase_id', purchase.id)
             .order('person_name')
 
+          // Extract category from array (Supabase returns it as array)
+          const category = Array.isArray(purchase.categories) 
+            ? purchase.categories[0] 
+            : purchase.categories
+
           return {
-            ...purchase,
+            id: purchase.id,
+            description: purchase.description,
+            total_amount: purchase.total_amount,
+            date: purchase.date,
+            category: {
+              name: category?.name || 'Unknown',
+              color: category?.color || '#gray'
+            },
             split_payments: splits || []
           }
         })
