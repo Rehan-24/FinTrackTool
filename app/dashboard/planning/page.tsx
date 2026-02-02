@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { format, startOfYear, endOfYear, addMonths, startOfMonth } from 'date-fns'
+import { format, startOfYear, endOfYear, addMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { ChevronLeft, ChevronRight, Edit2, TrendingUp, TrendingDown } from 'lucide-react'
 
 type MonthData = {
