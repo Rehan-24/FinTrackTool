@@ -42,38 +42,131 @@ export default function PlanningPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
+      // OPTIMIZED: Fetch data once instead of 12 times
+      
+      // Get all income sources once
+      const { data: income_sources } = await supabase
+        .from('income')
+        .select('*')
+        .eq('user_id', user.id)
+
+      // Get all salary deductions once
+      const income_ids = income_sources?.filter(i => i.is_recurring).map(i => i.id) || []
+      let deductions_map: any = {}
+      
+      if (income_ids.length > 0) {
+        const { data: all_deductions } = await supabase
+          .from('salary_deductions')
+          .select('*')
+          .in('income_id', income_ids)
+        
+        // Map deductions by income_id for fast lookup
+        all_deductions?.forEach(d => {
+          deductions_map[d.income_id] = d
+        })
+      }
+
+      // Get all categories once
+      const { data: categories } = await supabase
+        .from('categories')
+        .select('monthly_budget')
+        .eq('user_id', user.id)
+      
+      const default_budget = categories?.reduce((sum, c) => sum + parseFloat(c.monthly_budget.toString()), 0) || 0
+
+      // Get all planning overrides for the year at once
+      const year_start = format(new Date(year, 0, 1), 'yyyy-MM')
+      const year_end = format(new Date(year, 11, 1), 'yyyy-MM')
+      
+      const { data: all_overrides } = await supabase
+        .from('planning_overrides')
+        .select('*')
+        .eq('user_id', user.id)
+        .gte('month_year', year_start)
+        .lte('month_year', year_end)
+      
+      // Map overrides by month for fast lookup
+      const overrides_map: any = {}
+      all_overrides?.forEach(o => {
+        overrides_map[o.month_year] = o
+      })
+
       const months_data: MonthData[] = []
       
-      // Generate 12 months
+      // Generate 12 months - now using cached data
       for (let i = 0; i < 12; i++) {
         const month_date = addMonths(new Date(year, 0, 1), i)
         const month_year = format(month_date, 'yyyy-MM')
         const month_name = format(month_date, 'MMMM')
+        const month_start = startOfMonth(month_date)
+        const month_end = endOfMonth(month_date)
         
-        // Get planning overrides for this month
-        const { data: override } = await supabase
-          .from('planning_overrides')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('month_year', month_year)
-          .single()
+        const override = overrides_map[month_year]
 
-        // Calculate gross income from recurring income
-        const gross = await calculate_gross_income(user.id, month_date)
+        // Calculate gross income for this month
+        let gross = 0
+        if (income_sources) {
+          for (const source of income_sources) {
+            if (source.is_recurring) {
+              const occurrences = count_occurrences(source, month_start)
+              gross += source.amount * occurrences
+            } else {
+              const income_date = new Date(source.date)
+              if (income_date >= month_start && income_date <= month_end) {
+                gross += source.amount
+              }
+            }
+          }
+        }
         
-        // Calculate net income (gross minus deductions)
-        const net = await calculate_net_income(user.id, month_date, gross)
+        // Calculate net income and savings breakdown
+        let total_deductions = 0
+        let auto_savings = 0
+        let retirement_401k = 0
+        let hsa = 0
         
-        // Get auto savings, 401k, HSA
-        const { auto_savings, retirement_401k, hsa } = await get_savings_breakdown(user.id, month_date)
+        if (income_sources) {
+          for (const source of income_sources) {
+            if (!source.is_recurring) continue
+            
+            const occurrences = count_occurrences(source, month_start)
+            const deductions = deductions_map[source.id]
+            
+            if (deductions) {
+              const monthly_deductions = (
+                (deductions.federal_tax_monthly || 0) +
+                (deductions.state_tax_monthly || 0) +
+                (deductions.local_tax_monthly || 0) +
+                (deductions.fica_monthly || 0) +
+                (deductions.retirement_401k_monthly || 0) +
+                (deductions.hsa_monthly || 0) +
+                (deductions.medical_monthly || 0) +
+                (deductions.dental_monthly || 0) +
+                (deductions.vision_monthly || 0) +
+                (deductions.life_ins_monthly || 0) +
+                (deductions.ad_d_monthly || 0) +
+                (deductions.critical_illness_monthly || 0) +
+                (deductions.hospital_monthly || 0) +
+                (deductions.accident_monthly || 0) +
+                (deductions.legal_monthly || 0) +
+                (deductions.identity_theft_monthly || 0) +
+                (deductions.auto_savings_monthly || 0)
+              ) * occurrences
+              
+              total_deductions += monthly_deductions
+              auto_savings += (deductions.auto_savings_monthly || 0) * occurrences
+              retirement_401k += (deductions.retirement_401k_monthly || 0) * occurrences
+              hsa += (deductions.hsa_monthly || 0) * occurrences
+            }
+          }
+        }
         
-        // Get budget total
-        const budget_total = await calculate_budget(user.id, month_year)
+        const net = gross - total_deductions
         
         // Apply overrides or use defaults
         const gross_income = override?.gross_income_override || gross
         const housing = override?.housing_override || 0
-        const budget = override?.budget_override || budget_total
+        const budget = override?.budget_override || default_budget
         const additional = override?.additional_expenses || 0
         
         const projected = housing + budget + additional
@@ -329,8 +422,37 @@ export default function PlanningPage() {
 
       if (error) throw error
 
+      // OPTIMIZED: Update only the changed month in state instead of reloading all
+      setMonths(prev_months => {
+        return prev_months.map(month => {
+          if (month.month !== editing_month) return month
+
+          // Recalculate this month's values
+          let new_month = { ...month }
+
+          if (edit_field === 'gross') {
+            new_month.gross_income = parseFloat(edit_value)
+          }
+          if (edit_field === 'housing') {
+            new_month.housing = parseFloat(edit_value)
+          }
+          if (edit_field === 'budget') {
+            new_month.budget = parseFloat(edit_value)
+          }
+          if (edit_field === 'additional') {
+            new_month.additional = parseFloat(edit_value)
+          }
+
+          // Recalculate dependent values
+          new_month.projected = new_month.housing + new_month.budget + new_month.additional
+          new_month.savings = new_month.net_income - new_month.projected
+          new_month.savings_rate = new_month.net_income > 0 ? (new_month.savings / new_month.net_income) * 100 : 0
+
+          return new_month
+        })
+      })
+
       close_edit()
-      load_planning_data()
     } catch (err) {
       console.error('Error saving edit:', err)
       alert('Failed to save changes')
