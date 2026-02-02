@@ -9,6 +9,24 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.4.0',
+    date: '2026-02-02',
+    title: 'Planning Page - Yearly Financial Overview',
+    features: [
+      'NEW: Planning page for 12-month financial projections',
+      'NEW: Gross vs Net income breakdown (see take-home pay)',
+      'NEW: Editable columns - customize income, housing, budget, additional expenses',
+      'NEW: Auto-calculated projections and savings',
+      'NEW: Detailed savings breakdown (Auto, 401k, HSA, Cash)',
+      'NEW: Year navigation to plan multiple years',
+      'NEW: Summary cards showing annual totals',
+      'NEW: Color-coded savings rates (green/yellow/red)',
+      'NEW: Click any value to edit and save planning overrides',
+    ],
+    bugFixes: [],
+    breaking: [],
+  },
+  {
     version: '5.3.3',
     date: '2026-01-09',
     title: 'Mark Split as Complete',

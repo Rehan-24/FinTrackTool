@@ -1,0 +1,494 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { supabase } from '@/lib/supabase'
+import { format, startOfYear, endOfYear, addMonths, startOfMonth } from 'date-fns'
+import { ChevronLeft, ChevronRight, Edit2, TrendingUp, TrendingDown } from 'lucide-react'
+
+type MonthData = {
+  month: string // YYYY-MM
+  month_name: string // "January"
+  gross_income: number
+  net_income: number
+  housing: number
+  budget: number
+  additional: number
+  projected: number
+  savings: number
+  savings_rate: number
+  auto_savings: number
+  retirement_401k: number
+  hsa: number
+}
+
+export default function PlanningPage() {
+  const [year, setYear] = useState(new Date().getFullYear())
+  const [months, setMonths] = useState<MonthData[]>([])
+  const [loading, setLoading] = useState(true)
+  
+  // Edit modal state
+  const [editing_month, setEditingMonth] = useState<string | null>(null)
+  const [edit_field, setEditField] = useState<string>('')
+  const [edit_value, setEditValue] = useState('')
+  const [edit_notes, setEditNotes] = useState('')
+
+  useEffect(() => {
+    load_planning_data()
+  }, [year])
+
+  const load_planning_data = async () => {
+    setLoading(true)
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const months_data: MonthData[] = []
+      
+      // Generate 12 months
+      for (let i = 0; i < 12; i++) {
+        const month_date = addMonths(new Date(year, 0, 1), i)
+        const month_year = format(month_date, 'yyyy-MM')
+        const month_name = format(month_date, 'MMMM')
+        
+        // Get planning overrides for this month
+        const { data: override } = await supabase
+          .from('planning_overrides')
+          .select('*')
+          .eq('user_id', user.id)
+          .eq('month_year', month_year)
+          .single()
+
+        // Calculate gross income from recurring income
+        const gross = await calculate_gross_income(user.id, month_date)
+        
+        // Calculate net income (gross minus deductions)
+        const net = await calculate_net_income(user.id, month_date, gross)
+        
+        // Get auto savings, 401k, HSA
+        const { auto_savings, retirement_401k, hsa } = await get_savings_breakdown(user.id, month_date)
+        
+        // Get budget total
+        const budget_total = await calculate_budget(user.id, month_year)
+        
+        // Apply overrides or use defaults
+        const gross_income = override?.gross_income_override || gross
+        const housing = override?.housing_override || 0
+        const budget = override?.budget_override || budget_total
+        const additional = override?.additional_expenses || 0
+        
+        const projected = housing + budget + additional
+        const savings = net - projected
+        const savings_rate = net > 0 ? (savings / net) * 100 : 0
+
+        months_data.push({
+          month: month_year,
+          month_name,
+          gross_income,
+          net_income: net,
+          housing,
+          budget,
+          additional,
+          projected,
+          savings,
+          savings_rate,
+          auto_savings,
+          retirement_401k,
+          hsa
+        })
+      }
+
+      setMonths(months_data)
+    } catch (err) {
+      console.error('Error loading planning data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const calculate_gross_income = async (user_id: string, month_date: Date): Promise<number> => {
+    // Get all recurring income
+    const { data: income_sources } = await supabase
+      .from('recurring_income')
+      .select('*')
+      .eq('user_id', user_id)
+
+    if (!income_sources) return 0
+
+    let total = 0
+    const month_start = startOfMonth(month_date)
+    
+    for (const source of income_sources) {
+      const occurrences = count_occurrences(source, month_start)
+      total += source.amount * occurrences
+    }
+
+    return total
+  }
+
+  const calculate_net_income = async (user_id: string, month_date: Date, gross: number): Promise<number> => {
+    // Get deductions from recurring income
+    const { data: income_sources } = await supabase
+      .from('recurring_income')
+      .select('*')
+      .eq('user_id', user_id)
+
+    if (!income_sources) return gross
+
+    let total_deductions = 0
+    const month_start = startOfMonth(month_date)
+    
+    for (const source of income_sources) {
+      const occurrences = count_occurrences(source, month_start)
+      const deductions = (
+        (source.federal_tax || 0) +
+        (source.state_tax || 0) +
+        (source.local_tax || 0) +
+        (source.fica_tax || 0) +
+        (source.retirement_401k || 0) +
+        (source.hsa_contribution || 0) +
+        (source.health_insurance || 0) +
+        (source.dental_insurance || 0) +
+        (source.vision_insurance || 0) +
+        (source.life_insurance || 0) +
+        (source.disability_insurance || 0) +
+        (source.fsa_contribution || 0) +
+        (source.other_deductions || 0) +
+        (source.auto_savings || 0)
+      ) * occurrences
+      
+      total_deductions += deductions
+    }
+
+    return gross - total_deductions
+  }
+
+  const get_savings_breakdown = async (user_id: string, month_date: Date) => {
+    const { data: income_sources } = await supabase
+      .from('recurring_income')
+      .select('*')
+      .eq('user_id', user_id)
+
+    if (!income_sources) return { auto_savings: 0, retirement_401k: 0, hsa: 0 }
+
+    let auto_savings = 0
+    let retirement_401k = 0
+    let hsa = 0
+    const month_start = startOfMonth(month_date)
+    
+    for (const source of income_sources) {
+      const occurrences = count_occurrences(source, month_start)
+      auto_savings += (source.auto_savings || 0) * occurrences
+      retirement_401k += (source.retirement_401k || 0) * occurrences
+      hsa += (source.hsa_contribution || 0) * occurrences
+    }
+
+    return { auto_savings, retirement_401k, hsa }
+  }
+
+  const calculate_budget = async (user_id: string, month_year: string): Promise<number> => {
+    // Check budget history first
+    const { data: history } = await supabase
+      .from('category_budget_history')
+      .select('monthly_budget')
+      .eq('user_id', user_id)
+      .eq('month_year', month_year)
+
+    if (history && history.length > 0) {
+      return history.reduce((sum, h) => sum + parseFloat(h.monthly_budget.toString()), 0)
+    }
+
+    // Use current budgets
+    const { data: categories } = await supabase
+      .from('categories')
+      .select('monthly_budget')
+      .eq('user_id', user_id)
+
+    if (!categories) return 0
+
+    return categories.reduce((sum, c) => sum + parseFloat(c.monthly_budget.toString()), 0)
+  }
+
+  const count_occurrences = (income: any, month_start: Date): number => {
+    const frequency = income.frequency
+    if (!frequency) return 0
+
+    if (frequency === 'Monthly') return 1
+    if (frequency === 'Bi-weekly') {
+      // Count bi-weekly occurrences in month
+      // Simplified: 2 or 3 depending on month
+      const weeks_in_month = 4.33
+      return Math.floor(weeks_in_month / 2)
+    }
+    if (frequency === 'Weekly') return 4
+    if (frequency === 'Semi-monthly') return 2
+    
+    return 0
+  }
+
+  const open_edit = (month: string, field: string, current_value: number, notes?: string) => {
+    setEditingMonth(month)
+    setEditField(field)
+    setEditValue(current_value.toString())
+    setEditNotes(notes || '')
+  }
+
+  const save_edit = async () => {
+    if (!editing_month) return
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const update_data: any = {
+        user_id: user.id,
+        month_year: editing_month
+      }
+
+      if (edit_field === 'gross') update_data.gross_income_override = parseFloat(edit_value)
+      if (edit_field === 'housing') {
+        update_data.housing_override = parseFloat(edit_value)
+        update_data.housing_notes = edit_notes
+      }
+      if (edit_field === 'budget') update_data.budget_override = parseFloat(edit_value)
+      if (edit_field === 'additional') {
+        update_data.additional_expenses = parseFloat(edit_value)
+        update_data.additional_notes = edit_notes
+      }
+
+      const { error } = await supabase
+        .from('planning_overrides')
+        .upsert(update_data, { onConflict: 'user_id,month_year' })
+
+      if (error) throw error
+
+      close_edit()
+      load_planning_data()
+    } catch (err) {
+      console.error('Error saving edit:', err)
+      alert('Failed to save changes')
+    }
+  }
+
+  const close_edit = () => {
+    setEditingMonth(null)
+    setEditField('')
+    setEditValue('')
+    setEditNotes('')
+  }
+
+  // Calculate totals
+  const total_gross = months.reduce((sum, m) => sum + m.gross_income, 0)
+  const total_net = months.reduce((sum, m) => sum + m.net_income, 0)
+  const total_budget = months.reduce((sum, m) => sum + m.housing + m.budget, 0)
+  const total_auto_savings = months.reduce((sum, m) => sum + m.auto_savings, 0)
+  const total_401k = months.reduce((sum, m) => sum + m.retirement_401k, 0)
+  const total_hsa = months.reduce((sum, m) => sum + m.hsa, 0)
+  const total_cash_savings = months.reduce((sum, m) => sum + m.savings, 0)
+  const total_savings = total_auto_savings + total_401k + total_hsa + total_cash_savings
+
+  if (loading) {
+    return <div className="flex items-center justify-center h-screen">Loading...</div>
+  }
+
+  return (
+    <div className="p-4 md:p-8 max-w-[1400px] mx-auto">
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold text-gray-800 mb-2">Planning</h1>
+        <p className="text-sm md:text-base text-gray-600">Plan your finances month by month</p>
+      </div>
+
+      {/* Year Navigation */}
+      <div className="flex items-center justify-between mb-6 bg-white p-4 rounded-lg border border-gray-200">
+        <button
+          onClick={() => setYear(year - 1)}
+          className="p-2 hover:bg-gray-100 rounded-lg transition"
+        >
+          <ChevronLeft size={24} />
+        </button>
+        <div className="text-2xl font-bold text-gray-800">{year}</div>
+        <button
+          onClick={() => setYear(year + 1)}
+          className="p-2 hover:bg-gray-100 rounded-lg transition"
+        >
+          <ChevronRight size={24} />
+        </button>
+      </div>
+
+      {/* Summary Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4">
+          <div className="text-sm opacity-90 mb-2">Gross Income ({year})</div>
+          <div className="text-3xl font-bold">${total_gross.toLocaleString()}</div>
+        </div>
+
+        <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4">
+          <div className="text-sm opacity-90 mb-2">Net Income ({year})</div>
+          <div className="text-3xl font-bold">${total_net.toLocaleString()}</div>
+          <div className="text-sm opacity-90">({((total_net / total_gross) * 100).toFixed(0)}% of gross)</div>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-4">
+          <div className="text-sm opacity-90 mb-2">Total Budgeted ({year})</div>
+          <div className="text-3xl font-bold">${total_budget.toLocaleString()}</div>
+        </div>
+
+        <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-4">
+          <div className="text-sm opacity-90 mb-2">Total Projected Savings ({year})</div>
+          <div className="text-3xl font-bold">${total_savings.toLocaleString()}</div>
+          <div className="text-xs mt-2 space-y-1">
+            <div>Auto: ${total_auto_savings.toLocaleString()} ({((total_auto_savings / total_savings) * 100).toFixed(0)}%)</div>
+            <div>401k: ${total_401k.toLocaleString()} ({((total_401k / total_savings) * 100).toFixed(0)}%)</div>
+            <div>HSA: ${total_hsa.toLocaleString()} ({((total_hsa / total_savings) * 100).toFixed(0)}%)</div>
+            <div>Cash: ${total_cash_savings.toLocaleString()} ({((total_cash_savings / total_savings) * 100).toFixed(0)}%)</div>
+          </div>
+        </div>
+      </div>
+
+      {/* Monthly Table */}
+      <div className="bg-white rounded-lg border border-gray-200 overflow-x-auto">
+        <table className="w-full">
+          <thead className="bg-gray-50 border-b border-gray-200">
+            <tr>
+              <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Month</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Gross ✎</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Net</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Housing ✎</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Budget ✎</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Add'l ✎</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Projected</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Savings</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">%</th>
+            </tr>
+          </thead>
+          <tbody>
+            {months.map((month) => (
+              <tr key={month.month} className="border-b border-gray-100 hover:bg-gray-50">
+                <td className="px-4 py-3 text-sm font-medium text-gray-800">{month.month_name}</td>
+                
+                <td className="px-4 py-3 text-right text-sm">
+                  <button
+                    onClick={() => open_edit(month.month, 'gross', month.gross_income)}
+                    className="hover:text-blue-600 transition"
+                  >
+                    ${month.gross_income.toLocaleString()}
+                  </button>
+                </td>
+                
+                <td className="px-4 py-3 text-right text-sm text-gray-600">
+                  ${month.net_income.toLocaleString()}
+                </td>
+                
+                <td className="px-4 py-3 text-right text-sm">
+                  <button
+                    onClick={() => open_edit(month.month, 'housing', month.housing)}
+                    className="hover:text-blue-600 transition"
+                  >
+                    ${month.housing.toLocaleString()}
+                  </button>
+                </td>
+                
+                <td className="px-4 py-3 text-right text-sm">
+                  <button
+                    onClick={() => open_edit(month.month, 'budget', month.budget)}
+                    className="hover:text-blue-600 transition"
+                  >
+                    ${month.budget.toLocaleString()}
+                  </button>
+                </td>
+                
+                <td className="px-4 py-3 text-right text-sm">
+                  <button
+                    onClick={() => open_edit(month.month, 'additional', month.additional)}
+                    className="hover:text-blue-600 transition"
+                  >
+                    ${month.additional.toLocaleString()}
+                  </button>
+                </td>
+                
+                <td className="px-4 py-3 text-right text-sm text-gray-600">
+                  ${month.projected.toLocaleString()}
+                </td>
+                
+                <td className={`px-4 py-3 text-right text-sm font-semibold ${
+                  month.savings >= 0 ? 'text-green-600' : 'text-red-600'
+                }`}>
+                  {month.savings >= 0 ? (
+                    <TrendingUp className="inline mr-1" size={16} />
+                  ) : (
+                    <TrendingDown className="inline mr-1" size={16} />
+                  )}
+                  ${month.savings.toLocaleString()}
+                </td>
+                
+                <td className={`px-4 py-3 text-right text-sm font-semibold ${
+                  month.savings_rate >= 20 ? 'text-green-600' :
+                  month.savings_rate >= 10 ? 'text-yellow-600' : 'text-red-600'
+                }`}>
+                  {month.savings_rate.toFixed(0)}%
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Edit Modal */}
+      {editing_month && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4">
+              Edit {edit_field.charAt(0).toUpperCase() + edit_field.slice(1)} - {
+                months.find(m => m.month === editing_month)?.month_name
+              }
+            </h2>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Amount</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-3 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={edit_value}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+              </div>
+
+              {(edit_field === 'housing' || edit_field === 'additional') && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Notes (Optional)</label>
+                  <textarea
+                    value={edit_notes}
+                    onChange={(e) => setEditNotes(e.target.value)}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    rows={3}
+                    placeholder="Add notes..."
+                  />
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={close_edit}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={save_edit}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}

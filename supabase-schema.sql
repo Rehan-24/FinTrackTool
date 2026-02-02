@@ -72,6 +72,24 @@ CREATE INDEX idx_split_payments_purchase ON public.split_payments(purchase_id);
 CREATE INDEX idx_split_payments_user ON public.split_payments(user_id);
 CREATE INDEX idx_split_payments_status ON public.split_payments(is_paid_back);
 
+-- Planning overrides table (for financial planning)
+CREATE TABLE public.planning_overrides (
+  id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+  user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
+  month_year TEXT NOT NULL,
+  gross_income_override NUMERIC(10, 2),
+  housing_override NUMERIC(10, 2),
+  budget_override NUMERIC(10, 2),
+  additional_expenses NUMERIC(10, 2) DEFAULT 0,
+  housing_notes TEXT,
+  additional_notes TEXT,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL,
+  UNIQUE(user_id, month_year)
+);
+
+CREATE INDEX idx_planning_user_month ON public.planning_overrides(user_id, month_year);
+
 -- Assets table
 CREATE TABLE public.assets (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
