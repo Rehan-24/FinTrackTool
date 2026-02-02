@@ -106,29 +106,50 @@ export default function PlanningPage() {
   }
 
   const calculate_gross_income = async (user_id: string, month_date: Date): Promise<number> => {
-    // Get all recurring income
-    const { data: income_sources } = await supabase
-      .from('recurring_income')
+    // Get all income (both recurring and one-time)
+    const { data: income_sources, error } = await supabase
+      .from('income')
       .select('*')
       .eq('user_id', user_id)
+
+    if (error) {
+      console.error('Error fetching income:', error)
+      return 0
+    }
+
+    console.log('Income sources:', income_sources)
 
     if (!income_sources) return 0
 
     let total = 0
     const month_start = startOfMonth(month_date)
+    const month_end = endOfMonth(month_date)
     
     for (const source of income_sources) {
-      const occurrences = count_occurrences(source, month_start)
-      total += source.amount * occurrences
+      if (source.is_recurring) {
+        // Recurring income
+        const occurrences = count_occurrences(source, month_start)
+        const source_total = source.amount * occurrences
+        console.log(`${source.description} (recurring): $${source.amount} × ${occurrences} = $${source_total}`)
+        total += source_total
+      } else {
+        // One-time income - check if date is in this month
+        const income_date = new Date(source.date)
+        if (income_date >= month_start && income_date <= month_end) {
+          console.log(`${source.description} (one-time): $${source.amount}`)
+          total += source.amount
+        }
+      }
     }
 
+    console.log('Total gross income:', total)
     return total
   }
 
   const calculate_net_income = async (user_id: string, month_date: Date, gross: number): Promise<number> => {
-    // Get deductions from recurring income
+    // Get deductions from income table
     const { data: income_sources } = await supabase
-      .from('recurring_income')
+      .from('income')
       .select('*')
       .eq('user_id', user_id)
 
@@ -136,35 +157,62 @@ export default function PlanningPage() {
 
     let total_deductions = 0
     const month_start = startOfMonth(month_date)
+    const month_end = endOfMonth(month_date)
     
     for (const source of income_sources) {
-      const occurrences = count_occurrences(source, month_start)
-      const deductions = (
-        (source.federal_tax || 0) +
-        (source.state_tax || 0) +
-        (source.local_tax || 0) +
-        (source.fica_tax || 0) +
-        (source.retirement_401k || 0) +
-        (source.hsa_contribution || 0) +
-        (source.health_insurance || 0) +
-        (source.dental_insurance || 0) +
-        (source.vision_insurance || 0) +
-        (source.life_insurance || 0) +
-        (source.disability_insurance || 0) +
-        (source.fsa_contribution || 0) +
-        (source.other_deductions || 0) +
-        (source.auto_savings || 0)
-      ) * occurrences
+      if (!source.is_recurring) continue // One-time income doesn't have deductions
       
-      total_deductions += deductions
+      const occurrences = count_occurrences(source, month_start)
+      
+      // Get deductions from salary_deductions table
+      const { data: deductions } = await supabase
+        .from('salary_deductions')
+        .select('*')
+        .eq('income_id', source.id)
+        .single()
+      
+      if (deductions) {
+        const monthly_deductions = (
+          (deductions.federal_tax_monthly || 0) +
+          (deductions.state_tax_monthly || 0) +
+          (deductions.local_tax_monthly || 0) +
+          (deductions.fica_monthly || 0) +
+          (deductions.retirement_401k_monthly || 0) +
+          (deductions.hsa_monthly || 0) +
+          (deductions.medical_monthly || 0) +
+          (deductions.dental_monthly || 0) +
+          (deductions.vision_monthly || 0) +
+          (deductions.life_ins_monthly || 0) +
+          (deductions.ad_d_monthly || 0) +
+          (deductions.critical_illness_monthly || 0) +
+          (deductions.hospital_monthly || 0) +
+          (deductions.accident_monthly || 0) +
+          (deductions.legal_monthly || 0) +
+          (deductions.identity_theft_monthly || 0) +
+          (deductions.auto_savings_monthly || 0)
+        ) * occurrences
+        
+        console.log(`${source.description} deductions:`, {
+          federal_tax: deductions.federal_tax_monthly,
+          state_tax: deductions.state_tax_monthly,
+          retirement_401k: deductions.retirement_401k_monthly,
+          hsa: deductions.hsa_monthly,
+          auto_savings: deductions.auto_savings_monthly,
+          total_deductions: monthly_deductions
+        })
+        
+        total_deductions += monthly_deductions
+      }
     }
 
+    console.log('Total deductions:', total_deductions)
+    console.log('Net income:', gross - total_deductions)
     return gross - total_deductions
   }
 
   const get_savings_breakdown = async (user_id: string, month_date: Date) => {
     const { data: income_sources } = await supabase
-      .from('recurring_income')
+      .from('income')
       .select('*')
       .eq('user_id', user_id)
 
@@ -176,12 +224,25 @@ export default function PlanningPage() {
     const month_start = startOfMonth(month_date)
     
     for (const source of income_sources) {
+      if (!source.is_recurring) continue
+      
       const occurrences = count_occurrences(source, month_start)
-      auto_savings += (source.auto_savings || 0) * occurrences
-      retirement_401k += (source.retirement_401k || 0) * occurrences
-      hsa += (source.hsa_contribution || 0) * occurrences
+      
+      // Get deductions from salary_deductions table
+      const { data: deductions } = await supabase
+        .from('salary_deductions')
+        .select('*')
+        .eq('income_id', source.id)
+        .single()
+      
+      if (deductions) {
+        auto_savings += (deductions.auto_savings_monthly || 0) * occurrences
+        retirement_401k += (deductions.retirement_401k_monthly || 0) * occurrences
+        hsa += (deductions.hsa_monthly || 0) * occurrences
+      }
     }
 
+    console.log('Savings breakdown:', { auto_savings, retirement_401k, hsa })
     return { auto_savings, retirement_401k, hsa }
   }
 
@@ -210,18 +271,25 @@ export default function PlanningPage() {
 
   const count_occurrences = (income: any, month_start: Date): number => {
     const frequency = income.frequency
-    if (!frequency) return 0
-
-    if (frequency === 'Monthly') return 1
-    if (frequency === 'Bi-weekly') {
-      // Count bi-weekly occurrences in month
-      // Simplified: 2 or 3 depending on month
-      const weeks_in_month = 4.33
-      return Math.floor(weeks_in_month / 2)
+    if (!frequency) {
+      console.log(`No frequency for ${income.description}`)
+      return 0
     }
-    if (frequency === 'Weekly') return 4
-    if (frequency === 'Semi-monthly') return 2
+
+    // Normalize frequency to lowercase for comparison
+    const freq = frequency.toLowerCase()
     
+    console.log(`Counting occurrences for ${income.description} with frequency: ${freq}`)
+
+    if (freq === 'monthly') return 1
+    if (freq === 'semi-monthly') return 2
+    if (freq === 'weekly') return 4
+    if (freq === 'bi-weekly' || freq === 'biweekly') {
+      // Simplified bi-weekly: usually 2, sometimes 3
+      return 2
+    }
+    
+    console.warn(`Unknown frequency: ${frequency}`)
     return 0
   }
 
