@@ -29,7 +29,7 @@ jobs:
             echo "Trying again in 10 seconds..."
             sleep 10
             
-            response=$(curl -s -o /dev/null -w "%{http_code}" https://fintrack-zse1.onrender.com/api/health)
+            response=$(curl -s -o /dev/null -w "%{http_code}" https://fintracktool.onrender.com/api/health)
             echo "Second attempt: $response"
           fi
           
