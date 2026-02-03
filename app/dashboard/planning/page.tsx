@@ -403,8 +403,11 @@ export default function PlanningPage() {
     if (freq === 'monthly') return 1
     if (freq === 'semi-monthly') return 2
     if (freq === 'weekly') return 4
-    if (freq === 'bi-weekly' || freq === 'biweekly') {
-      // Simplified bi-weekly: usually 2, sometimes 3
+    if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') {
+      // Bi-weekly means every 2 weeks = 26 paychecks per year
+      // Most months have 2, but 2 months per year will have 3
+      // For now, use average: 26/12 = 2.167 (round to 2 for simplicity)
+      // TODO: Calculate exact based on start_date if needed
       return 2
     }
     
