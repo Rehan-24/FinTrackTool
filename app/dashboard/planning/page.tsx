@@ -93,6 +93,13 @@ export default function PlanningPage() {
 
       const months_data: MonthData[] = []
       
+      // DEBUGGING: Log what we fetched
+      console.log('=== PLANNING DATA DEBUG ===')
+      console.log('Income sources:', income_sources)
+      console.log('Deductions map:', deductions_map)
+      console.log('Default budget:', default_budget)
+      console.log('Overrides map:', overrides_map)
+      
       // Generate 12 months - now using cached data
       for (let i = 0; i < 12; i++) {
         const month_date = addMonths(new Date(year, 0, 1), i)
@@ -103,21 +110,28 @@ export default function PlanningPage() {
         
         const override = overrides_map[month_year]
 
+        console.log(`\n--- ${month_name} ---`)
+        
         // Calculate gross income for this month
         let gross = 0
         if (income_sources) {
           for (const source of income_sources) {
             if (source.is_recurring) {
               const occurrences = count_occurrences(source, month_start)
-              gross += source.amount * occurrences
+              const monthly_gross = source.amount * occurrences
+              console.log(`${source.description}: $${source.amount} × ${occurrences} = $${monthly_gross}`)
+              gross += monthly_gross
             } else {
               const income_date = new Date(source.date)
               if (income_date >= month_start && income_date <= month_end) {
+                console.log(`${source.description} (one-time): $${source.amount}`)
                 gross += source.amount
               }
             }
           }
         }
+        
+        console.log(`Total Gross: $${gross}`)
         
         // Calculate net income and savings breakdown
         let total_deductions = 0
@@ -131,6 +145,8 @@ export default function PlanningPage() {
             
             const occurrences = count_occurrences(source, month_start)
             const deductions = deductions_map[source.id]
+            
+            console.log(`Deductions for ${source.description}:`, deductions)
             
             if (deductions) {
               const monthly_deductions = (
@@ -153,6 +169,8 @@ export default function PlanningPage() {
                 (deductions.auto_savings_monthly || 0)
               ) * occurrences
               
+              console.log(`Total deductions for ${source.description}: $${monthly_deductions / occurrences} × ${occurrences} = $${monthly_deductions}`)
+              
               total_deductions += monthly_deductions
               auto_savings += (deductions.auto_savings_monthly || 0) * occurrences
               retirement_401k += (deductions.retirement_401k_monthly || 0) * occurrences
@@ -161,7 +179,13 @@ export default function PlanningPage() {
           }
         }
         
+        console.log(`Total Deductions: $${total_deductions}`)
+        console.log(`Auto Savings: $${auto_savings}`)
+        console.log(`401k: $${retirement_401k}`)
+        console.log(`HSA: $${hsa}`)
+        
         const net = gross - total_deductions
+        console.log(`Net Income: $${net}`)
         
         // Apply overrides or use defaults
         const gross_income = override?.gross_income_override || gross
@@ -363,7 +387,9 @@ export default function PlanningPage() {
   }
 
   const count_occurrences = (income: any, month_start: Date): number => {
-    const frequency = income.frequency
+    // For salary income, use pay_frequency; for other recurring, use frequency
+    const frequency = income.is_salary ? income.pay_frequency : income.frequency
+    
     if (!frequency) {
       console.log(`No frequency for ${income.description}`)
       return 0
@@ -372,7 +398,7 @@ export default function PlanningPage() {
     // Normalize frequency to lowercase for comparison
     const freq = frequency.toLowerCase()
     
-    console.log(`Counting occurrences for ${income.description} with frequency: ${freq}`)
+    console.log(`Counting occurrences for ${income.description} (is_salary: ${income.is_salary}) with frequency: ${freq}`)
 
     if (freq === 'monthly') return 1
     if (freq === 'semi-monthly') return 2
