@@ -118,8 +118,25 @@ export default function PlanningPage() {
           for (const source of income_sources) {
             if (source.is_recurring) {
               const occurrences = count_occurrences(source, month_start)
-              const monthly_gross = source.amount * occurrences
-              console.log(`${source.description}: $${source.amount} × ${occurrences} = $${monthly_gross}`)
+              
+              // For salary, calculate from yearly_salary; for others use amount
+              let per_occurrence_gross = source.amount
+              if (source.is_salary && source.yearly_salary) {
+                // Calculate gross per paycheck from yearly salary
+                const freq = (source.pay_frequency || '').toLowerCase()
+                if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') {
+                  per_occurrence_gross = source.yearly_salary / 26
+                } else if (freq === 'semi-monthly') {
+                  per_occurrence_gross = source.yearly_salary / 24
+                } else if (freq === 'monthly') {
+                  per_occurrence_gross = source.yearly_salary / 12
+                } else if (freq === 'weekly') {
+                  per_occurrence_gross = source.yearly_salary / 52
+                }
+              }
+              
+              const monthly_gross = per_occurrence_gross * occurrences
+              console.log(`${source.description}: $${per_occurrence_gross.toFixed(2)} × ${occurrences} = $${monthly_gross.toFixed(2)}`)
               gross += monthly_gross
             } else {
               const income_date = new Date(source.date)
