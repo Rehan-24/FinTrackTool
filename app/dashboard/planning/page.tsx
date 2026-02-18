@@ -25,6 +25,8 @@ export default function PlanningPage() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [months, setMonths] = useState<MonthData[]>([])
   const [loading, setLoading] = useState(true)
+  const [annual_salary_total, setAnnualSalaryTotal] = useState(0)
+  const [annual_onetime_total, setAnnualOnetimeTotal] = useState(0)
   
   // Edit modal state
   const [editing_month, setEditingMonth] = useState<string | null>(null)
@@ -295,6 +297,37 @@ export default function PlanningPage() {
       }
 
       setMonths(months_data)
+      
+      // Calculate annual totals for summary cards
+      let yearly_salary_sum = 0
+      let yearly_onetime_sum = 0
+      
+      const year_start = startOfYear(new Date(year, 0, 1))
+      const year_end = endOfYear(new Date(year, 0, 1))
+      
+      if (income_sources) {
+        for (const source of income_sources) {
+          if (source.is_salary && source.yearly_salary) {
+            // For salary: use full yearly_salary if active any time this year
+            const start_date = source.start_date ? new Date(source.start_date) : new Date(source.date)
+            const end_date = source.end_date ? new Date(source.end_date) : null
+            
+            // Check if salary overlaps with this year at all
+            if (start_date <= year_end && (!end_date || end_date >= year_start)) {
+              yearly_salary_sum += source.yearly_salary
+            }
+          } else if (!source.is_recurring) {
+            // For one-time income: check if date is in this year
+            const income_date = new Date(source.date)
+            if (income_date >= year_start && income_date <= year_end) {
+              yearly_onetime_sum += source.amount
+            }
+          }
+        }
+      }
+      
+      setAnnualSalaryTotal(yearly_salary_sum)
+      setAnnualOnetimeTotal(yearly_onetime_sum)
     } catch (err) {
       console.error('Error loading planning data:', err)
     } finally {
@@ -580,7 +613,9 @@ export default function PlanningPage() {
   }
 
   // Calculate totals
-  const total_gross = months.reduce((sum, m) => sum + m.gross_income, 0)
+  // For GROSS: Use yearly salary + one-time incomes (exact annual amount)
+  const total_gross = annual_salary_total + annual_onetime_total
+  
   const total_net = months.reduce((sum, m) => sum + m.net_income, 0)
   const total_budget = months.reduce((sum, m) => sum + m.housing + m.budget, 0)
   const total_auto_savings = months.reduce((sum, m) => sum + m.auto_savings, 0)
