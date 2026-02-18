@@ -133,10 +133,45 @@ export default function PlanningPage() {
               if (start_date > month_end) continue
               if (end_date && end_date < month_start) continue
               
-              // For salary with yearly_salary, just use that divided by 12 for monthly
+              // For salary with yearly_salary, calculate actual paychecks this month
               if (source.is_salary && source.yearly_salary) {
-                const monthly_gross = source.yearly_salary / 12
-                console.log(`${source.description}: $${source.yearly_salary}/year ÷ 12 = $${monthly_gross.toFixed(2)}/month`)
+                const freq = (source.pay_frequency || '').toLowerCase()
+                let per_paycheck_gross = 0
+                let actual_paychecks = 0
+                
+                // Calculate gross per paycheck
+                if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') {
+                  per_paycheck_gross = source.yearly_salary / 26
+                  
+                  // Count actual paychecks in this month by iterating through dates
+                  let check_date = new Date(start_date)
+                  while (check_date <= month_end) {
+                    if (check_date >= month_start && check_date <= month_end) {
+                      actual_paychecks++
+                    }
+                    check_date.setDate(check_date.getDate() + 14) // Add 14 days
+                  }
+                } else if (freq === 'semi-monthly') {
+                  per_paycheck_gross = source.yearly_salary / 24
+                  actual_paychecks = 2 // Always 2 per month
+                } else if (freq === 'monthly') {
+                  per_paycheck_gross = source.yearly_salary / 12
+                  actual_paychecks = 1
+                } else if (freq === 'weekly') {
+                  per_paycheck_gross = source.yearly_salary / 52
+                  
+                  // Count actual paychecks
+                  let check_date = new Date(start_date)
+                  while (check_date <= month_end) {
+                    if (check_date >= month_start && check_date <= month_end) {
+                      actual_paychecks++
+                    }
+                    check_date.setDate(check_date.getDate() + 7) // Add 7 days
+                  }
+                }
+                
+                const monthly_gross = per_paycheck_gross * actual_paychecks
+                console.log(`${source.description}: $${per_paycheck_gross.toFixed(2)} × ${actual_paychecks} paychecks = $${monthly_gross.toFixed(2)}`)
                 gross += monthly_gross
               } else {
                 // For non-salary recurring income, use amount × occurrences
@@ -233,19 +268,20 @@ export default function PlanningPage() {
         
         // Apply overrides or use defaults
         const gross_income = override?.gross_income_override || gross
+        const net_income = override?.net_income_override || net
         const housing = override?.housing_override || 0
         const budget = override?.budget_override || default_budget
         const additional = override?.additional_expenses || 0
         
         const projected = housing + budget + additional
-        const savings = net - projected
-        const savings_rate = net > 0 ? (savings / net) * 100 : 0
+        const savings = net_income - projected
+        const savings_rate = net_income > 0 ? (savings / net_income) * 100 : 0
 
         months_data.push({
           month: month_year,
           month_name,
           gross_income,
-          net_income: net,
+          net_income,
           housing,
           budget,
           additional,
@@ -479,6 +515,7 @@ export default function PlanningPage() {
       }
 
       if (edit_field === 'gross') update_data.gross_income_override = parseFloat(edit_value)
+      if (edit_field === 'net') update_data.net_income_override = parseFloat(edit_value)
       if (edit_field === 'housing') {
         update_data.housing_override = parseFloat(edit_value)
         update_data.housing_notes = edit_notes
@@ -505,6 +542,9 @@ export default function PlanningPage() {
 
           if (edit_field === 'gross') {
             new_month.gross_income = parseFloat(edit_value)
+          }
+          if (edit_field === 'net') {
+            new_month.net_income = parseFloat(edit_value)
           }
           if (edit_field === 'housing') {
             new_month.housing = parseFloat(edit_value)
@@ -615,7 +655,7 @@ export default function PlanningPage() {
             <tr>
               <th className="px-4 py-3 text-left text-sm font-medium text-gray-700">Month</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Gross ✎</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Net</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Net ✎</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Housing ✎</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Budget ✎</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Add'l ✎</th>
@@ -638,8 +678,13 @@ export default function PlanningPage() {
                   </button>
                 </td>
                 
-                <td className="px-4 py-3 text-right text-sm text-gray-600">
-                  ${month.net_income.toLocaleString()}
+                <td className="px-4 py-3 text-right text-sm">
+                  <button
+                    onClick={() => open_edit(month.month, 'net', month.net_income)}
+                    className="hover:text-blue-600 transition"
+                  >
+                    ${month.net_income.toLocaleString()}
+                  </button>
                 </td>
                 
                 <td className="px-4 py-3 text-right text-sm">

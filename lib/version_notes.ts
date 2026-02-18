@@ -9,6 +9,21 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.4.1',
+    date: '2026-02-02',
+    title: 'Planning Page - Smart Paycheck Counting & Editable Net',
+    features: [
+      'IMPROVED: Gross income now counts ACTUAL paychecks per month (Jan can have 3 bi-weekly checks!)',
+      'NEW: Net income column is now editable (click to override)',
+      'IMPROVED: One-time income auto-adds to month total',
+      'IMPROVED: Changes on Income page instantly reflect in Planning',
+      'FIX: Deductions now use correct yearly field names from database',
+      'FIX: Annual gross now shows exact yearly salary ($105,800, not $97,662)',
+    ],
+    bugFixes: [],
+    breaking: [],
+  },
+  {
     version: '5.4.0',
     date: '2026-02-02',
     title: 'Planning Page - Yearly Financial Overview',

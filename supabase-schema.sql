@@ -78,6 +78,7 @@ CREATE TABLE public.planning_overrides (
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
   month_year TEXT NOT NULL,
   gross_income_override NUMERIC(10, 2),
+  net_income_override NUMERIC(10, 2),
   housing_override NUMERIC(10, 2),
   budget_override NUMERIC(10, 2),
   additional_expenses NUMERIC(10, 2) DEFAULT 0,
