@@ -117,28 +117,28 @@ export default function PlanningPage() {
         if (income_sources) {
           for (const source of income_sources) {
             if (source.is_recurring) {
-              const occurrences = count_occurrences(source, month_start)
+              // Check if active this month
+              const start_date = source.start_date ? new Date(source.start_date) : new Date(source.date)
+              const end_date = source.end_date ? new Date(source.end_date) : null
               
-              // For salary, calculate from yearly_salary; for others use amount
-              let per_occurrence_gross = source.amount
+              // Skip if hasn't started yet or already ended
+              if (start_date > month_end) continue
+              if (end_date && end_date < month_start) continue
+              
+              // For salary with yearly_salary, just use that divided by 12 for monthly
               if (source.is_salary && source.yearly_salary) {
-                // Calculate gross per paycheck from yearly salary
-                const freq = (source.pay_frequency || '').toLowerCase()
-                if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') {
-                  per_occurrence_gross = source.yearly_salary / 26
-                } else if (freq === 'semi-monthly') {
-                  per_occurrence_gross = source.yearly_salary / 24
-                } else if (freq === 'monthly') {
-                  per_occurrence_gross = source.yearly_salary / 12
-                } else if (freq === 'weekly') {
-                  per_occurrence_gross = source.yearly_salary / 52
-                }
+                const monthly_gross = source.yearly_salary / 12
+                console.log(`${source.description}: $${source.yearly_salary}/year ÷ 12 = $${monthly_gross.toFixed(2)}/month`)
+                gross += monthly_gross
+              } else {
+                // For non-salary recurring income, use amount × occurrences
+                const occurrences = count_occurrences(source, month_start)
+                const monthly_gross = source.amount * occurrences
+                console.log(`${source.description}: $${source.amount} × ${occurrences} = $${monthly_gross.toFixed(2)}`)
+                gross += monthly_gross
               }
-              
-              const monthly_gross = per_occurrence_gross * occurrences
-              console.log(`${source.description}: $${per_occurrence_gross.toFixed(2)} × ${occurrences} = $${monthly_gross.toFixed(2)}`)
-              gross += monthly_gross
             } else {
+              // One-time income: check if date is in this month
               const income_date = new Date(source.date)
               if (income_date >= month_start && income_date <= month_end) {
                 console.log(`${source.description} (one-time): $${source.amount}`)
@@ -160,12 +160,20 @@ export default function PlanningPage() {
           for (const source of income_sources) {
             if (!source.is_recurring) continue
             
+            // Check if active this month
+            const start_date = source.start_date ? new Date(source.start_date) : new Date(source.date)
+            const end_date = source.end_date ? new Date(source.end_date) : null
+            if (start_date > month_end) continue
+            if (end_date && end_date < month_start) continue
+            
             const occurrences = count_occurrences(source, month_start)
             const deductions = deductions_map[source.id]
             
             console.log(`Deductions for ${source.description}:`, deductions)
             
             if (deductions) {
+              // Deductions are MONTHLY values, so we just use them once per month
+              // NOT multiplied by occurrences!
               const monthly_deductions = (
                 (deductions.federal_tax_monthly || 0) +
                 (deductions.state_tax_monthly || 0) +
@@ -184,14 +192,14 @@ export default function PlanningPage() {
                 (deductions.legal_monthly || 0) +
                 (deductions.identity_theft_monthly || 0) +
                 (deductions.auto_savings_monthly || 0)
-              ) * occurrences
+              )
               
-              console.log(`Total deductions for ${source.description}: $${monthly_deductions / occurrences} × ${occurrences} = $${monthly_deductions}`)
+              console.log(`Total monthly deductions for ${source.description}: $${monthly_deductions}`)
               
               total_deductions += monthly_deductions
-              auto_savings += (deductions.auto_savings_monthly || 0) * occurrences
-              retirement_401k += (deductions.retirement_401k_monthly || 0) * occurrences
-              hsa += (deductions.hsa_monthly || 0) * occurrences
+              auto_savings += (deductions.auto_savings_monthly || 0)
+              retirement_401k += (deductions.retirement_401k_monthly || 0)
+              hsa += (deductions.hsa_monthly || 0)
             }
           }
         }
