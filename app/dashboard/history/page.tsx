@@ -83,19 +83,34 @@ export default function MonthlyHistoryPage() {
         range_start: Date, 
         range_end: Date
       ) => {
-        const start_date = new Date(income_entry.date)
+        // For salary, use pay_frequency; otherwise use frequency
+        const frequency = income_entry.is_salary ? income_entry.pay_frequency : income_entry.frequency
+        const start_date = income_entry.start_date ? new Date(income_entry.start_date) : new Date(income_entry.date)
         let count = 0
         
         if (start_date > range_end) return 0
         
+        // Check if income has ended
+        if (income_entry.end_date) {
+          const end_date = new Date(income_entry.end_date)
+          if (end_date < range_start) return 0
+        }
+        
+        // Normalize frequency
+        const freq_lower = frequency?.toLowerCase() || ''
+        
         // Determine frequency in days
         let freq_days = 0
-        if (income_entry.frequency === 'weekly') freq_days = 7
-        else if (income_entry.frequency === 'bi-weekly') freq_days = 14
-        else if (income_entry.frequency === 'monthly') freq_days = 30
-        else if (income_entry.frequency === 'yearly') freq_days = 365
+        if (freq_lower === 'weekly') freq_days = 7
+        else if (freq_lower === 'bi-weekly' || freq_lower === 'biweekly' || freq_lower === 'bi weekly') freq_days = 14
+        else if (freq_lower === 'semi-monthly') {
+          // Semi-monthly = 2x per month
+          return 2
+        }
+        else if (freq_lower === 'monthly') freq_days = 30
+        else if (freq_lower === 'yearly') freq_days = 365
         
-        if (income_entry.frequency === 'monthly') {
+        if (freq_lower === 'monthly') {
           // For monthly, count months between dates
           let current = new Date(start_date)
           while (current <= range_end) {
@@ -191,12 +206,11 @@ export default function MonthlyHistoryPage() {
       })
 
       // Get income
+      // FIXED: Get ALL income entries, then filter by active status
       const { data: income_data } = await supabase
         .from('income')
         .select('*')
         .eq('user_id', user.id)
-        .gte('date', start)
-        .lte('date', end)
 
       let total_income = 0
       const income_sources: Array<{
@@ -213,25 +227,47 @@ export default function MonthlyHistoryPage() {
         
         income_data.forEach(inc => {
           const amt = parseFloat(inc.amount.toString())
-          income_sources.push({
-            source: inc.source,
-            amount: amt,
-            frequency: inc.frequency,
-            is_salary: inc.is_salary,
-            yearly_salary: inc.yearly_salary
-          })
-
+          
           if (!inc.is_recurring) {
-            // One-time income counts fully
-            total_income += amt
+            // One-time income: check if date is in this month
+            const income_date = new Date(inc.date)
+            if (income_date >= month_start && income_date <= month_end) {
+              income_sources.push({
+                source: inc.source,
+                amount: amt,
+                frequency: inc.frequency,
+                is_salary: inc.is_salary,
+                yearly_salary: inc.yearly_salary
+              })
+              total_income += amt
+            }
           } else {
-            // Recurring income: count actual occurrences in this month
+            // Recurring income: check if active this month
+            const start_date = inc.start_date ? new Date(inc.start_date) : new Date(inc.date)
+            const end_date = inc.end_date ? new Date(inc.end_date) : null
+            
+            // Skip if hasn't started yet
+            if (start_date > month_end) return
+            
+            // Skip if already ended
+            if (end_date && end_date < month_start) return
+            
+            // Count actual occurrences in this month
             const occurrences = count_income_occurrences(
               inc, 
               month_start, 
               month_end
             )
-            total_income += occurrences * amt
+            
+            const monthly_total = occurrences * amt
+            income_sources.push({
+              source: inc.source,
+              amount: monthly_total,
+              frequency: inc.is_salary ? inc.pay_frequency : inc.frequency,
+              is_salary: inc.is_salary,
+              yearly_salary: inc.yearly_salary
+            })
+            total_income += monthly_total
           }
         })
       }

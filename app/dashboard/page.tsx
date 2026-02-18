@@ -193,12 +193,11 @@ export default function DashboardPage() {
       setRecentPurchases(paid_purchases.slice(0, 5))
 
       // Get income for current month
+      // FIXED: Get ALL income entries (not filtered by date), then check which are active
       const { data: income_data } = await supabase
         .from('income')
         .select('*')
         .eq('user_id', current_user.id)
-        .gte('date', start)
-        .lte('date', end)
 
       // Calculate expected income for full month (including future)
       let total_income = 0
@@ -210,19 +209,34 @@ export default function DashboardPage() {
           const amt = parseFloat(inc.amount.toString())
           
           if (!inc.is_recurring) {
-            // One-time income counts fully
-            total_income += amt
+            // One-time income: check if date is in this month
+            const income_date = new Date(inc.date)
+            if (income_date >= month_start && income_date <= month_end) {
+              total_income += amt
+            }
           } else {
-            // Recurring income: count actual occurrences in this month
+            // Recurring income: check if active this month
+            const start_date = inc.start_date ? new Date(inc.start_date) : new Date(inc.date)
+            const end_date = inc.end_date ? new Date(inc.end_date) : null
+            
+            // Skip if hasn't started yet
+            if (start_date > month_end) return
+            
+            // Skip if already ended
+            if (end_date && end_date < month_start) return
+            
+            // Count actual occurrences in this month
             const occurrences = count_income_occurrences_dashboard(
               inc, 
               month_start, 
               month_end
             )
+            console.log(`[Dashboard Income] ${inc.description}: ${occurrences} occurrences × $${amt} = $${occurrences * amt}`)
             total_income += occurrences * amt
           }
         })
       }
+      console.log(`[Dashboard Income] Total monthly income: $${total_income}`)
       setMonthlyIncome(total_income)
     } catch (err) {
       console.error('Error loading dashboard:', err)
