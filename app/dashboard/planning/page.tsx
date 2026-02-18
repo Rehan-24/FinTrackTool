@@ -14,6 +14,7 @@ type MonthData = {
   budget: number
   additional: number
   projected: number
+  actual_spent: number // NEW: actual spending from transactions
   savings: number
   savings_rate: number
   auto_savings: number
@@ -280,6 +281,58 @@ export default function PlanningPage() {
         const net = gross - total_deductions
         console.log(`Net Income: $${net}`)
         
+        // Get actual spending for this month (only for past/current months)
+        const today = new Date()
+        let actual_spent = 0
+        
+        if (month_end < today) {
+          // Month has passed - get all spending
+          const { data: purchases } = await supabase
+            .from('purchases')
+            .select('actual_cost, is_projected, date')
+            .eq('user_id', user.id)
+            .gte('date', format(month_start, 'yyyy-MM-dd'))
+            .lte('date', format(month_end, 'yyyy-MM-dd'))
+          
+          if (purchases) {
+            // Count only non-projected OR projected that have passed
+            purchases.forEach(p => {
+              if (!p.is_projected) {
+                actual_spent += parseFloat(p.actual_cost.toString())
+              } else {
+                const purchase_date = new Date(p.date)
+                if (purchase_date < today) {
+                  actual_spent += parseFloat(p.actual_cost.toString())
+                }
+              }
+            })
+          }
+        } else if (month_start <= today) {
+          // Current month - get spending up to today
+          const { data: purchases } = await supabase
+            .from('purchases')
+            .select('actual_cost, is_projected, date')
+            .eq('user_id', user.id)
+            .gte('date', format(month_start, 'yyyy-MM-dd'))
+            .lte('date', format(today, 'yyyy-MM-dd'))
+          
+          if (purchases) {
+            purchases.forEach(p => {
+              if (!p.is_projected) {
+                actual_spent += parseFloat(p.actual_cost.toString())
+              } else {
+                const purchase_date = new Date(p.date)
+                if (purchase_date < today) {
+                  actual_spent += parseFloat(p.actual_cost.toString())
+                }
+              }
+            })
+          }
+        }
+        // else: Future month, actual_spent stays 0
+        
+        console.log(`Actual Spent: $${actual_spent}`)
+        
         // Apply overrides or use defaults
         const gross_income = override?.gross_income_override || gross
         const net_income = override?.net_income_override || net
@@ -288,7 +341,9 @@ export default function PlanningPage() {
         const additional = override?.additional_expenses || 0
         
         const projected = housing + budget + additional
-        const savings = net_income - projected
+        // Use actual_spent for cash calculation if month has started, otherwise use projected
+        const spending_for_cash = actual_spent > 0 ? actual_spent : projected
+        const savings = net_income - spending_for_cash
         const savings_rate = net_income > 0 ? (savings / net_income) * 100 : 0
 
         months_data.push({
@@ -300,6 +355,7 @@ export default function PlanningPage() {
           budget,
           additional,
           projected,
+          actual_spent,
           savings,
           savings_rate,
           auto_savings,
@@ -670,7 +726,7 @@ export default function PlanningPage() {
   const total_gross = annual_salary_total + annual_onetime_total
   
   const total_net = months.reduce((sum, m) => sum + m.net_income, 0)
-  const total_budget = months.reduce((sum, m) => sum + m.housing + m.budget, 0)
+  const total_budget = months.reduce((sum, m) => sum + m.housing + m.budget + m.additional, 0)
   const total_auto_savings = months.reduce((sum, m) => sum + m.auto_savings, 0)
   const total_401k = months.reduce((sum, m) => sum + m.retirement_401k, 0)
   const total_hsa = months.reduce((sum, m) => sum + m.hsa, 0)
@@ -748,6 +804,7 @@ export default function PlanningPage() {
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Budget ✎</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Add'l ✎</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Projected</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Actual</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Savings</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">%</th>
             </tr>
@@ -804,6 +861,12 @@ export default function PlanningPage() {
                 
                 <td className="px-4 py-3 text-right text-sm text-gray-600">
                   ${month.projected.toLocaleString()}
+                </td>
+                
+                <td className={`px-4 py-3 text-right text-sm font-medium ${
+                  month.actual_spent > 0 ? 'text-blue-600' : 'text-gray-400'
+                }`}>
+                  ${month.actual_spent.toLocaleString()}
                 </td>
                 
                 <td className={`px-4 py-3 text-right text-sm font-semibold ${
