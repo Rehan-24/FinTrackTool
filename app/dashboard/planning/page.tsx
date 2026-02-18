@@ -54,17 +54,25 @@ export default function PlanningPage() {
       const income_ids = income_sources?.filter(i => i.is_recurring).map(i => i.id) || []
       let deductions_map: any = {}
       
+      console.log('Income IDs to fetch deductions for:', income_ids)
+      
       if (income_ids.length > 0) {
-        const { data: all_deductions } = await supabase
+        const { data: all_deductions, error: deductions_error } = await supabase
           .from('salary_deductions')
           .select('*')
           .in('income_id', income_ids)
         
+        console.log('Deductions query result:', all_deductions)
+        console.log('Deductions query error:', deductions_error)
+        
         // Map deductions by income_id for fast lookup
         all_deductions?.forEach(d => {
+          console.log(`Mapping deduction for income_id ${d.income_id}:`, d)
           deductions_map[d.income_id] = d
         })
       }
+      
+      console.log('Final deductions_map:', deductions_map)
 
       // Get all categories once
       const { data: categories } = await supabase
@@ -169,9 +177,19 @@ export default function PlanningPage() {
             const occurrences = count_occurrences(source, month_start)
             const deductions = deductions_map[source.id]
             
-            console.log(`Deductions for ${source.description}:`, deductions)
+            console.log(`\n[Deductions Check] Source: ${source.description}`)
+            console.log(`  source.id: ${source.id}`)
+            console.log(`  Looking in deductions_map...`)
+            console.log(`  Found deductions:`, deductions)
             
             if (deductions) {
+              console.log(`  Deduction values:`)
+              console.log(`    federal_tax_monthly: ${deductions.federal_tax_monthly}`)
+              console.log(`    state_tax_monthly: ${deductions.state_tax_monthly}`)
+              console.log(`    retirement_401k_monthly: ${deductions.retirement_401k_monthly}`)
+              console.log(`    hsa_monthly: ${deductions.hsa_monthly}`)
+              console.log(`    auto_savings_monthly: ${deductions.auto_savings_monthly}`)
+              
               // Deductions are MONTHLY values, so we just use them once per month
               // NOT multiplied by occurrences!
               const monthly_deductions = (
