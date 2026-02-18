@@ -37,6 +37,18 @@ export default function PlanningPage() {
   useEffect(() => {
     load_planning_data()
   }, [year])
+  
+  // Reload data when page becomes visible (catches changes from Income page)
+  useEffect(() => {
+    const handle_visibility = () => {
+      if (document.visibilityState === 'visible') {
+        load_planning_data()
+      }
+    }
+    
+    document.addEventListener('visibilitychange', handle_visibility)
+    return () => document.removeEventListener('visibilitychange', handle_visibility)
+  }, [year])
 
   const load_planning_data = async () => {
     setLoading(true)
@@ -611,6 +623,47 @@ export default function PlanningPage() {
     setEditValue('')
     setEditNotes('')
   }
+  
+  const reset_to_default = async () => {
+    if (!editing_month) return
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      
+      // Build the update to NULL out the specific override field
+      const update_data: any = {
+        user_id: user.id,
+        month_year: editing_month
+      }
+      
+      // Set the field to NULL to remove override
+      if (edit_field === 'gross') update_data.gross_income_override = null
+      if (edit_field === 'net') update_data.net_income_override = null
+      if (edit_field === 'housing') {
+        update_data.housing_override = null
+        update_data.housing_notes = null
+      }
+      if (edit_field === 'budget') update_data.budget_override = null
+      if (edit_field === 'additional') {
+        update_data.additional_expenses = null
+        update_data.additional_notes = null
+      }
+      
+      const { error } = await supabase
+        .from('planning_overrides')
+        .upsert(update_data, { onConflict: 'user_id,month_year' })
+      
+      if (error) throw error
+      
+      // Reload the data to get fresh calculated values
+      await load_planning_data()
+      close_edit()
+    } catch (err) {
+      console.error('Error resetting to default:', err)
+      alert('Failed to reset to default')
+    }
+  }
 
   // Calculate totals
   // For GROSS: Use yearly salary + one-time incomes (exact annual amount)
@@ -817,13 +870,19 @@ export default function PlanningPage() {
               <div className="flex gap-3 pt-4">
                 <button
                   onClick={close_edit}
-                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition"
+                  className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition"
                 >
                   Cancel
                 </button>
                 <button
+                  onClick={reset_to_default}
+                  className="px-4 py-2 bg-yellow-500 text-white rounded-lg font-medium hover:bg-yellow-600 transition"
+                >
+                  Reset to Default
+                </button>
+                <button
                   onClick={save_edit}
-                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition"
                 >
                   Save
                 </button>
