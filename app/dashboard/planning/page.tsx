@@ -183,41 +183,43 @@ export default function PlanningPage() {
             console.log(`  Found deductions:`, deductions)
             
             if (deductions) {
-              console.log(`  Deduction values:`)
-              console.log(`    federal_tax_monthly: ${deductions.federal_tax_monthly}`)
-              console.log(`    state_tax_monthly: ${deductions.state_tax_monthly}`)
-              console.log(`    retirement_401k_monthly: ${deductions.retirement_401k_monthly}`)
-              console.log(`    hsa_monthly: ${deductions.hsa_monthly}`)
-              console.log(`    auto_savings_monthly: ${deductions.auto_savings_monthly}`)
+              console.log(`  Yearly deduction values:`)
+              console.log(`    federal_tax: ${deductions.federal_tax}`)
+              console.log(`    state_tax: ${deductions.state_tax}`)
+              console.log(`    pre_tax_401k: ${deductions.pre_tax_401k}`)
+              console.log(`    after_tax_401k: ${deductions.after_tax_401k}`)
+              console.log(`    hsa: ${deductions.hsa}`)
+              console.log(`    auto_savings: ${deductions.auto_savings}`)
               
-              // Deductions are MONTHLY values, so we just use them once per month
-              // NOT multiplied by occurrences!
+              // Deductions are YEARLY values - divide by 12 for monthly
               const monthly_deductions = (
-                (deductions.federal_tax_monthly || 0) +
-                (deductions.state_tax_monthly || 0) +
-                (deductions.local_tax_monthly || 0) +
-                (deductions.fica_monthly || 0) +
-                (deductions.retirement_401k_monthly || 0) +
-                (deductions.hsa_monthly || 0) +
-                (deductions.medical_monthly || 0) +
-                (deductions.dental_monthly || 0) +
-                (deductions.vision_monthly || 0) +
-                (deductions.life_ins_monthly || 0) +
-                (deductions.ad_d_monthly || 0) +
-                (deductions.critical_illness_monthly || 0) +
-                (deductions.hospital_monthly || 0) +
-                (deductions.accident_monthly || 0) +
-                (deductions.legal_monthly || 0) +
-                (deductions.identity_theft_monthly || 0) +
-                (deductions.auto_savings_monthly || 0)
+                ((deductions.federal_tax || 0) / 12) +
+                ((deductions.state_tax || 0) / 12) +
+                ((deductions.fica_total || 0) / 12) +
+                ((deductions.pre_tax_401k || 0) / 12) +
+                ((deductions.after_tax_401k || 0) / 12) +
+                ((deductions.hsa || 0) / 12) +
+                ((deductions.medical_insurance || 0) / 12) +
+                ((deductions.dental_insurance || 0) / 12) +
+                ((deductions.vision_insurance || 0) / 12) +
+                ((deductions.life_insurance || 0) / 12) +
+                ((deductions.ad_d || 0) / 12) +
+                ((deductions.critical_illness || 0) / 12) +
+                ((deductions.hospital_indemnity || 0) / 12) +
+                ((deductions.accident_insurance || 0) / 12) +
+                ((deductions.legal_plan || 0) / 12) +
+                ((deductions.identity_theft || 0) / 12) +
+                ((deductions.auto_savings || 0) / 12) +
+                ((deductions.ca_disability || 0) / 12)
+              )
               )
               
               console.log(`Total monthly deductions for ${source.description}: $${monthly_deductions}`)
               
               total_deductions += monthly_deductions
-              auto_savings += (deductions.auto_savings_monthly || 0)
-              retirement_401k += (deductions.retirement_401k_monthly || 0)
-              hsa += (deductions.hsa_monthly || 0)
+              auto_savings += ((deductions.auto_savings || 0) / 12)
+              retirement_401k += (((deductions.pre_tax_401k || 0) + (deductions.after_tax_401k || 0)) / 12)
+              hsa += ((deductions.hsa || 0) / 12)
             }
           }
         }
