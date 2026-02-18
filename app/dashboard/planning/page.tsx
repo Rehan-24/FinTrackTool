@@ -212,7 +212,6 @@ export default function PlanningPage() {
                 ((deductions.auto_savings || 0) / 12) +
                 ((deductions.ca_disability || 0) / 12)
               )
-              )
               
               console.log(`Total monthly deductions for ${source.description}: $${monthly_deductions}`)
               
