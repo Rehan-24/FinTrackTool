@@ -97,15 +97,15 @@ export default function PlanningPage() {
       const default_budget = categories?.reduce((sum, c) => sum + parseFloat(c.monthly_budget.toString()), 0) || 0
 
       // Get all planning overrides for the year at once
-      const year_start = format(new Date(year, 0, 1), 'yyyy-MM')
-      const year_end = format(new Date(year, 11, 1), 'yyyy-MM')
+      const overrides_year_start = format(new Date(year, 0, 1), 'yyyy-MM')
+      const overrides_year_end = format(new Date(year, 11, 1), 'yyyy-MM')
       
       const { data: all_overrides } = await supabase
         .from('planning_overrides')
         .select('*')
         .eq('user_id', user.id)
-        .gte('month_year', year_start)
-        .lte('month_year', year_end)
+        .gte('month_year', overrides_year_start)
+        .lte('month_year', overrides_year_end)
       
       // Map overrides by month for fast lookup
       const overrides_map: any = {}
