@@ -310,11 +310,24 @@ export default function MonthlyHistoryPage() {
         })
         .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
 
+      // Calculate total saved (savings categories)
+      const total_saved = (purchases || [])
+        .filter(p => {
+          // @ts-ignore - Supabase join syntax
+          if (!p.category?.is_savings) return false
+          
+          // Include regular purchases OR projected with date in past
+          if (!p.is_projected) return true
+          const purchase_date = parse_local_date(p.date)
+          return purchase_date < today
+        })
+        .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
+
       setMonthlyData({
         month: format(selected_month, 'MMMM yyyy'),
         income: total_income,
         spending: total_spending,
-        net_cashflow: total_income - total_spending,
+        net_cashflow: total_income - total_spending - total_saved,
         purchases: (purchases || []).map(p => ({
           id: p.id,
           date: p.date,

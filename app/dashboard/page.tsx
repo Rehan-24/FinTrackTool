@@ -13,7 +13,6 @@ type Category = {
   name: string
   color: string
   monthly_budget: number
-  is_savings: boolean
   spent: number
   projected?: number
   total?: number
@@ -257,12 +256,10 @@ export default function DashboardPage() {
   const budget_remaining = total_budget - total_with_projected
   const budget_percentage = total_budget > 0 ? (total_with_projected / total_budget) * 100 : 0
   const is_over_budget = budget_percentage > 100
-
+  const net_cashflow = monthly_income - total_spent
   
   // Calculate total saved (from savings categories)
   const total_saved = savings_categories.reduce((sum, cat) => sum + cat.spent, 0)
-
-  const net_cashflow = monthly_income - total_spent - total_saved
 
   console.log('[Dashboard] Final Totals:', {
     total_spent,

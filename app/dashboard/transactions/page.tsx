@@ -31,6 +31,7 @@ type Purchase = {
   category: {
     name: string
     color: string
+    is_savings?: boolean
   }
   split_payments?: SplitPayment[]
 }
@@ -144,7 +145,7 @@ export default function TransactionsPage() {
       // Get purchases
       const { data: purchase_data } = await supabase
         .from('purchases')
-        .select('*, category:categories(name, color)')
+        .select('*, category:categories(name, color, is_savings)')
         .eq('user_id', user.id)
         .gte('date', start)
         .lte('date', end)
@@ -342,11 +343,11 @@ export default function TransactionsPage() {
   }
 
   const total_actual = purchases
-    .filter(p => !p.is_projected)
+    .filter(p => !p.is_projected && !p.category.is_savings)
     .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
 
-  // Only count truly upcoming (projected AND future date)
-  const truly_upcoming_purchases = purchases.filter(p => is_truly_upcoming(p))
+  // Only count truly upcoming (projected AND future date) and not savings
+  const truly_upcoming_purchases = purchases.filter(p => is_truly_upcoming(p) && !p.category.is_savings)
   const total_projected = truly_upcoming_purchases
     .reduce((sum, p) => sum + parseFloat(p.actual_cost.toString()), 0)
 
