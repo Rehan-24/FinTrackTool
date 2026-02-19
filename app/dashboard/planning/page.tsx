@@ -351,7 +351,7 @@ export default function PlanningPage() {
         const projected = housing + budget + additional
         // Use actual_spent for cash calculation if month has started, otherwise use projected
         const spending_for_cash = actual_spent > 0 ? actual_spent : projected
-        const savings = net_income - spending_for_cash
+        const savings = net_income - spending_for_cash - saved_amount
         const savings_rate = net_income > 0 ? (savings / net_income) * 100 : 0
 
         months_data.push({
