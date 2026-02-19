@@ -13,6 +13,7 @@ type Category = {
   name: string
   color: string
   monthly_budget: number
+  is_savings: boolean
   spent: number
   projected?: number
   total?: number
