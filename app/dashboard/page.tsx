@@ -245,14 +245,21 @@ export default function DashboardPage() {
     }
   }
 
-  const total_spent = categories.reduce((sum, cat) => sum + cat.spent, 0)
-  const total_projected = categories.reduce((sum, cat) => sum + (cat.projected || 0), 0)
+  // Exclude savings categories from spending totals
+  const spending_categories = categories.filter(cat => !cat.is_savings)
+  const savings_categories = categories.filter(cat => cat.is_savings)
+  
+  const total_spent = spending_categories.reduce((sum, cat) => sum + cat.spent, 0)
+  const total_projected = spending_categories.reduce((sum, cat) => sum + (cat.projected || 0), 0)
   const total_with_projected = total_spent + total_projected
-  const total_budget = categories.reduce((sum, cat) => sum + parseFloat(cat.monthly_budget.toString()), 0)
+  const total_budget = spending_categories.reduce((sum, cat) => sum + parseFloat(cat.monthly_budget.toString()), 0)
   const budget_remaining = total_budget - total_with_projected
   const budget_percentage = total_budget > 0 ? (total_with_projected / total_budget) * 100 : 0
   const is_over_budget = budget_percentage > 100
   const net_cashflow = monthly_income - total_spent
+  
+  // Calculate total saved (from savings categories)
+  const total_saved = savings_categories.reduce((sum, cat) => sum + cat.spent, 0)
 
   console.log('[Dashboard] Final Totals:', {
     total_spent,

@@ -136,7 +136,7 @@ export default function MonthlyHistoryPage() {
       // Get purchases (including projected)
       const { data: purchases } = await supabase
         .from('purchases')
-        .select('*, category:categories(name, color), tags')
+        .select('*, category:categories(name, color, is_savings), tags')
         .eq('user_id', user.id)
         .gte('date', start)
         .lte('date', end)
@@ -297,6 +297,10 @@ export default function MonthlyHistoryPage() {
 
       const total_spending = (purchases || [])
         .filter(p => {
+          // Exclude savings categories
+          // @ts-ignore - Supabase join syntax
+          if (p.category?.is_savings) return false
+          
           // Include regular purchases OR projected with date in past
           if (!p.is_projected) return true
           const purchase_date = parse_local_date(p.date)
@@ -435,8 +439,8 @@ export default function MonthlyHistoryPage() {
       ]),
       [],
       ['TOTALS'],
-      ['Total Budget', monthly_data.categories.reduce((sum, c) => sum + c.budget, 0).toFixed(2)],
-      ['Total Spent', monthly_data.categories.reduce((sum, c) => sum + c.spent, 0).toFixed(2)]
+      ['Total Budget', monthly_data.categories.filter(c => !c.is_savings).reduce((sum, c) => sum + c.budget, 0).toFixed(2)],
+      ['Total Spent', monthly_data.categories.filter(c => !c.is_savings).reduce((sum, c) => sum + c.spent, 0).toFixed(2)]
     ]
     const categories_ws = XLSX.utils.aoa_to_sheet(categories_data)
     XLSX.utils.book_append_sheet(wb, categories_ws, 'Budget by Category')
