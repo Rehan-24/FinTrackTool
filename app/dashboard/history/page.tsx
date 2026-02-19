@@ -202,7 +202,8 @@ export default function MonthlyHistoryPage() {
           name: cat.name,
           budget: budget,
           spent,
-          color: cat.color
+          color: cat.color,
+          is_savings: cat.is_savings || false
         }
       })
 
