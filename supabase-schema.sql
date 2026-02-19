@@ -19,6 +19,7 @@ CREATE TABLE public.categories (
   name TEXT NOT NULL,
   monthly_budget NUMERIC(10, 2) NOT NULL,
   color TEXT NOT NULL,
+  is_savings BOOLEAN DEFAULT false, -- Mark if this category is for savings (not spending)
   created_at TIMESTAMP WITH TIME ZONE DEFAULT timezone('utc'::text, now()) NOT NULL
 );
 
