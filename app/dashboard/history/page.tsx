@@ -34,6 +34,7 @@ type MonthlyData = {
     budget: number
     spent: number
     color: string
+    is_savings: boolean
   }>
   income_sources: Array<{
     source: string
