@@ -10,6 +10,7 @@ type Category = {
   name: string
   monthly_budget: number
   color: string
+  is_savings: boolean
 }
 
 const COLOR_OPTIONS = [
@@ -34,6 +35,7 @@ export default function SettingsPage() {
   const [name, setName] = useState('')
   const [monthly_budget, setMonthlyBudget] = useState('')
   const [color, setColor] = useState(COLOR_OPTIONS[0])
+  const [is_savings, setIsSavings] = useState(false)
 
   useEffect(() => {
     load_categories()
@@ -72,6 +74,7 @@ export default function SettingsPage() {
           name,
           monthly_budget: parseFloat(monthly_budget),
           color,
+          is_savings,
         })
 
       if (error) throw error
@@ -103,6 +106,7 @@ export default function SettingsPage() {
           name,
           monthly_budget: new_budget,
           color,
+          is_savings,
         })
         .eq('id', edit_category.id)
 
@@ -156,12 +160,14 @@ export default function SettingsPage() {
     setName(cat.name)
     setMonthlyBudget(cat.monthly_budget.toString())
     setColor(cat.color)
+    setIsSavings(cat.is_savings || false)
   }
 
   const reset_form = () => {
     setName('')
     setMonthlyBudget('')
     setColor(COLOR_OPTIONS[0])
+    setIsSavings(false)
   }
 
   if (loading) {
@@ -264,6 +270,30 @@ export default function SettingsPage() {
                   </div>
                 </div>
 
+                <div className="flex items-center justify-between p-4 bg-green-50 border border-green-200 rounded-lg">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-800 mb-1">
+                      Savings Category
+                    </label>
+                    <p className="text-xs text-gray-600">
+                      Mark as savings if this category tracks money moved to savings (not spending)
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setIsSavings(!is_savings)}
+                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                      is_savings ? 'bg-green-600' : 'bg-gray-300'
+                    }`}
+                  >
+                    <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        is_savings ? 'translate-x-6' : 'translate-x-1'
+                      }`}
+                    />
+                  </button>
+                </div>
+
                 <div className="flex gap-3 pt-4">
                   <button
                     type="button"
@@ -309,6 +339,11 @@ export default function SettingsPage() {
                       style={{ backgroundColor: cat.color }}
                     />
                     <h3 className="font-semibold text-gray-800 text-lg">{cat.name}</h3>
+                    {cat.is_savings && (
+                      <span className="px-2 py-1 bg-green-100 text-green-700 text-xs font-medium rounded">
+                        Savings
+                      </span>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     <button
