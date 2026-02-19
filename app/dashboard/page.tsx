@@ -16,6 +16,7 @@ type Category = {
   spent: number
   projected?: number
   total?: number
+  is_savings: boolean
 }
 
 type Purchase = {
