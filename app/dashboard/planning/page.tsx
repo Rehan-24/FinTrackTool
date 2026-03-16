@@ -351,7 +351,7 @@ export default function PlanningPage() {
         const projected = housing + budget + additional
         // Use actual_spent for cash calculation if month has started, otherwise use projected
         const spending_for_cash = actual_spent > 0 ? actual_spent : projected
-        const savings = net_income - spending_for_cash - saved_amount
+        const savings = net_income - spending_for_cash
         const savings_rate = net_income > 0 ? (savings / net_income) * 100 : 0
 
         months_data.push({
@@ -739,7 +739,7 @@ export default function PlanningPage() {
   const total_auto_savings = months.reduce((sum, m) => sum + m.auto_savings, 0)
   const total_401k = months.reduce((sum, m) => sum + m.retirement_401k, 0)
   const total_hsa = months.reduce((sum, m) => sum + m.hsa, 0)
-  const total_cash_savings = months.reduce((sum, m) => sum + m.savings + m.saved_amount, 0)
+  const total_cash_savings = months.reduce((sum, m) => sum + m.savings, 0)
   const total_savings = total_auto_savings + total_401k + total_hsa + total_cash_savings
 
   if (loading) {
