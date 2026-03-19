@@ -9,6 +9,19 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.4.9',
+    date: '2026-03-18',
+    title: 'Salary Deductions Data Integrity Fixes',
+    features: [],
+    bugFixes: [
+      'FIXED: pre_tax_401k_roth field no longer incorrectly stores Roth 401k value (Roth 401k is after-tax, correctly stored only in after_tax_401k_roth)',
+      'FIXED: auto_savings legacy field now explicitly zeroed on save/update to prevent double-counting with new individual savings fields',
+    ],
+    breaking: [
+      'MIGRATION REQUIRED: Run migration_zero_legacy_auto_savings.sql in Supabase SQL Editor to clean up pre_tax_401k_roth and auto_savings in existing salary entries',
+    ],
+  },
+  {
     version: '5.4.8',
     date: '2026-03-18',
     title: 'Auto Savings Double-Count Fix',

@@ -1354,7 +1354,7 @@ function SalaryCalculatorInline({
       gross_yearly: gross,
       deductions: {
         pre_tax_401k:        k401_yr,
-        pre_tax_401k_roth:   roth_yr,
+        pre_tax_401k_roth:   0, // Roth 401k is after-tax, not pre-tax - stored in after_tax_401k_roth
         hsa:                 hsa_yr,
         fsa:                 fsa_yr,
         medical_insurance:   medical_yr,
