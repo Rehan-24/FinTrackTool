@@ -1098,7 +1098,7 @@ function CalcField({
       <input
         type="number" step="0.01" id={id} value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+        className="w-full px-2 py-1 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-emerald-500 focus:outline-none"
       />
     </div>
   )
@@ -1136,14 +1136,14 @@ function ToggleField({
           </span>
         </div>
       </div>
-      <div className="flex items-center border border-gray-300 rounded overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500">
+      <div className="flex items-center border border-gray-300 rounded overflow-hidden bg-white focus-within:ring-1 focus-within:ring-emerald-500">
         {mode !== 'pct' && (
           <span className="text-xs text-gray-500 px-1.5 bg-gray-50 border-r border-gray-200 h-[26px] flex items-center">$</span>
         )}
         <input
           type="number" step="0.01" value={value}
           onChange={e => onValueChange(e.target.value)}
-          className="w-full px-2 py-1 text-sm border-none outline-none bg-transparent"
+          className="w-full px-2 py-1 text-sm border-none outline-none bg-white"
         />
       </div>
     </div>
@@ -1174,47 +1174,71 @@ function SalaryCalculatorInline({
   const d = initialValues || {}
 
   // ── pre-tax ──
-  const [k401_pct,       setK401Pct]       = useState(d.k401_pct?.toString()       || '0.00')
-  const [medical_mo,     setMedicalMo]     = useState(d.medical_monthly?.toString() || '0.00')
-  const [dental_mo,      setDentalMo]      = useState(d.dental_monthly?.toString()  || '0.00')
-  const [vision_mo,      setVisionMo]      = useState(d.vision_monthly?.toString()  || '0.00')
-  const [ltd_mo,         setLtdMo]         = useState(d.ltd_monthly?.toString()     || '0.00')
-  const [life_mo,        setLifeMo]        = useState(d.life_ins_monthly?.toString()|| '0.00')
-  const [hsa_mo,         setHsaMo]         = useState(d.hsa_monthly?.toString()     || '0.00')
-  const [fsa_mo,         setFsaMo]         = useState(d.fsa_monthly?.toString()     || '0.00')
+  const [k401_val,       setK401Val]       = useState(d.k401_pct?.toString()        || '0.00')
+  const [k401_mode,      setK401Mode]      = useState<FicaMode>(d.k401_mode         || 'pct')
+  const [medical_val,    setMedicalVal]    = useState(d.medical_monthly?.toString()  || '0.00')
+  const [medical_mode,   setMedicalMode]   = useState<FicaMode>(d.medical_mode       || 'mo')
+  const [dental_val,     setDentalVal]     = useState(d.dental_monthly?.toString()   || '0.00')
+  const [dental_mode,    setDentalMode]    = useState<FicaMode>(d.dental_mode        || 'mo')
+  const [vision_val,     setVisionVal]     = useState(d.vision_monthly?.toString()   || '0.00')
+  const [vision_mode,    setVisionMode]    = useState<FicaMode>(d.vision_mode        || 'mo')
+  const [ltd_val,        setLtdVal]        = useState(d.ltd_monthly?.toString()      || '0.00')
+  const [ltd_mode,       setLtdMode]       = useState<FicaMode>(d.ltd_mode           || 'mo')
+  const [life_val,       setLifeVal]       = useState(d.life_ins_monthly?.toString() || '0.00')
+  const [life_mode,      setLifeMode]      = useState<FicaMode>(d.life_mode          || 'mo')
+  const [hsa_val,        setHsaVal]        = useState(d.hsa_monthly?.toString()      || '0.00')
+  const [hsa_mode,       setHsaMode]       = useState<FicaMode>(d.hsa_mode           || 'mo')
+  const [fsa_val,        setFsaVal]        = useState(d.fsa_monthly?.toString()      || '0.00')
+  const [fsa_mode,       setFsaMode]       = useState<FicaMode>(d.fsa_mode           || 'mo')
 
   // ── taxes ──
-  const [fed_pct,        setFedPct]        = useState(d.federal_tax_pct?.toString() || '0.00')
-  const [state_pct,      setStatePct]      = useState(d.state_tax_pct?.toString()   || '0.00')
-  const [local_pct,      setLocalPct]      = useState(d.local_tax_pct?.toString()   || '0.00')
+  const [fed_val,        setFedVal]        = useState(d.federal_tax_pct?.toString()  || '0.00')
+  const [fed_mode,       setFedMode]       = useState<FicaMode>(d.fed_mode           || 'pct')
+  const [state_val,      setStateVal]      = useState(d.state_tax_pct?.toString()    || '0.00')
+  const [state_mode,     setStateMode]     = useState<FicaMode>(d.state_mode         || 'pct')
+  const [local_val,      setLocalVal]      = useState(d.local_tax_pct?.toString()    || '0.00')
+  const [local_mode,     setLocalMode]     = useState<FicaMode>(d.local_mode         || 'pct')
 
-  // ── fica (with mode toggles) ──
-  const [gross_salary,   setGrossSalary]   = useState(d.gross_yearly?.toString()    || '0')
-  const [ss_val,         setSsVal]         = useState(d.ss_val?.toString()          || '6.20')
-  const [ss_mode,        setSsMode]        = useState<FicaMode>(d.ss_mode           || 'pct')
-  const [med_val,        setMedVal]        = useState(d.med_val?.toString()         || '1.45')
-  const [med_mode,       setMedMode]       = useState<FicaMode>(d.med_mode          || 'pct')
-  const [cadis_val,      setCadisVal]      = useState(d.cadis_val?.toString()       || '0.00')
-  const [cadis_mode,     setCadisMode]     = useState<FicaMode>(d.cadis_mode        || 'pct')
-  const [state_etc_val,  setStateEtcVal]   = useState(d.state_etc_val?.toString()   || '0.00')
-  const [state_etc_mode, setStateEtcMode]  = useState<FicaMode>(d.state_etc_mode    || 'pct')
+  // ── fica ──
+  const [gross_salary,   setGrossSalary]   = useState(d.gross_yearly?.toString()     || '0')
+  const [ss_val,         setSsVal]         = useState(d.ss_val?.toString()           || '6.20')
+  const [ss_mode,        setSsMode]        = useState<FicaMode>(d.ss_mode            || 'pct')
+  const [med_val,        setMedVal]        = useState(d.med_val?.toString()          || '1.45')
+  const [med_mode,       setMedMode]       = useState<FicaMode>(d.med_mode           || 'pct')
+  const [cadis_val,      setCadisVal]      = useState(d.cadis_val?.toString()        || '0.00')
+  const [cadis_mode,     setCadisMode]     = useState<FicaMode>(d.cadis_mode         || 'pct')
+  const [state_etc_val,  setStateEtcVal]   = useState(d.state_etc_val?.toString()    || '0.00')
+  const [state_etc_mode, setStateEtcMode]  = useState<FicaMode>(d.state_etc_mode     || 'pct')
 
   // ── after-tax ──
-  const [k401a_pct,      setK401aPct]      = useState(d.k401_after_pct?.toString()  || '0.00')
-  const [roth_pct,       setRothPct]       = useState(d.k401_roth_pct?.toString()   || '0.00')
-  const [legal_mo,       setLegalMo]       = useState(d.legal_monthly?.toString()   || '0.00')
-  const [crit_mo,        setCritMo]        = useState(d.critical_illness_monthly?.toString() || '0.00')
-  const [idt_mo,         setIdtMo]         = useState(d.identity_theft_monthly?.toString()   || '0.00')
-  const [acc_mo,         setAccMo]         = useState(d.accident_monthly?.toString()|| '0.00')
-  const [hosp_mo,        setHospMo]        = useState(d.hospital_monthly?.toString()|| '0.00')
-  const [add_mo,         setAddMo]         = useState(d.ad_d_monthly?.toString()    || '0.00')
+  const [k401a_val,      setK401aVal]      = useState(d.k401_after_pct?.toString()   || '0.00')
+  const [k401a_mode,     setK401aMode]     = useState<FicaMode>(d.k401a_mode         || 'pct')
+  const [roth_val,       setRothVal]       = useState(d.k401_roth_pct?.toString()    || '0.00')
+  const [roth_mode,      setRothMode]      = useState<FicaMode>(d.roth_mode          || 'pct')
+  const [legal_val,      setLegalVal]      = useState(d.legal_monthly?.toString()    || '0.00')
+  const [legal_mode,     setLegalMode]     = useState<FicaMode>(d.legal_mode         || 'mo')
+  const [crit_val,       setCritVal]       = useState(d.critical_illness_monthly?.toString() || '0.00')
+  const [crit_mode,      setCritMode]      = useState<FicaMode>(d.crit_mode          || 'mo')
+  const [idt_val,        setIdtVal]        = useState(d.identity_theft_monthly?.toString()   || '0.00')
+  const [idt_mode,       setIdtMode]       = useState<FicaMode>(d.idt_mode           || 'mo')
+  const [acc_val,        setAccVal]        = useState(d.accident_monthly?.toString() || '0.00')
+  const [acc_mode,       setAccMode]       = useState<FicaMode>(d.acc_mode           || 'mo')
+  const [hosp_val,       setHospVal]       = useState(d.hospital_monthly?.toString() || '0.00')
+  const [hosp_mode,      setHospMode]      = useState<FicaMode>(d.hosp_mode          || 'mo')
+  const [add_val,        setAddVal]        = useState(d.ad_d_monthly?.toString()     || '0.00')
+  const [add_mode,       setAddMode]       = useState<FicaMode>(d.add_mode           || 'mo')
 
   // ── auto savings ──
-  const [ira_mo,         setIraMo]         = useState(d.ira_monthly?.toString()     || '0.00')
-  const [hysa_mo,        setHysaMo]        = useState(d.hysa_monthly?.toString()    || '0.00')
-  const [crypto_mo,      setCryptoMo]      = useState(d.crypto_monthly?.toString()  || '0.00')
-  const [invest_mo,      setInvestMo]      = useState(d.invest_monthly?.toString()  || '0.00')
-  const [other_mo,       setOtherMo]       = useState(d.other_savings_monthly?.toString() || '0.00')
+  const [ira_val,        setIraVal]        = useState(d.ira_monthly?.toString()      || '0.00')
+  const [ira_mode,       setIraMode]       = useState<FicaMode>(d.ira_mode           || 'mo')
+  const [hysa_val,       setHysaVal]       = useState(d.hysa_monthly?.toString()     || '0.00')
+  const [hysa_mode,      setHysaMode]      = useState<FicaMode>(d.hysa_mode          || 'mo')
+  const [crypto_val,     setCryptoVal]     = useState(d.crypto_monthly?.toString()   || '0.00')
+  const [crypto_mode,    setCryptoMode]    = useState<FicaMode>(d.crypto_mode        || 'mo')
+  const [invest_val,     setInvestVal]     = useState(d.invest_monthly?.toString()   || '0.00')
+  const [invest_mode,    setInvestMode]    = useState<FicaMode>(d.invest_mode        || 'mo')
+  const [other_val,      setOtherVal]      = useState(d.other_savings_monthly?.toString() || '0.00')
+  const [other_mode,     setOtherMode]     = useState<FicaMode>(d.other_mode         || 'mo')
 
   // ── mode switch helper ──
   const switchMode = (
@@ -1232,48 +1256,48 @@ function SalaryCalculatorInline({
   const gross = parseFloat(gross_salary) || 0
 
   // pre-tax
-  const k401_yr    = gross * (parseFloat(k401_pct) / 100)
-  const medical_yr = (parseFloat(medical_mo) || 0) * 12
-  const dental_yr  = (parseFloat(dental_mo)  || 0) * 12
-  const vision_yr  = (parseFloat(vision_mo)  || 0) * 12
-  const ltd_yr     = (parseFloat(ltd_mo)     || 0) * 12
-  const life_yr    = (parseFloat(life_mo)    || 0) * 12
-  const hsa_yr     = (parseFloat(hsa_mo)     || 0) * 12
-  const fsa_yr     = (parseFloat(fsa_mo)     || 0) * 12
+  const k401_yr    = toYearly(k401_val,    k401_mode,    gross)
+  const medical_yr = toYearly(medical_val, medical_mode, gross)
+  const dental_yr  = toYearly(dental_val,  dental_mode,  gross)
+  const vision_yr  = toYearly(vision_val,  vision_mode,  gross)
+  const ltd_yr     = toYearly(ltd_val,     ltd_mode,     gross)
+  const life_yr    = toYearly(life_val,    life_mode,    gross)
+  const hsa_yr     = toYearly(hsa_val,     hsa_mode,     gross)
+  const fsa_yr     = toYearly(fsa_val,     fsa_mode,     gross)
   const total_pre  = k401_yr + medical_yr + dental_yr + vision_yr + ltd_yr + life_yr + hsa_yr + fsa_yr
 
   // taxes
   const taxable    = gross - total_pre
-  const fed_yr     = taxable * (parseFloat(fed_pct)   / 100)
-  const state_yr   = taxable * (parseFloat(state_pct) / 100)
-  const local_yr   = taxable * (parseFloat(local_pct) / 100)
+  const fed_yr     = toYearly(fed_val,   fed_mode,   taxable)
+  const state_yr   = toYearly(state_val, state_mode, taxable)
+  const local_yr   = toYearly(local_val, local_mode, taxable)
 
   // fica
-  const ss_yr      = toYearly(ss_val,       ss_mode,       gross)
-  const med_yr     = toYearly(med_val,      med_mode,      gross)
-  const cadis_yr   = toYearly(cadis_val,    cadis_mode,    gross)
+  const ss_yr      = toYearly(ss_val,        ss_mode,        gross)
+  const med_yr     = toYearly(med_val,       med_mode,       gross)
+  const cadis_yr   = toYearly(cadis_val,     cadis_mode,     gross)
   const setc_yr    = toYearly(state_etc_val, state_etc_mode, gross)
   const fica_total = ss_yr + med_yr
   const total_tax  = fed_yr + state_yr + local_yr + ss_yr + med_yr + cadis_yr + setc_yr
 
   // after-tax base
   const after_tax  = gross - total_pre - total_tax
-  const k401a_yr   = after_tax * (parseFloat(k401a_pct) / 100)
-  const roth_yr    = after_tax * (parseFloat(roth_pct)  / 100)
-  const legal_yr   = (parseFloat(legal_mo) || 0) * 12
-  const crit_yr    = (parseFloat(crit_mo)  || 0) * 12
-  const idt_yr     = (parseFloat(idt_mo)   || 0) * 12
-  const acc_yr     = (parseFloat(acc_mo)   || 0) * 12
-  const hosp_yr    = (parseFloat(hosp_mo)  || 0) * 12
-  const add_yr     = (parseFloat(add_mo)   || 0) * 12
+  const k401a_yr   = toYearly(k401a_val, k401a_mode, after_tax)
+  const roth_yr    = toYearly(roth_val,  roth_mode,  after_tax)
+  const legal_yr   = toYearly(legal_val, legal_mode, gross)
+  const crit_yr    = toYearly(crit_val,  crit_mode,  gross)
+  const idt_yr     = toYearly(idt_val,   idt_mode,   gross)
+  const acc_yr     = toYearly(acc_val,   acc_mode,   gross)
+  const hosp_yr    = toYearly(hosp_val,  hosp_mode,  gross)
+  const add_yr     = toYearly(add_val,   add_mode,   gross)
   const total_at   = k401a_yr + roth_yr + legal_yr + crit_yr + idt_yr + acc_yr + hosp_yr + add_yr
 
   // auto savings
-  const ira_yr     = (parseFloat(ira_mo)    || 0) * 12
-  const hysa_yr    = (parseFloat(hysa_mo)   || 0) * 12
-  const crypto_yr  = (parseFloat(crypto_mo) || 0) * 12
-  const invest_yr  = (parseFloat(invest_mo) || 0) * 12
-  const other_yr   = (parseFloat(other_mo)  || 0) * 12
+  const ira_yr     = toYearly(ira_val,    ira_mode,    gross)
+  const hysa_yr    = toYearly(hysa_val,   hysa_mode,   gross)
+  const crypto_yr  = toYearly(crypto_val, crypto_mode, gross)
+  const invest_yr  = toYearly(invest_val, invest_mode, gross)
+  const other_yr   = toYearly(other_val,  other_mode,  gross)
   const total_sav  = ira_yr + hysa_yr + crypto_yr + invest_yr + other_yr
 
   const net_yearly    = after_tax - total_at - total_sav
@@ -1327,6 +1351,9 @@ function SalaryCalculatorInline({
       k401a_yr, roth_yr, legal_yr, crit_yr, idt_yr, acc_yr, hosp_yr, add_yr,
       ira_yr, hysa_yr, crypto_yr, invest_yr, other_yr, net_yearly, onChange])
 
+  const sw = (mode: FicaMode, setMode: (m: FicaMode) => void, val: string, setVal: (v: string) => void) =>
+    (m: FicaMode) => switchMode(mode, setMode, val, setVal, m)
+
   return (
     <div className="mt-4 bg-emerald-50 rounded-lg p-4 border border-emerald-200">
 
@@ -1338,69 +1365,57 @@ function SalaryCalculatorInline({
           <input type="number" step="0.01" value={gross_salary}
             onChange={e => setGrossSalary(e.target.value)}
             placeholder="105800.00"
-            className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm"
+            className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg bg-white focus:ring-2 focus:ring-emerald-500 text-sm"
           />
         </div>
       </div>
 
       {/* Pre-tax */}
       <CalcSection title="Pre-tax deductions">
-        <CalcField label="401k %" id="k401" value={k401_pct} onChange={setK401Pct} yearlyAmt={k401_yr} color="green" />
-        <CalcField label="Medical/mo" id="medical" value={medical_mo} onChange={setMedicalMo} yearlyAmt={medical_yr} />
-        <CalcField label="Dental/mo" id="dental" value={dental_mo} onChange={setDentalMo} yearlyAmt={dental_yr} />
-        <CalcField label="Vision/mo" id="vision" value={vision_mo} onChange={setVisionMo} yearlyAmt={vision_yr} />
-        <CalcField label="Long-term disability/mo" id="ltd" value={ltd_mo} onChange={setLtdMo} yearlyAmt={ltd_yr} />
-        <CalcField label="Life insurance/mo" id="life" value={life_mo} onChange={setLifeMo} yearlyAmt={life_yr} />
-        <CalcField label="HSA/mo" id="hsa" value={hsa_mo} onChange={setHsaMo} yearlyAmt={hsa_yr} color="green" />
-        <CalcField label="FSA/mo" id="fsa" value={fsa_mo} onChange={setFsaMo} yearlyAmt={fsa_yr} color="green" />
+        <ToggleField label="401k" value={k401_val} mode={k401_mode} onValueChange={setK401Val} onModeChange={sw(k401_mode, setK401Mode, k401_val, setK401Val)} yearlyAmt={k401_yr} color="green" />
+        <ToggleField label="Medical" value={medical_val} mode={medical_mode} onValueChange={setMedicalVal} onModeChange={sw(medical_mode, setMedicalMode, medical_val, setMedicalVal)} yearlyAmt={medical_yr} />
+        <ToggleField label="Dental" value={dental_val} mode={dental_mode} onValueChange={setDentalVal} onModeChange={sw(dental_mode, setDentalMode, dental_val, setDentalVal)} yearlyAmt={dental_yr} />
+        <ToggleField label="Vision" value={vision_val} mode={vision_mode} onValueChange={setVisionVal} onModeChange={sw(vision_mode, setVisionMode, vision_val, setVisionVal)} yearlyAmt={vision_yr} />
+        <ToggleField label="Long-term disability" value={ltd_val} mode={ltd_mode} onValueChange={setLtdVal} onModeChange={sw(ltd_mode, setLtdMode, ltd_val, setLtdVal)} yearlyAmt={ltd_yr} />
+        <ToggleField label="Life insurance" value={life_val} mode={life_mode} onValueChange={setLifeVal} onModeChange={sw(life_mode, setLifeMode, life_val, setLifeVal)} yearlyAmt={life_yr} />
+        <ToggleField label="HSA" value={hsa_val} mode={hsa_mode} onValueChange={setHsaVal} onModeChange={sw(hsa_mode, setHsaMode, hsa_val, setHsaVal)} yearlyAmt={hsa_yr} color="green" />
+        <ToggleField label="FSA" value={fsa_val} mode={fsa_mode} onValueChange={setFsaVal} onModeChange={sw(fsa_mode, setFsaMode, fsa_val, setFsaVal)} yearlyAmt={fsa_yr} color="green" />
       </CalcSection>
 
       {/* Taxes */}
       <CalcSection title="Taxes">
-        <CalcField label="Federal tax %" id="fed" value={fed_pct} onChange={setFedPct} yearlyAmt={fed_yr} />
-        <CalcField label="State tax %" id="sta" value={state_pct} onChange={setStatePct} yearlyAmt={state_yr} />
-        <CalcField label="Local tax %" id="loc" value={local_pct} onChange={setLocalPct} yearlyAmt={local_yr} />
+        <ToggleField label="Federal tax" value={fed_val} mode={fed_mode} onValueChange={setFedVal} onModeChange={sw(fed_mode, setFedMode, fed_val, setFedVal)} yearlyAmt={fed_yr} />
+        <ToggleField label="State tax" value={state_val} mode={state_mode} onValueChange={setStateVal} onModeChange={sw(state_mode, setStateMode, state_val, setStateVal)} yearlyAmt={state_yr} />
+        <ToggleField label="Local tax" value={local_val} mode={local_mode} onValueChange={setLocalVal} onModeChange={sw(local_mode, setLocalMode, local_val, setLocalVal)} yearlyAmt={local_yr} />
       </CalcSection>
 
       {/* FICA */}
       <CalcSection title="Social Security &amp; FICA">
-        <ToggleField label="Social Security" value={ss_val} mode={ss_mode}
-          onValueChange={setSsVal}
-          onModeChange={m => switchMode(ss_mode, setSsMode, ss_val, setSsVal, m)}
-          yearlyAmt={ss_yr} />
-        <ToggleField label="Medicare" value={med_val} mode={med_mode}
-          onValueChange={setMedVal}
-          onModeChange={m => switchMode(med_mode, setMedMode, med_val, setMedVal, m)}
-          yearlyAmt={med_yr} />
-        <ToggleField label="State disability" value={cadis_val} mode={cadis_mode}
-          onValueChange={setCadisVal}
-          onModeChange={m => switchMode(cadis_mode, setCadisMode, cadis_val, setCadisVal, m)}
-          yearlyAmt={cadis_yr} />
-        <ToggleField label="State etc" value={state_etc_val} mode={state_etc_mode}
-          onValueChange={setStateEtcVal}
-          onModeChange={m => switchMode(state_etc_mode, setStateEtcMode, state_etc_val, setStateEtcVal, m)}
-          yearlyAmt={setc_yr} />
+        <ToggleField label="Social Security" value={ss_val} mode={ss_mode} onValueChange={setSsVal} onModeChange={sw(ss_mode, setSsMode, ss_val, setSsVal)} yearlyAmt={ss_yr} />
+        <ToggleField label="Medicare" value={med_val} mode={med_mode} onValueChange={setMedVal} onModeChange={sw(med_mode, setMedMode, med_val, setMedVal)} yearlyAmt={med_yr} />
+        <ToggleField label="State disability" value={cadis_val} mode={cadis_mode} onValueChange={setCadisVal} onModeChange={sw(cadis_mode, setCadisMode, cadis_val, setCadisVal)} yearlyAmt={cadis_yr} />
+        <ToggleField label="State etc" value={state_etc_val} mode={state_etc_mode} onValueChange={setStateEtcVal} onModeChange={sw(state_etc_mode, setStateEtcMode, state_etc_val, setStateEtcVal)} yearlyAmt={setc_yr} />
       </CalcSection>
 
       {/* After-tax */}
       <CalcSection title="After-tax deductions">
-        <CalcField label="401k after-tax %" id="k401a" value={k401a_pct} onChange={setK401aPct} yearlyAmt={k401a_yr} color="green" />
-        <CalcField label="401k Roth %" id="roth" value={roth_pct} onChange={setRothPct} yearlyAmt={roth_yr} color="green" />
-        <CalcField label="Legal plan/mo" id="legal" value={legal_mo} onChange={setLegalMo} yearlyAmt={legal_yr} />
-        <CalcField label="Critical illness/mo" id="crit" value={crit_mo} onChange={setCritMo} yearlyAmt={crit_yr} />
-        <CalcField label="ID theft/mo" id="idt" value={idt_mo} onChange={setIdtMo} yearlyAmt={idt_yr} />
-        <CalcField label="Accident/mo" id="acc" value={acc_mo} onChange={setAccMo} yearlyAmt={acc_yr} />
-        <CalcField label="Hospital indem./mo" id="hosp" value={hosp_mo} onChange={setHospMo} yearlyAmt={hosp_yr} />
-        <CalcField label="AD&amp;D/mo" id="add" value={add_mo} onChange={setAddMo} yearlyAmt={add_yr} />
+        <ToggleField label="401k after-tax" value={k401a_val} mode={k401a_mode} onValueChange={setK401aVal} onModeChange={sw(k401a_mode, setK401aMode, k401a_val, setK401aVal)} yearlyAmt={k401a_yr} color="green" />
+        <ToggleField label="401k Roth" value={roth_val} mode={roth_mode} onValueChange={setRothVal} onModeChange={sw(roth_mode, setRothMode, roth_val, setRothVal)} yearlyAmt={roth_yr} color="green" />
+        <ToggleField label="Legal plan" value={legal_val} mode={legal_mode} onValueChange={setLegalVal} onModeChange={sw(legal_mode, setLegalMode, legal_val, setLegalVal)} yearlyAmt={legal_yr} />
+        <ToggleField label="Critical illness" value={crit_val} mode={crit_mode} onValueChange={setCritVal} onModeChange={sw(crit_mode, setCritMode, crit_val, setCritVal)} yearlyAmt={crit_yr} />
+        <ToggleField label="ID theft" value={idt_val} mode={idt_mode} onValueChange={setIdtVal} onModeChange={sw(idt_mode, setIdtMode, idt_val, setIdtVal)} yearlyAmt={idt_yr} />
+        <ToggleField label="Accident" value={acc_val} mode={acc_mode} onValueChange={setAccVal} onModeChange={sw(acc_mode, setAccMode, acc_val, setAccVal)} yearlyAmt={acc_yr} />
+        <ToggleField label="Hospital indem." value={hosp_val} mode={hosp_mode} onValueChange={setHospVal} onModeChange={sw(hosp_mode, setHospMode, hosp_val, setHospVal)} yearlyAmt={hosp_yr} />
+        <ToggleField label="AD&amp;D" value={add_val} mode={add_mode} onValueChange={setAddVal} onModeChange={sw(add_mode, setAddMode, add_val, setAddVal)} yearlyAmt={add_yr} />
       </CalcSection>
 
       {/* Auto savings */}
       <CalcSection title="Auto savings &amp; investments">
-        <CalcField label="Roth IRA/mo" id="ira" value={ira_mo} onChange={setIraMo} yearlyAmt={ira_yr} color="green" />
-        <CalcField label="HYSA/mo" id="hysa" value={hysa_mo} onChange={setHysaMo} yearlyAmt={hysa_yr} color="green" />
-        <CalcField label="Crypto/mo" id="crypto" value={crypto_mo} onChange={setCryptoMo} yearlyAmt={crypto_yr} color="green" />
-        <CalcField label="Personal invest./mo" id="invest" value={invest_mo} onChange={setInvestMo} yearlyAmt={invest_yr} color="green" />
-        <CalcField label="Other savings/mo" id="other" value={other_mo} onChange={setOtherMo} yearlyAmt={other_yr} color="green" />
+        <ToggleField label="Roth IRA" value={ira_val} mode={ira_mode} onValueChange={setIraVal} onModeChange={sw(ira_mode, setIraMode, ira_val, setIraVal)} yearlyAmt={ira_yr} color="green" />
+        <ToggleField label="HYSA" value={hysa_val} mode={hysa_mode} onValueChange={setHysaVal} onModeChange={sw(hysa_mode, setHysaMode, hysa_val, setHysaVal)} yearlyAmt={hysa_yr} color="green" />
+        <ToggleField label="Crypto" value={crypto_val} mode={crypto_mode} onValueChange={setCryptoVal} onModeChange={sw(crypto_mode, setCryptoMode, crypto_val, setCryptoVal)} yearlyAmt={crypto_yr} color="green" />
+        <ToggleField label="Personal invest." value={invest_val} mode={invest_mode} onValueChange={setInvestVal} onModeChange={sw(invest_mode, setInvestMode, invest_val, setInvestVal)} yearlyAmt={invest_yr} color="green" />
+        <ToggleField label="Other savings" value={other_val} mode={other_mode} onValueChange={setOtherVal} onModeChange={sw(other_mode, setOtherMode, other_val, setOtherVal)} yearlyAmt={other_yr} color="green" />
       </CalcSection>
 
       {/* Net bar */}
