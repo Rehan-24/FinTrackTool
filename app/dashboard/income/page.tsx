@@ -5,31 +5,46 @@ import { supabase } from '@/lib/supabase'
 import { Plus, Trash2, TrendingUp, Edit2, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 
+type FicaMode = 'pct' | 'mo' | 'period'
+
 type SalaryCalculation = {
   gross_yearly: number
   deductions: {
+    // pre-tax
     pre_tax_401k: number
     pre_tax_401k_roth: number
     hsa: number
+    fsa: number
     medical_insurance: number
     dental_insurance: number
     vision_insurance: number
+    long_term_disability: number
+    life_insurance: number
+    // taxes
     federal_tax: number
     state_tax: number
+    local_tax: number
+    // fica
     social_security: number
     medicare: number
     fica_total: number
     ca_disability: number
+    state_etc: number
+    // after-tax
     after_tax_401k: number
     after_tax_401k_roth: number
-    life_insurance: number
     ad_d: number
     critical_illness: number
     hospital_indemnity: number
     accident_insurance: number
     legal_plan: number
     identity_theft: number
-    auto_savings: number
+    // auto savings
+    roth_ira: number
+    hysa: number
+    crypto: number
+    personal_investments: number
+    other_savings: number
   }
   net_yearly: number
   net_monthly: number
@@ -353,39 +368,61 @@ export default function IncomePage() {
           .single()
 
         if (deductions) {
-          // Convert yearly amounts back to input format
-          const yearly_salary = inc.yearly_salary || 0
-          
-          // Calculate percentages from yearly amounts
-          const k401_yearly = deductions.pre_tax_401k || 0
-          const k401_roth_yearly = deductions.pre_tax_401k_roth || 0
-          const k401_after_yearly = deductions.after_tax_401k || 0
-          
-          // Calculate taxable income to derive tax percentages
-          const total_pre_tax = k401_yearly + k401_roth_yearly + (deductions.hsa || 0) + 
-            (deductions.medical_insurance || 0) + (deductions.dental_insurance || 0) + (deductions.vision_insurance || 0)
-          const taxable_income = yearly_salary - total_pre_tax
-          
+          const gr = inc.yearly_salary || 0
+
+          // pre-tax totals (to derive taxable income for tax % calculations)
+          const k401_yr    = deductions.pre_tax_401k || 0
+          const total_pre  = k401_yr + (deductions.hsa || 0) + (deductions.fsa || 0) +
+            (deductions.medical_insurance || 0) + (deductions.dental_insurance || 0) +
+            (deductions.vision_insurance || 0) + (deductions.long_term_disability || 0) +
+            (deductions.life_insurance || 0)
+          const taxable    = gr - total_pre
+
+          // after-tax base (to derive after-tax % contributions)
+          const total_tax  = (deductions.federal_tax || 0) + (deductions.state_tax || 0) +
+            (deductions.local_tax || 0) + (deductions.social_security || 0) +
+            (deductions.medicare || 0) + (deductions.ca_disability || 0) + (deductions.state_etc || 0)
+          const after_tax  = gr - total_pre - total_tax
+
           const values = {
-            gross_yearly: yearly_salary,
-            k401_pct: yearly_salary > 0 ? ((k401_yearly / yearly_salary) * 100).toFixed(2) : '0.00',
-            k401_roth_pct: yearly_salary > 0 ? ((k401_roth_yearly / yearly_salary) * 100).toFixed(2) : '0.00',
-            hsa_monthly: ((deductions.hsa || 0) / 12).toFixed(2),
+            gross_yearly:    gr,
+            // pre-tax
+            k401_pct:        gr > 0 ? ((k401_yr / gr) * 100).toFixed(2) : '0.00',
             medical_monthly: ((deductions.medical_insurance || 0) / 12).toFixed(2),
-            dental_monthly: ((deductions.dental_insurance || 0) / 12).toFixed(2),
-            vision_monthly: ((deductions.vision_insurance || 0) / 12).toFixed(2),
-            federal_tax_pct: taxable_income > 0 ? (((deductions.federal_tax || 0) / taxable_income) * 100).toFixed(2) : '0.00',
-            state_tax_pct: taxable_income > 0 ? (((deductions.state_tax || 0) / taxable_income) * 100).toFixed(2) : '0.00',
-            ca_disability_pct: yearly_salary > 0 ? (((deductions.ca_disability || 0) / yearly_salary) * 100).toFixed(2) : '0.00',
-            k401_after_pct: yearly_salary > 0 ? ((k401_after_yearly / (yearly_salary - total_pre_tax - (deductions.federal_tax || 0) - (deductions.state_tax || 0) - (deductions.social_security || 0) - (deductions.medicare || 0) - (deductions.ca_disability || 0))) * 100).toFixed(2) : '0.00',
-            life_ins_monthly: ((deductions.life_insurance || 0) / 12).toFixed(2),
-            ad_d_monthly: ((deductions.ad_d || 0) / 12).toFixed(2),
-            critical_illness_monthly: ((deductions.critical_illness || 0) / 12).toFixed(2),
-            hospital_monthly: ((deductions.hospital_indemnity || 0) / 12).toFixed(2),
-            accident_monthly: ((deductions.accident_insurance || 0) / 12).toFixed(2),
-            legal_monthly: ((deductions.legal_plan || 0) / 12).toFixed(2),
-            identity_theft_monthly: ((deductions.identity_theft || 0) / 12).toFixed(2),
-            auto_savings_monthly: ((deductions.auto_savings || 0) / 12).toFixed(2),
+            dental_monthly:  ((deductions.dental_insurance  || 0) / 12).toFixed(2),
+            vision_monthly:  ((deductions.vision_insurance  || 0) / 12).toFixed(2),
+            ltd_monthly:     ((deductions.long_term_disability || 0) / 12).toFixed(2),
+            life_ins_monthly:((deductions.life_insurance    || 0) / 12).toFixed(2),
+            hsa_monthly:     ((deductions.hsa               || 0) / 12).toFixed(2),
+            fsa_monthly:     ((deductions.fsa               || 0) / 12).toFixed(2),
+            // taxes
+            federal_tax_pct: taxable > 0 ? (((deductions.federal_tax || 0) / taxable) * 100).toFixed(2) : '0.00',
+            state_tax_pct:   taxable > 0 ? (((deductions.state_tax   || 0) / taxable) * 100).toFixed(2) : '0.00',
+            local_tax_pct:   taxable > 0 ? (((deductions.local_tax   || 0) / taxable) * 100).toFixed(2) : '0.00',
+            // fica — store as % of gross (default mode)
+            ss_val:          gr > 0 ? (((deductions.social_security || 0) / gr) * 100).toFixed(2) : '0.00',
+            ss_mode:         'pct' as FicaMode,
+            med_val:         gr > 0 ? (((deductions.medicare        || 0) / gr) * 100).toFixed(2) : '0.00',
+            med_mode:        'pct' as FicaMode,
+            cadis_val:       gr > 0 ? (((deductions.ca_disability   || 0) / gr) * 100).toFixed(2) : '0.00',
+            cadis_mode:      'pct' as FicaMode,
+            state_etc_val:   gr > 0 ? (((deductions.state_etc       || 0) / gr) * 100).toFixed(2) : '0.00',
+            state_etc_mode:  'pct' as FicaMode,
+            // after-tax
+            k401_after_pct:  after_tax > 0 ? (((deductions.after_tax_401k      || 0) / after_tax) * 100).toFixed(2) : '0.00',
+            k401_roth_pct:   after_tax > 0 ? (((deductions.after_tax_401k_roth || 0) / after_tax) * 100).toFixed(2) : '0.00',
+            legal_monthly:   ((deductions.legal_plan         || 0) / 12).toFixed(2),
+            critical_illness_monthly: ((deductions.critical_illness  || 0) / 12).toFixed(2),
+            identity_theft_monthly:   ((deductions.identity_theft    || 0) / 12).toFixed(2),
+            accident_monthly:((deductions.accident_insurance || 0) / 12).toFixed(2),
+            hospital_monthly:((deductions.hospital_indemnity || 0) / 12).toFixed(2),
+            ad_d_monthly:    ((deductions.ad_d               || 0) / 12).toFixed(2),
+            // auto savings
+            ira_monthly:     ((deductions.roth_ira              || 0) / 12).toFixed(2),
+            hysa_monthly:    ((deductions.hysa                  || 0) / 12).toFixed(2),
+            crypto_monthly:  ((deductions.crypto                || 0) / 12).toFixed(2),
+            invest_monthly:  ((deductions.personal_investments  || 0) / 12).toFixed(2),
+            other_savings_monthly: ((deductions.other_savings   || 0) / 12).toFixed(2),
           }
           setLoadedSalaryValues(values)
         } else {
@@ -1018,7 +1055,115 @@ export default function IncomePage() {
   )
 }
 
-// Inline Salary Calculator Component
+// ── helpers ──────────────────────────────────────────────────────────────────
+const PP = 26 // pay periods per year (bi-weekly)
+
+function toYearly(val: string, mode: FicaMode, gross: number): number {
+  const v = parseFloat(val) || 0
+  if (mode === 'pct')    return gross * v / 100
+  if (mode === 'mo')     return v * 12
+  if (mode === 'period') return v * PP
+  return 0
+}
+
+function fromYearly(yearly: number, mode: FicaMode, gross: number): string {
+  let v = 0
+  if (mode === 'pct')    v = gross > 0 ? (yearly / gross) * 100 : 0
+  if (mode === 'mo')     v = yearly / 12
+  if (mode === 'period') v = yearly / PP
+  return v.toFixed(2)
+}
+
+function fmtYr(n: number): string {
+  return `($${Math.round(Math.abs(n)).toLocaleString()}/yr)`
+}
+
+// ── sub-components ────────────────────────────────────────────────────────────
+
+/** Standard field — always %-of-gross or $/mo, no toggle */
+function CalcField({
+  label, id, value, onChange, yearlyAmt, color = 'red',
+}: {
+  label: string; id: string; value: string
+  onChange: (v: string) => void; yearlyAmt: number; color?: 'red' | 'green'
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1 gap-1">
+        <span className="text-xs text-gray-600 truncate">{label}</span>
+        <span className={`text-xs whitespace-nowrap flex-shrink-0 ${color === 'green' ? 'text-emerald-600' : 'text-red-600'}`}>
+          {fmtYr(yearlyAmt)}
+        </span>
+      </div>
+      <input
+        type="number" step="0.01" id={id} value={value}
+        onChange={e => onChange(e.target.value)}
+        className="w-full px-2 py-1 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-emerald-500 focus:outline-none"
+      />
+    </div>
+  )
+}
+
+/** Toggle field — $/period, $/mo, or % */
+function ToggleField({
+  label, value, mode, onValueChange, onModeChange, yearlyAmt, color = 'red',
+}: {
+  label: string; value: string; mode: FicaMode
+  onValueChange: (v: string) => void; onModeChange: (m: FicaMode) => void
+  yearlyAmt: number; color?: 'red' | 'green'
+}) {
+  const toggleStyle = (active: boolean) =>
+    `text-[9px] font-medium px-1 py-px rounded border leading-tight cursor-pointer ${
+      active
+        ? 'bg-emerald-600 border-emerald-700 text-white'
+        : 'bg-white border-gray-300 text-gray-500 hover:bg-gray-50'
+    }`
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1 gap-1">
+        <span className="text-xs text-gray-600 truncate">{label}</span>
+        <div className="flex items-center gap-1 flex-shrink-0">
+          <div className="flex gap-px">
+            {(['period', 'mo', 'pct'] as FicaMode[]).map(m => (
+              <button key={m} type="button" onClick={() => onModeChange(m)}
+                className={toggleStyle(mode === m)}>
+                {m === 'period' ? '$/pd' : m === 'mo' ? '$/mo' : '%'}
+              </button>
+            ))}
+          </div>
+          <span className={`text-xs whitespace-nowrap ${color === 'green' ? 'text-emerald-600' : 'text-red-600'}`}>
+            {fmtYr(yearlyAmt)}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center border border-gray-300 rounded overflow-hidden focus-within:ring-1 focus-within:ring-emerald-500">
+        {mode !== 'pct' && (
+          <span className="text-xs text-gray-500 px-1.5 bg-gray-50 border-r border-gray-200 h-[26px] flex items-center">$</span>
+        )}
+        <input
+          type="number" step="0.01" value={value}
+          onChange={e => onValueChange(e.target.value)}
+          className="w-full px-2 py-1 text-sm border-none outline-none bg-transparent"
+        />
+      </div>
+    </div>
+  )
+}
+
+/** Section divider */
+function CalcSection({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="mt-4">
+      <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-2 border-t border-emerald-200 pt-3">
+        {title}
+      </div>
+      <div className="grid grid-cols-3 gap-2">{children}</div>
+    </div>
+  )
+}
+
+// ── main component ────────────────────────────────────────────────────────────
+
 function SalaryCalculatorInline({ 
   onChange, 
   initialValues 
@@ -1026,280 +1171,253 @@ function SalaryCalculatorInline({
   onChange: (calc: SalaryCalculation) => void
   initialValues?: any
 }) {
-  // Use initial values if provided, otherwise use defaults (or zeros for new)
-  const defaults = initialValues || {}
-  const [gross_salary, setGrossSalary] = useState(defaults.gross_yearly?.toString() || '0')
-  const [k401_pct, set401kPct] = useState(defaults.k401_pct?.toString() || '0.00')
-  const [k401_roth_pct, set401kRothPct] = useState(defaults.k401_roth_pct?.toString() || '0.00')
-  const [hsa_monthly, setHsaMonthly] = useState(defaults.hsa_monthly?.toString() || '0.00')
-  const [medical_monthly, setMedicalMonthly] = useState(defaults.medical_monthly?.toString() || '0.00')
-  const [dental_monthly, setDentalMonthly] = useState(defaults.dental_monthly?.toString() || '0.00')
-  const [vision_monthly, setVisionMonthly] = useState(defaults.vision_monthly?.toString() || '0.00')
-  const [federal_tax_pct, setFederalTaxPct] = useState(defaults.federal_tax_pct?.toString() || '0.00')
-  const [state_tax_pct, setStateTaxPct] = useState(defaults.state_tax_pct?.toString() || '0.00')
-  const [ca_disability_pct, setCaDisabilityPct] = useState(defaults.ca_disability_pct?.toString() || '0.00')
-  const [k401_after_pct, set401kAfterPct] = useState(defaults.k401_after_pct?.toString() || '0.00')
-  const [life_ins_monthly, setLifeInsMonthly] = useState(defaults.life_ins_monthly?.toString() || '0.00')
-  const [ad_d_monthly, setAdDMonthly] = useState(defaults.ad_d_monthly?.toString() || '0.00')
-  const [critical_illness_monthly, setCriticalIllnessMonthly] = useState(defaults.critical_illness_monthly?.toString() || '0.00')
-  const [hospital_monthly, setHospitalMonthly] = useState(defaults.hospital_monthly?.toString() || '0.00')
-  const [accident_monthly, setAccidentMonthly] = useState(defaults.accident_monthly?.toString() || '0.00')
-  const [legal_monthly, setLegalMonthly] = useState(defaults.legal_monthly?.toString() || '0.00')
-  const [identity_theft_monthly, setIdentityTheftMonthly] = useState(defaults.identity_theft_monthly?.toString() || '0.00')
-  const [auto_savings_monthly, setAutoSavingsMonthly] = useState(defaults.auto_savings_monthly?.toString() || '0.00')
+  const d = initialValues || {}
 
-  useEffect(() => {
-    const yearly = parseFloat(gross_salary) || 0
-    if (yearly === 0) return
+  // ── pre-tax ──
+  const [k401_pct,       setK401Pct]       = useState(d.k401_pct?.toString()       || '0.00')
+  const [medical_mo,     setMedicalMo]     = useState(d.medical_monthly?.toString() || '0.00')
+  const [dental_mo,      setDentalMo]      = useState(d.dental_monthly?.toString()  || '0.00')
+  const [vision_mo,      setVisionMo]      = useState(d.vision_monthly?.toString()  || '0.00')
+  const [ltd_mo,         setLtdMo]         = useState(d.ltd_monthly?.toString()     || '0.00')
+  const [life_mo,        setLifeMo]        = useState(d.life_ins_monthly?.toString()|| '0.00')
+  const [hsa_mo,         setHsaMo]         = useState(d.hsa_monthly?.toString()     || '0.00')
+  const [fsa_mo,         setFsaMo]         = useState(d.fsa_monthly?.toString()     || '0.00')
 
-    const k401_yearly = yearly * (parseFloat(k401_pct) / 100)
-    const k401_roth_yearly = yearly * (parseFloat(k401_roth_pct) / 100)
-    const hsa_yearly = parseFloat(hsa_monthly) * 12
-    const medical_yearly = parseFloat(medical_monthly) * 12
-    const dental_yearly = parseFloat(dental_monthly) * 12
-    const vision_yearly = parseFloat(vision_monthly) * 12
+  // ── taxes ──
+  const [fed_pct,        setFedPct]        = useState(d.federal_tax_pct?.toString() || '0.00')
+  const [state_pct,      setStatePct]      = useState(d.state_tax_pct?.toString()   || '0.00')
+  const [local_pct,      setLocalPct]      = useState(d.local_tax_pct?.toString()   || '0.00')
 
-    const total_pre_tax = k401_yearly + k401_roth_yearly + hsa_yearly + medical_yearly + dental_yearly + vision_yearly
-    const taxable_income = yearly - total_pre_tax
+  // ── fica (with mode toggles) ──
+  const [gross_salary,   setGrossSalary]   = useState(d.gross_yearly?.toString()    || '0')
+  const [ss_val,         setSsVal]         = useState(d.ss_val?.toString()          || '6.20')
+  const [ss_mode,        setSsMode]        = useState<FicaMode>(d.ss_mode           || 'pct')
+  const [med_val,        setMedVal]        = useState(d.med_val?.toString()         || '1.45')
+  const [med_mode,       setMedMode]       = useState<FicaMode>(d.med_mode          || 'pct')
+  const [cadis_val,      setCadisVal]      = useState(d.cadis_val?.toString()       || '0.00')
+  const [cadis_mode,     setCadisMode]     = useState<FicaMode>(d.cadis_mode        || 'pct')
+  const [state_etc_val,  setStateEtcVal]   = useState(d.state_etc_val?.toString()   || '0.00')
+  const [state_etc_mode, setStateEtcMode]  = useState<FicaMode>(d.state_etc_mode    || 'pct')
 
-    const federal_tax = taxable_income * (parseFloat(federal_tax_pct) / 100)
-    const state_tax = taxable_income * (parseFloat(state_tax_pct) / 100)
-    const social_security = Math.min(yearly * 0.062, 160200 * 0.062)
-    const medicare = yearly * 0.0145
-    const ca_disability = yearly * (parseFloat(ca_disability_pct) / 100)
-    const fica_total = social_security + medicare
-    const total_taxes = federal_tax + state_tax + social_security + medicare + ca_disability
+  // ── after-tax ──
+  const [k401a_pct,      setK401aPct]      = useState(d.k401_after_pct?.toString()  || '0.00')
+  const [roth_pct,       setRothPct]       = useState(d.k401_roth_pct?.toString()   || '0.00')
+  const [legal_mo,       setLegalMo]       = useState(d.legal_monthly?.toString()   || '0.00')
+  const [crit_mo,        setCritMo]        = useState(d.critical_illness_monthly?.toString() || '0.00')
+  const [idt_mo,         setIdtMo]         = useState(d.identity_theft_monthly?.toString()   || '0.00')
+  const [acc_mo,         setAccMo]         = useState(d.accident_monthly?.toString()|| '0.00')
+  const [hosp_mo,        setHospMo]        = useState(d.hospital_monthly?.toString()|| '0.00')
+  const [add_mo,         setAddMo]         = useState(d.ad_d_monthly?.toString()    || '0.00')
 
-    const after_tax_income = yearly - total_pre_tax - total_taxes
+  // ── auto savings ──
+  const [ira_mo,         setIraMo]         = useState(d.ira_monthly?.toString()     || '0.00')
+  const [hysa_mo,        setHysaMo]        = useState(d.hysa_monthly?.toString()    || '0.00')
+  const [crypto_mo,      setCryptoMo]      = useState(d.crypto_monthly?.toString()  || '0.00')
+  const [invest_mo,      setInvestMo]      = useState(d.invest_monthly?.toString()  || '0.00')
+  const [other_mo,       setOtherMo]       = useState(d.other_savings_monthly?.toString() || '0.00')
 
-    const k401_after_yearly = after_tax_income * (parseFloat(k401_after_pct) / 100)
-    const life_ins_yearly = parseFloat(life_ins_monthly) * 12
-    const ad_d_yearly = parseFloat(ad_d_monthly) * 12
-    const critical_illness_yearly = parseFloat(critical_illness_monthly) * 12
-    const hospital_yearly = parseFloat(hospital_monthly) * 12
-    const accident_yearly = parseFloat(accident_monthly) * 12
-    const legal_yearly = parseFloat(legal_monthly) * 12
-    const identity_theft_yearly = parseFloat(identity_theft_monthly) * 12
-    const auto_savings_yearly = parseFloat(auto_savings_monthly) * 12
-
-    const total_after_tax = k401_after_yearly + life_ins_yearly + ad_d_yearly + critical_illness_yearly + 
-      hospital_yearly + accident_yearly + legal_yearly + identity_theft_yearly + auto_savings_yearly
-
-    const net_yearly = after_tax_income - total_after_tax
-
-    const calculation: SalaryCalculation = {
-      gross_yearly: yearly,
-      deductions: {
-        pre_tax_401k: k401_yearly,
-        pre_tax_401k_roth: k401_roth_yearly,
-        hsa: hsa_yearly,
-        medical_insurance: medical_yearly,
-        dental_insurance: dental_yearly,
-        vision_insurance: vision_yearly,
-        federal_tax: federal_tax,
-        state_tax: state_tax,
-        social_security: social_security,
-        medicare: medicare,
-        fica_total: fica_total,
-        ca_disability: ca_disability,
-        after_tax_401k: k401_after_yearly,
-        after_tax_401k_roth: 0,
-        life_insurance: life_ins_yearly,
-        ad_d: ad_d_yearly,
-        critical_illness: critical_illness_yearly,
-        hospital_indemnity: hospital_yearly,
-        accident_insurance: accident_yearly,
-        legal_plan: legal_yearly,
-        identity_theft: identity_theft_yearly,
-        auto_savings: auto_savings_yearly,
-      },
-      net_yearly,
-      net_monthly: net_yearly / 12,
-      net_biweekly: net_yearly / 26,
-    }
-
-    onChange(calculation)
-  }, [gross_salary, k401_pct, k401_roth_pct, hsa_monthly, medical_monthly, dental_monthly, vision_monthly,
-      federal_tax_pct, state_tax_pct, ca_disability_pct, k401_after_pct, life_ins_monthly, ad_d_monthly,
-      critical_illness_monthly, hospital_monthly, accident_monthly, legal_monthly, identity_theft_monthly, auto_savings_monthly, onChange])
-
-  const calc_net = () => {
-    const yearly = parseFloat(gross_salary) || 0
-    if (yearly === 0) return { yearly: 0, monthly: 0, biweekly: 0 }
-
-    const k401_yearly = yearly * (parseFloat(k401_pct) / 100)
-    const k401_roth_yearly = yearly * (parseFloat(k401_roth_pct) / 100)
-    const hsa_yearly = parseFloat(hsa_monthly) * 12
-    const medical_yearly = parseFloat(medical_monthly) * 12
-    const dental_yearly = parseFloat(dental_monthly) * 12
-    const vision_yearly = parseFloat(vision_monthly) * 12
-    const total_pre_tax = k401_yearly + k401_roth_yearly + hsa_yearly + medical_yearly + dental_yearly + vision_yearly
-    const taxable_income = yearly - total_pre_tax
-    const federal_tax = taxable_income * (parseFloat(federal_tax_pct) / 100)
-    const state_tax = taxable_income * (parseFloat(state_tax_pct) / 100)
-    const social_security = Math.min(yearly * 0.062, 160200 * 0.062)
-    const medicare = yearly * 0.0145
-    const ca_disability = yearly * (parseFloat(ca_disability_pct) / 100)
-    const total_taxes = federal_tax + state_tax + social_security + medicare + ca_disability
-    const after_tax_income = yearly - total_pre_tax - total_taxes
-    const k401_after_yearly = after_tax_income * (parseFloat(k401_after_pct) / 100)
-    const life_ins_yearly = parseFloat(life_ins_monthly) * 12
-    const ad_d_yearly = parseFloat(ad_d_monthly) * 12
-    const critical_illness_yearly = parseFloat(critical_illness_monthly) * 12
-    const hospital_yearly = parseFloat(hospital_monthly) * 12
-    const accident_yearly = parseFloat(accident_monthly) * 12
-    const legal_yearly = parseFloat(legal_monthly) * 12
-    const identity_theft_yearly = parseFloat(identity_theft_monthly) * 12
-    const auto_savings_yearly = parseFloat(auto_savings_monthly) * 12
-    const total_after_tax = k401_after_yearly + life_ins_yearly + ad_d_yearly + critical_illness_yearly + 
-      hospital_yearly + accident_yearly + legal_yearly + identity_theft_yearly + auto_savings_yearly
-    const net_yearly = after_tax_income - total_after_tax
-
-    return {
-      yearly: net_yearly,
-      monthly: net_yearly / 12,
-      biweekly: net_yearly / 26,
-      // return individual amounts for display
-      k401_yearly,
-      k401_roth_yearly,
-      federal_tax,
-      state_tax,
-      ca_disability,
-      k401_after_yearly,
-      taxable_income,
-      after_tax_income
-    }
+  // ── mode switch helper ──
+  const switchMode = (
+    mode: FicaMode, setMode: (m: FicaMode) => void,
+    val: string,    setVal:  (v: string)   => void,
+    newMode: FicaMode
+  ) => {
+    const gross = parseFloat(gross_salary) || 0
+    const yearly = toYearly(val, mode, gross)
+    setMode(newMode)
+    setVal(fromYearly(yearly, newMode, gross))
   }
 
-  const net = calc_net()
-  const yearly = parseFloat(gross_salary) || 0
+  // ── compute all yearly amounts ──
+  const gross = parseFloat(gross_salary) || 0
+
+  // pre-tax
+  const k401_yr    = gross * (parseFloat(k401_pct) / 100)
+  const medical_yr = (parseFloat(medical_mo) || 0) * 12
+  const dental_yr  = (parseFloat(dental_mo)  || 0) * 12
+  const vision_yr  = (parseFloat(vision_mo)  || 0) * 12
+  const ltd_yr     = (parseFloat(ltd_mo)     || 0) * 12
+  const life_yr    = (parseFloat(life_mo)    || 0) * 12
+  const hsa_yr     = (parseFloat(hsa_mo)     || 0) * 12
+  const fsa_yr     = (parseFloat(fsa_mo)     || 0) * 12
+  const total_pre  = k401_yr + medical_yr + dental_yr + vision_yr + ltd_yr + life_yr + hsa_yr + fsa_yr
+
+  // taxes
+  const taxable    = gross - total_pre
+  const fed_yr     = taxable * (parseFloat(fed_pct)   / 100)
+  const state_yr   = taxable * (parseFloat(state_pct) / 100)
+  const local_yr   = taxable * (parseFloat(local_pct) / 100)
+
+  // fica
+  const ss_yr      = toYearly(ss_val,       ss_mode,       gross)
+  const med_yr     = toYearly(med_val,      med_mode,      gross)
+  const cadis_yr   = toYearly(cadis_val,    cadis_mode,    gross)
+  const setc_yr    = toYearly(state_etc_val, state_etc_mode, gross)
+  const fica_total = ss_yr + med_yr
+  const total_tax  = fed_yr + state_yr + local_yr + ss_yr + med_yr + cadis_yr + setc_yr
+
+  // after-tax base
+  const after_tax  = gross - total_pre - total_tax
+  const k401a_yr   = after_tax * (parseFloat(k401a_pct) / 100)
+  const roth_yr    = after_tax * (parseFloat(roth_pct)  / 100)
+  const legal_yr   = (parseFloat(legal_mo) || 0) * 12
+  const crit_yr    = (parseFloat(crit_mo)  || 0) * 12
+  const idt_yr     = (parseFloat(idt_mo)   || 0) * 12
+  const acc_yr     = (parseFloat(acc_mo)   || 0) * 12
+  const hosp_yr    = (parseFloat(hosp_mo)  || 0) * 12
+  const add_yr     = (parseFloat(add_mo)   || 0) * 12
+  const total_at   = k401a_yr + roth_yr + legal_yr + crit_yr + idt_yr + acc_yr + hosp_yr + add_yr
+
+  // auto savings
+  const ira_yr     = (parseFloat(ira_mo)    || 0) * 12
+  const hysa_yr    = (parseFloat(hysa_mo)   || 0) * 12
+  const crypto_yr  = (parseFloat(crypto_mo) || 0) * 12
+  const invest_yr  = (parseFloat(invest_mo) || 0) * 12
+  const other_yr   = (parseFloat(other_mo)  || 0) * 12
+  const total_sav  = ira_yr + hysa_yr + crypto_yr + invest_yr + other_yr
+
+  const net_yearly    = after_tax - total_at - total_sav
+  const net_monthly   = net_yearly / 12
+  const net_biweekly  = net_yearly / PP
+
+  // ── fire onChange ──
+  useEffect(() => {
+    if (gross === 0) return
+    const calculation: SalaryCalculation = {
+      gross_yearly: gross,
+      deductions: {
+        pre_tax_401k:        k401_yr,
+        pre_tax_401k_roth:   roth_yr,
+        hsa:                 hsa_yr,
+        fsa:                 fsa_yr,
+        medical_insurance:   medical_yr,
+        dental_insurance:    dental_yr,
+        vision_insurance:    vision_yr,
+        long_term_disability: ltd_yr,
+        life_insurance:      life_yr,
+        federal_tax:         fed_yr,
+        state_tax:           state_yr,
+        local_tax:           local_yr,
+        social_security:     ss_yr,
+        medicare:            med_yr,
+        fica_total,
+        ca_disability:       cadis_yr,
+        state_etc:           setc_yr,
+        after_tax_401k:      k401a_yr,
+        after_tax_401k_roth: roth_yr,
+        ad_d:                add_yr,
+        critical_illness:    crit_yr,
+        hospital_indemnity:  hosp_yr,
+        accident_insurance:  acc_yr,
+        legal_plan:          legal_yr,
+        identity_theft:      idt_yr,
+        roth_ira:            ira_yr,
+        hysa:                hysa_yr,
+        crypto:              crypto_yr,
+        personal_investments: invest_yr,
+        other_savings:       other_yr,
+      },
+      net_yearly,
+      net_monthly,
+      net_biweekly,
+    }
+    onChange(calculation)
+  }, [gross, k401_yr, medical_yr, dental_yr, vision_yr, ltd_yr, life_yr, hsa_yr, fsa_yr,
+      fed_yr, state_yr, local_yr, ss_yr, med_yr, cadis_yr, setc_yr,
+      k401a_yr, roth_yr, legal_yr, crit_yr, idt_yr, acc_yr, hosp_yr, add_yr,
+      ira_yr, hysa_yr, crypto_yr, invest_yr, other_yr, net_yearly, onChange])
 
   return (
-    <div className="mt-4 space-y-4 bg-emerald-50 rounded-lg p-4 border border-emerald-200">
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">Yearly Gross Salary</label>
+    <div className="mt-4 bg-emerald-50 rounded-lg p-4 border border-emerald-200">
+
+      {/* Gross salary */}
+      <div className="mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-1">Yearly Gross Salary</label>
         <div className="relative">
-          <span className="absolute left-3 top-3 text-gray-500">$</span>
-          <input
-            type="number"
-            step="0.01"
-            value={gross_salary}
-            onChange={(e) => setGrossSalary(e.target.value)}
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm">$</span>
+          <input type="number" step="0.01" value={gross_salary}
+            onChange={e => setGrossSalary(e.target.value)}
             placeholder="105800.00"
-            className="w-full pl-10 pr-3 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500"
+            className="w-full pl-8 pr-3 py-2.5 border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 text-sm"
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            401k % <span className="text-emerald-600">(${(net.k401_yearly || 0).toFixed(0)}/yr)</span>
-          </label>
-          <input type="number" step="0.01" value={k401_pct} onChange={(e) => set401kPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            401k Roth % <span className="text-emerald-600">(${(net.k401_roth_yearly || 0).toFixed(0)}/yr)</span>
-          </label>
-          <input type="number" step="0.01" value={k401_roth_pct} onChange={(e) => set401kRothPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">HSA/mo</label>
-          <input type="number" step="0.01" value={hsa_monthly} onChange={(e) => setHsaMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Medical/mo</label>
-          <input type="number" step="0.01" value={medical_monthly} onChange={(e) => setMedicalMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Dental/mo</label>
-          <input type="number" step="0.01" value={dental_monthly} onChange={(e) => setDentalMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Vision/mo</label>
-          <input type="number" step="0.01" value={vision_monthly} onChange={(e) => setVisionMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-      </div>
+      {/* Pre-tax */}
+      <CalcSection title="Pre-tax deductions">
+        <CalcField label="401k %" id="k401" value={k401_pct} onChange={setK401Pct} yearlyAmt={k401_yr} color="green" />
+        <CalcField label="Medical/mo" id="medical" value={medical_mo} onChange={setMedicalMo} yearlyAmt={medical_yr} />
+        <CalcField label="Dental/mo" id="dental" value={dental_mo} onChange={setDentalMo} yearlyAmt={dental_yr} />
+        <CalcField label="Vision/mo" id="vision" value={vision_mo} onChange={setVisionMo} yearlyAmt={vision_yr} />
+        <CalcField label="Long-term disability/mo" id="ltd" value={ltd_mo} onChange={setLtdMo} yearlyAmt={ltd_yr} />
+        <CalcField label="Life insurance/mo" id="life" value={life_mo} onChange={setLifeMo} yearlyAmt={life_yr} />
+        <CalcField label="HSA/mo" id="hsa" value={hsa_mo} onChange={setHsaMo} yearlyAmt={hsa_yr} color="green" />
+        <CalcField label="FSA/mo" id="fsa" value={fsa_mo} onChange={setFsaMo} yearlyAmt={fsa_yr} color="green" />
+      </CalcSection>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            Fed Tax % <span className="text-red-600">(${(net.federal_tax || 0).toFixed(0)}/yr)</span>
-          </label>
-          <input type="number" step="0.01" value={federal_tax_pct} onChange={(e) => setFederalTaxPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            State Tax % <span className="text-red-600">(${(net.state_tax || 0).toFixed(0)}/yr)</span>
-          </label>
-          <input type="number" step="0.01" value={state_tax_pct} onChange={(e) => setStateTaxPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            CA Disability % <span className="text-red-600">(${(net.ca_disability || 0).toFixed(0)}/yr)</span>
-          </label>
-          <input type="number" step="0.01" value={ca_disability_pct} onChange={(e) => setCaDisabilityPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-      </div>
+      {/* Taxes */}
+      <CalcSection title="Taxes">
+        <CalcField label="Federal tax %" id="fed" value={fed_pct} onChange={setFedPct} yearlyAmt={fed_yr} />
+        <CalcField label="State tax %" id="sta" value={state_pct} onChange={setStatePct} yearlyAmt={state_yr} />
+        <CalcField label="Local tax %" id="loc" value={local_pct} onChange={setLocalPct} yearlyAmt={local_yr} />
+      </CalcSection>
 
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            401k After % <span className="text-blue-600">(${(net.k401_after_yearly || 0).toFixed(0)}/yr)</span>
-          </label>
-          <input type="number" step="0.01" value={k401_after_pct} onChange={(e) => set401kAfterPct(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Life Ins/mo</label>
-          <input type="number" step="0.01" value={life_ins_monthly} onChange={(e) => setLifeInsMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">AD&D/mo</label>
-          <input type="number" step="0.01" value={ad_d_monthly} onChange={(e) => setAdDMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Crit Illness/mo</label>
-          <input type="number" step="0.01" value={critical_illness_monthly} onChange={(e) => setCriticalIllnessMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Hospital/mo</label>
-          <input type="number" step="0.01" value={hospital_monthly} onChange={(e) => setHospitalMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Accident/mo</label>
-          <input type="number" step="0.01" value={accident_monthly} onChange={(e) => setAccidentMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">Legal/mo</label>
-          <input type="number" step="0.01" value={legal_monthly} onChange={(e) => setLegalMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">ID Theft/mo</label>
-          <input type="number" step="0.01" value={identity_theft_monthly} onChange={(e) => setIdentityTheftMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-        <div>
-          <label className="block text-xs text-gray-600 mb-1">
-            Auto Savings/mo <span className="text-blue-600">(${(parseFloat(auto_savings_monthly || '0') * 12).toFixed(0)}/yr)</span>
-          </label>
-          <input type="number" step="0.01" value={auto_savings_monthly} onChange={(e) => setAutoSavingsMonthly(e.target.value)} className="w-full px-2 py-1 text-sm border rounded" />
-        </div>
-      </div>
+      {/* FICA */}
+      <CalcSection title="Social Security &amp; FICA">
+        <ToggleField label="Social Security" value={ss_val} mode={ss_mode}
+          onValueChange={setSsVal}
+          onModeChange={m => switchMode(ss_mode, setSsMode, ss_val, setSsVal, m)}
+          yearlyAmt={ss_yr} />
+        <ToggleField label="Medicare" value={med_val} mode={med_mode}
+          onValueChange={setMedVal}
+          onModeChange={m => switchMode(med_mode, setMedMode, med_val, setMedVal, m)}
+          yearlyAmt={med_yr} />
+        <ToggleField label="State disability" value={cadis_val} mode={cadis_mode}
+          onValueChange={setCadisVal}
+          onModeChange={m => switchMode(cadis_mode, setCadisMode, cadis_val, setCadisVal, m)}
+          yearlyAmt={cadis_yr} />
+        <ToggleField label="State etc" value={state_etc_val} mode={state_etc_mode}
+          onValueChange={setStateEtcVal}
+          onModeChange={m => switchMode(state_etc_mode, setStateEtcMode, state_etc_val, setStateEtcVal, m)}
+          yearlyAmt={setc_yr} />
+      </CalcSection>
 
-      <div className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white rounded-lg p-4">
-        <div className="text-xs opacity-90 mb-1">Net Take-Home Pay</div>
+      {/* After-tax */}
+      <CalcSection title="After-tax deductions">
+        <CalcField label="401k after-tax %" id="k401a" value={k401a_pct} onChange={setK401aPct} yearlyAmt={k401a_yr} color="green" />
+        <CalcField label="401k Roth %" id="roth" value={roth_pct} onChange={setRothPct} yearlyAmt={roth_yr} color="green" />
+        <CalcField label="Legal plan/mo" id="legal" value={legal_mo} onChange={setLegalMo} yearlyAmt={legal_yr} />
+        <CalcField label="Critical illness/mo" id="crit" value={crit_mo} onChange={setCritMo} yearlyAmt={crit_yr} />
+        <CalcField label="ID theft/mo" id="idt" value={idt_mo} onChange={setIdtMo} yearlyAmt={idt_yr} />
+        <CalcField label="Accident/mo" id="acc" value={acc_mo} onChange={setAccMo} yearlyAmt={acc_yr} />
+        <CalcField label="Hospital indem./mo" id="hosp" value={hosp_mo} onChange={setHospMo} yearlyAmt={hosp_yr} />
+        <CalcField label="AD&amp;D/mo" id="add" value={add_mo} onChange={setAddMo} yearlyAmt={add_yr} />
+      </CalcSection>
+
+      {/* Auto savings */}
+      <CalcSection title="Auto savings &amp; investments">
+        <CalcField label="Roth IRA/mo" id="ira" value={ira_mo} onChange={setIraMo} yearlyAmt={ira_yr} color="green" />
+        <CalcField label="HYSA/mo" id="hysa" value={hysa_mo} onChange={setHysaMo} yearlyAmt={hysa_yr} color="green" />
+        <CalcField label="Crypto/mo" id="crypto" value={crypto_mo} onChange={setCryptoMo} yearlyAmt={crypto_yr} color="green" />
+        <CalcField label="Personal invest./mo" id="invest" value={invest_mo} onChange={setInvestMo} yearlyAmt={invest_yr} color="green" />
+        <CalcField label="Other savings/mo" id="other" value={other_mo} onChange={setOtherMo} yearlyAmt={other_yr} color="green" />
+      </CalcSection>
+
+      {/* Net bar */}
+      <div className="mt-4 bg-emerald-600 text-white rounded-lg p-4">
+        <div className="text-xs opacity-90 mb-2">Net Take-Home Pay</div>
         <div className="grid grid-cols-3 gap-4 text-sm">
           <div>
             <div className="opacity-75">Yearly</div>
-            <div className="text-lg font-bold">${net.yearly.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+            <div className="text-lg font-semibold">${net_yearly.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
           </div>
           <div>
             <div className="opacity-75">Monthly</div>
-            <div className="text-lg font-bold">${net.monthly.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+            <div className="text-lg font-semibold">${net_monthly.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
           </div>
           <div>
             <div className="opacity-75">Bi-Weekly</div>
-            <div className="text-lg font-bold">${net.biweekly.toLocaleString(undefined, {maximumFractionDigits: 2})}</div>
+            <div className="text-lg font-semibold">${net_biweekly.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
           </div>
         </div>
       </div>
