@@ -734,8 +734,8 @@ export default function PlanningPage() {
   }
 
   // Calculate totals
-  // For GROSS: Use yearly salary + one-time incomes (exact annual amount)
-  const total_gross = annual_salary_total + annual_onetime_total
+  // For GROSS: Sum actual monthly gross values (correctly prorated for start/end dates)
+  const total_gross = months.reduce((sum, m) => sum + m.gross_income, 0)
   
   const total_net = months.reduce((sum, m) => sum + m.net_income, 0)
   const total_budget = months.reduce((sum, m) => sum + m.housing + m.budget + m.additional, 0)

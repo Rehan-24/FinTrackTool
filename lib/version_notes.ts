@@ -9,6 +9,17 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.4.4',
+    date: '2026-03-18',
+    title: 'Planning Page Annual Gross Fix',
+    features: [],
+    bugFixes: [
+      'FIXED: Annual "Gross Income" summary card now shows actual prorated earnings instead of summing full yearly salary rates',
+      'FIXED: Two salaries active in the same year (e.g. $100k expiring mid-year, $200k starting after) now show correct combined actual earnings, not $300k',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.4.3',
     date: '2026-03-18',
     title: 'Income Date Boundary Fixes',
