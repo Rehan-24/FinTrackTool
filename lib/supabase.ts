@@ -248,6 +248,8 @@ export type Database = {
           yearly_salary: number | null
           pay_frequency: string | null
           next_pay_date: string | null
+          start_date: string | null
+          end_date: string | null
           created_at: string
         }
         Insert: {
@@ -262,6 +264,8 @@ export type Database = {
           yearly_salary?: number | null
           pay_frequency?: string | null
           next_pay_date?: string | null
+          start_date?: string | null
+          end_date?: string | null
           created_at?: string
         }
         Update: {
@@ -276,6 +280,8 @@ export type Database = {
           yearly_salary?: number | null
           pay_frequency?: string | null
           next_pay_date?: string | null
+          start_date?: string | null
+          end_date?: string | null
           created_at?: string
         }
       }
@@ -305,6 +311,15 @@ export type Database = {
           legal_plan: number
           identity_theft: number
           auto_savings: number
+          fsa: number
+          long_term_disability: number
+          local_tax: number
+          state_etc: number
+          roth_ira: number
+          hysa: number
+          crypto: number
+          personal_investments: number
+          other_savings: number
           net_yearly: number
           net_monthly: number
           net_weekly: number
@@ -317,15 +332,19 @@ export type Database = {
           pre_tax_401k?: number
           pre_tax_401k_roth?: number
           hsa?: number
+          fsa?: number
           medical_insurance?: number
           dental_insurance?: number
           vision_insurance?: number
+          long_term_disability?: number
           federal_tax?: number
           state_tax?: number
+          local_tax?: number
           social_security?: number
           medicare?: number
           fica_total?: number
           ca_disability?: number
+          state_etc?: number
           after_tax_401k?: number
           after_tax_401k_roth?: number
           life_insurance?: number
@@ -336,6 +355,11 @@ export type Database = {
           legal_plan?: number
           identity_theft?: number
           auto_savings?: number
+          roth_ira?: number
+          hysa?: number
+          crypto?: number
+          personal_investments?: number
+          other_savings?: number
           net_yearly: number
           net_monthly: number
           net_weekly: number
@@ -348,15 +372,19 @@ export type Database = {
           pre_tax_401k?: number
           pre_tax_401k_roth?: number
           hsa?: number
+          fsa?: number
           medical_insurance?: number
           dental_insurance?: number
           vision_insurance?: number
+          long_term_disability?: number
           federal_tax?: number
           state_tax?: number
+          local_tax?: number
           social_security?: number
           medicare?: number
           fica_total?: number
           ca_disability?: number
+          state_etc?: number
           after_tax_401k?: number
           after_tax_401k_roth?: number
           life_insurance?: number
@@ -367,6 +395,11 @@ export type Database = {
           legal_plan?: number
           identity_theft?: number
           auto_savings?: number
+          roth_ira?: number
+          hysa?: number
+          crypto?: number
+          personal_investments?: number
+          other_savings?: number
           net_yearly?: number
           net_monthly?: number
           net_weekly?: number
