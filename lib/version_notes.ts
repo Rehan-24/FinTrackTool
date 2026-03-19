@@ -9,6 +9,21 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.4.7',
+    date: '2026-03-18',
+    title: 'Planning Page Savings & Override Fixes',
+    features: [
+      'IMPROVED: Auto savings now includes Roth IRA, HYSA, Crypto, Personal Investments, and Other savings fields',
+      'IMPROVED: 401k now includes Roth 401k contributions',
+      'IMPROVED: HSA now includes FSA contributions',
+      'IMPROVED: Net income calculation now includes all new deduction fields (local tax, state etc, LTD, FSA, Roth 401k, all auto savings)',
+    ],
+    bugFixes: [
+      'FIXED: Override values of $0 now correctly use 0 instead of falling back to calculated value',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.4.6',
     date: '2026-03-18',
     title: 'Income Page Month Filtering',

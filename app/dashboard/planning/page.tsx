@@ -271,32 +271,63 @@ export default function PlanningPage() {
               
               // Deductions are YEARLY values - divide by 12 for monthly
               const monthly_deductions = (
+                // Taxes
                 ((deductions.federal_tax || 0) / 12) +
                 ((deductions.state_tax || 0) / 12) +
+                ((deductions.local_tax || 0) / 12) +
                 ((deductions.fica_total || 0) / 12) +
+                ((deductions.ca_disability || 0) / 12) +
+                ((deductions.state_etc || 0) / 12) +
+                // Pre-tax benefits
                 ((deductions.pre_tax_401k || 0) / 12) +
-                ((deductions.after_tax_401k || 0) / 12) +
                 ((deductions.hsa || 0) / 12) +
+                ((deductions.fsa || 0) / 12) +
                 ((deductions.medical_insurance || 0) / 12) +
                 ((deductions.dental_insurance || 0) / 12) +
                 ((deductions.vision_insurance || 0) / 12) +
+                ((deductions.long_term_disability || 0) / 12) +
                 ((deductions.life_insurance || 0) / 12) +
+                // After-tax deductions
+                ((deductions.after_tax_401k || 0) / 12) +
+                ((deductions.after_tax_401k_roth || 0) / 12) +
                 ((deductions.ad_d || 0) / 12) +
                 ((deductions.critical_illness || 0) / 12) +
                 ((deductions.hospital_indemnity || 0) / 12) +
                 ((deductions.accident_insurance || 0) / 12) +
                 ((deductions.legal_plan || 0) / 12) +
                 ((deductions.identity_theft || 0) / 12) +
+                // Auto savings (all savings vehicles)
                 ((deductions.auto_savings || 0) / 12) +
-                ((deductions.ca_disability || 0) / 12)
+                ((deductions.roth_ira || 0) / 12) +
+                ((deductions.hysa || 0) / 12) +
+                ((deductions.crypto || 0) / 12) +
+                ((deductions.personal_investments || 0) / 12) +
+                ((deductions.other_savings || 0) / 12)
               )
               
               console.log(`Total monthly deductions for ${source.description}: $${monthly_deductions}`)
               
               total_deductions += monthly_deductions
-              auto_savings += ((deductions.auto_savings || 0) / 12)
-              retirement_401k += (((deductions.pre_tax_401k || 0) + (deductions.after_tax_401k || 0)) / 12)
-              hsa += ((deductions.hsa || 0) / 12)
+              // Auto savings = all savings vehicles outside 401k and HSA/FSA
+              auto_savings += (
+                ((deductions.auto_savings || 0) / 12) +
+                ((deductions.roth_ira || 0) / 12) +
+                ((deductions.hysa || 0) / 12) +
+                ((deductions.crypto || 0) / 12) +
+                ((deductions.personal_investments || 0) / 12) +
+                ((deductions.other_savings || 0) / 12)
+              )
+              // 401k = all 401k variants
+              retirement_401k += (
+                ((deductions.pre_tax_401k || 0) / 12) +
+                ((deductions.after_tax_401k || 0) / 12) +
+                ((deductions.after_tax_401k_roth || 0) / 12)
+              )
+              // HSA + FSA
+              hsa += (
+                ((deductions.hsa || 0) / 12) +
+                ((deductions.fsa || 0) / 12)
+              )
             }
           }
         }
@@ -368,12 +399,12 @@ export default function PlanningPage() {
         console.log(`Actual Spent: $${actual_spent}`)
         console.log(`Saved Amount: $${saved_amount}`)
         
-        // Apply overrides or use defaults
-        const gross_income = override?.gross_income_override || gross
-        const net_income = override?.net_income_override || net
-        const housing = override?.housing_override || 0
-        const budget = override?.budget_override || default_budget
-        const additional = override?.additional_expenses || 0
+        // Apply overrides or use defaults (use ?? so 0 overrides are respected)
+        const gross_income = override?.gross_income_override ?? gross
+        const net_income = override?.net_income_override ?? net
+        const housing = override?.housing_override ?? 0
+        const budget = override?.budget_override ?? default_budget
+        const additional = override?.additional_expenses ?? 0
         
         const projected = housing + budget + additional
         // Use actual_spent for cash calculation if month has started, otherwise use projected
