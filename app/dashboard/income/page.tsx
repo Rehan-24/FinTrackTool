@@ -525,61 +525,84 @@ export default function IncomePage() {
     return total
   }
   
-  // Helper: Count how many times a recurring income occurs in a date range
+  // Helper: Count how many times a recurring income occurs in a date range,
+  // fully respecting start_date, end_date, cutoff_date (past) and from_date (future).
   const count_income_occurrences = (
-    income_entry: any, 
-    range_start: Date, 
-    range_end: Date, 
-    cutoff_date?: Date | null,  // Only count up to this date (for past)
-    from_date?: Date  // Only count from this date onwards (for future)
+    income_entry: any,
+    range_start: Date,
+    range_end: Date,
+    cutoff_date?: Date | null,
+    from_date?: Date
   ) => {
-    const start_date = new Date(income_entry.date)
+    const anchor = income_entry.start_date
+      ? new Date(income_entry.start_date)
+      : new Date(income_entry.date)
+    const hard_end = income_entry.end_date ? new Date(income_entry.end_date) : null
+
+    if (anchor > range_end) return 0
+    if (hard_end && hard_end < range_start) return 0
+
+    let effective_end = new Date(range_end)
+    if (hard_end && hard_end < effective_end) effective_end = new Date(hard_end)
+    if (cutoff_date && cutoff_date < effective_end) effective_end = new Date(cutoff_date)
+
+    const effective_start = from_date && from_date > anchor ? from_date : anchor
+    if (effective_start > effective_end) return 0
+
+    const freq = income_entry.is_salary
+      ? (income_entry.pay_frequency || '').toLowerCase()
+      : (income_entry.frequency || '').toLowerCase()
+
     let count = 0
-    
-    // Determine the actual start of our counting
-    const count_start = from_date && from_date > start_date ? from_date : start_date
-    if (count_start > range_end) return 0
-    
-    // Determine frequency in days
-    let freq_days = 0
-    if (income_entry.frequency === 'weekly') freq_days = 7
-    else if (income_entry.frequency === 'bi-weekly') freq_days = 14
-    else if (income_entry.frequency === 'monthly') freq_days = 30 // approximate, we'll handle monthly specially
-    else if (income_entry.frequency === 'yearly') freq_days = 365
-    
-    if (income_entry.frequency === 'monthly') {
-      // For monthly, count months between dates
-      let current = new Date(count_start)
-      while (current <= range_end) {
-        if (current >= range_start && (!cutoff_date || current <= cutoff_date)) {
-          count++
-        }
-        // Move to next month, same day
-        current = new Date(current.getFullYear(), current.getMonth() + 1, start_date.getDate())
+
+    if (freq === 'monthly') {
+      let current = new Date(anchor)
+      while (current <= effective_end) {
+        if (current >= range_start && current >= effective_start) count++
+        current = new Date(current.getFullYear(), current.getMonth() + 1, anchor.getDate())
       }
+    } else if (freq === 'semi-monthly') {
+      let paychecks = effective_start <= effective_end ? 2 : 0
+      if (hard_end) {
+        const mid = new Date(range_start.getFullYear(), range_start.getMonth(), 15)
+        if (hard_end < mid) paychecks = 1
+      }
+      count = paychecks
     } else {
-      // For weekly, bi-weekly, yearly
-      let current = new Date(count_start)
-      while (current <= range_end) {
-        if (current >= range_start && (!cutoff_date || current <= cutoff_date)) {
-          count++
-        }
+      let freq_days = 0
+      if (freq === 'weekly') freq_days = 7
+      else if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') freq_days = 14
+      else if (freq === 'yearly') freq_days = 365
+      if (freq_days === 0) return 0
+
+      let current = new Date(anchor)
+      while (current < effective_start) {
+        current.setDate(current.getDate() + freq_days)
+      }
+      while (current <= effective_end) {
+        if (current >= range_start) count++
         current.setDate(current.getDate() + freq_days)
       }
     }
-    
+
     return count
   }
 
+  // Monthly average card — only counts currently active income sources,
+  // using actual occurrence counting for this month respecting start/end dates.
   const get_recurring_monthly = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const month_start = startOfMonth(today)
+    const month_end = endOfMonth(today)
+
     return income.reduce((sum, i) => {
       if (!i.is_recurring) return sum
-      const amt = parseFloat(i.amount.toString())
-      if (i.frequency === 'monthly') return sum + amt
-      if (i.frequency === 'bi-weekly') return sum + (amt * 2.17)
-      if (i.frequency === 'weekly') return sum + (amt * 4.33)
-      if (i.frequency === 'yearly') return sum + (amt / 12)
-      return sum
+      const anchor = i.start_date ? new Date(i.start_date) : new Date(i.date)
+      if (anchor > month_end) return sum
+      if (i.end_date && new Date(i.end_date) < month_start) return sum
+      const occurrences = count_income_occurrences(i, month_start, month_end)
+      return sum + occurrences * parseFloat(i.amount.toString())
     }, 0)
   }
 

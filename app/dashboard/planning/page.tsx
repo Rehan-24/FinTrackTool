@@ -149,51 +149,27 @@ export default function PlanningPage() {
               if (start_date > month_end) continue
               if (end_date && end_date < month_start) continue
               
-              // For salary with yearly_salary, calculate actual paychecks this month
+              // Use count_occurrences for all recurring income (handles end_date mid-month)
+              const actual_paychecks = count_occurrences(source, month_start)
+
               if (source.is_salary && source.yearly_salary) {
                 const freq = (source.pay_frequency || '').toLowerCase()
                 let per_paycheck_gross = 0
-                let actual_paychecks = 0
-                
-                // Calculate gross per paycheck
                 if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') {
                   per_paycheck_gross = source.yearly_salary / 26
-                  
-                  // Count actual paychecks in this month by iterating through dates
-                  let check_date = new Date(start_date)
-                  while (check_date <= month_end) {
-                    if (check_date >= month_start && check_date <= month_end) {
-                      actual_paychecks++
-                    }
-                    check_date.setDate(check_date.getDate() + 14) // Add 14 days
-                  }
                 } else if (freq === 'semi-monthly') {
                   per_paycheck_gross = source.yearly_salary / 24
-                  actual_paychecks = 2 // Always 2 per month
                 } else if (freq === 'monthly') {
                   per_paycheck_gross = source.yearly_salary / 12
-                  actual_paychecks = 1
                 } else if (freq === 'weekly') {
                   per_paycheck_gross = source.yearly_salary / 52
-                  
-                  // Count actual paychecks
-                  let check_date = new Date(start_date)
-                  while (check_date <= month_end) {
-                    if (check_date >= month_start && check_date <= month_end) {
-                      actual_paychecks++
-                    }
-                    check_date.setDate(check_date.getDate() + 7) // Add 7 days
-                  }
                 }
-                
                 const monthly_gross = per_paycheck_gross * actual_paychecks
-                console.log(`${source.description}: $${per_paycheck_gross.toFixed(2)} × ${actual_paychecks} paychecks = $${monthly_gross.toFixed(2)}`)
+                console.log(`${source.source}: $${per_paycheck_gross.toFixed(2)} × ${actual_paychecks} paychecks = $${monthly_gross.toFixed(2)}`)
                 gross += monthly_gross
               } else {
-                // For non-salary recurring income, use amount × occurrences
-                const occurrences = count_occurrences(source, month_start)
-                const monthly_gross = source.amount * occurrences
-                console.log(`${source.description}: $${source.amount} × ${occurrences} = $${monthly_gross.toFixed(2)}`)
+                const monthly_gross = source.amount * actual_paychecks
+                console.log(`${source.source}: $${source.amount} × ${actual_paychecks} = $${monthly_gross.toFixed(2)}`)
                 gross += monthly_gross
               }
             } else {
@@ -219,11 +195,11 @@ export default function PlanningPage() {
           for (const source of income_sources) {
             if (!source.is_recurring) continue
             
-            // Check if active this month
-            const start_date = source.start_date ? new Date(source.start_date) : new Date(source.date)
-            const end_date = source.end_date ? new Date(source.end_date) : null
-            if (start_date > month_end) continue
-            if (end_date && end_date < month_start) continue
+            // Skip if fully outside this month (count_occurrences also handles mid-month end_date)
+            const anchor = source.start_date ? new Date(source.start_date) : new Date(source.date)
+            const hard_end = source.end_date ? new Date(source.end_date) : null
+            if (anchor > month_end) continue
+            if (hard_end && hard_end < month_start) continue
             
             const occurrences = count_occurrences(source, month_start)
             const deductions = deductions_map[source.id]
@@ -434,16 +410,13 @@ export default function PlanningPage() {
     
     for (const source of income_sources) {
       if (source.is_recurring) {
-        // Recurring income
+        // count_occurrences handles start_date, end_date, and mid-month boundaries
         const occurrences = count_occurrences(source, month_start)
         const source_total = source.amount * occurrences
-        console.log(`${source.description} (recurring): $${source.amount} × ${occurrences} = $${source_total}`)
         total += source_total
       } else {
-        // One-time income - check if date is in this month
         const income_date = new Date(source.date)
         if (income_date >= month_start && income_date <= month_end) {
-          console.log(`${source.description} (one-time): $${source.amount}`)
           total += source.amount
         }
       }
@@ -467,7 +440,12 @@ export default function PlanningPage() {
     const month_end = endOfMonth(month_date)
     
     for (const source of income_sources) {
-      if (!source.is_recurring) continue // One-time income doesn't have deductions
+      if (!source.is_recurring) continue
+      // Skip if fully outside this month
+      const _anchor = source.start_date ? new Date(source.start_date) : new Date(source.date)
+      const _hard_end = source.end_date ? new Date(source.end_date) : null
+      if (_anchor > month_end) continue
+      if (_hard_end && _hard_end < month_start) continue
       
       const occurrences = count_occurrences(source, month_start)
       
@@ -532,10 +510,13 @@ export default function PlanningPage() {
     
     for (const source of income_sources) {
       if (!source.is_recurring) continue
+      const _a = source.start_date ? new Date(source.start_date) : new Date(source.date)
+      const _e = source.end_date ? new Date(source.end_date) : null
+      if (_a > endOfMonth(month_start)) continue
+      if (_e && _e < month_start) continue
       
       const occurrences = count_occurrences(source, month_start)
       
-      // Get deductions from salary_deductions table
       const { data: deductions } = await supabase
         .from('salary_deductions')
         .select('*')
@@ -576,33 +557,55 @@ export default function PlanningPage() {
     return categories.reduce((sum, c) => sum + parseFloat(c.monthly_budget.toString()), 0)
   }
 
-  const count_occurrences = (income: any, month_start: Date): number => {
-    // For salary income, use pay_frequency; for other recurring, use frequency
-    const frequency = income.is_salary ? income.pay_frequency : income.frequency
-    
-    if (!frequency) {
-      console.log(`No frequency for ${income.description}`)
-      return 0
+  // Count actual paycheck occurrences in a month, respecting start_date and end_date.
+  const count_occurrences = (source: any, month_start: Date): number => {
+    const month_end = endOfMonth(month_start)
+
+    const anchor = source.start_date
+      ? new Date(source.start_date)
+      : new Date(source.date)
+    const hard_end = source.end_date ? new Date(source.end_date) : null
+
+    if (anchor > month_end) return 0
+    if (hard_end && hard_end < month_start) return 0
+
+    const effective_end = hard_end && hard_end < month_end ? new Date(hard_end) : new Date(month_end)
+
+    const freq = (source.is_salary
+      ? source.pay_frequency
+      : source.frequency
+    )?.toLowerCase() || ''
+
+    let count = 0
+
+    if (freq === 'monthly') {
+      let current = new Date(anchor)
+      while (current <= effective_end) {
+        if (current >= month_start) count++
+        current = new Date(current.getFullYear(), current.getMonth() + 1, anchor.getDate())
+      }
+    } else if (freq === 'semi-monthly') {
+      let paychecks = 2
+      if (hard_end) {
+        const mid = new Date(month_start.getFullYear(), month_start.getMonth(), 15)
+        if (hard_end < mid) paychecks = 1
+      }
+      count = paychecks
+    } else {
+      let freq_days = 0
+      if (freq === 'weekly') freq_days = 7
+      else if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') freq_days = 14
+      else if (freq === 'yearly') freq_days = 365
+      if (freq_days === 0) return 0
+
+      let current = new Date(anchor)
+      while (current <= effective_end) {
+        if (current >= month_start) count++
+        current.setDate(current.getDate() + freq_days)
+      }
     }
 
-    // Normalize frequency to lowercase for comparison
-    const freq = frequency.toLowerCase()
-    
-    console.log(`Counting occurrences for ${income.description} (is_salary: ${income.is_salary}) with frequency: ${freq}`)
-
-    if (freq === 'monthly') return 1
-    if (freq === 'semi-monthly') return 2
-    if (freq === 'weekly') return 4
-    if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') {
-      // Bi-weekly means every 2 weeks = 26 paychecks per year
-      // Most months have 2, but 2 months per year will have 3
-      // For now, use average: 26/12 = 2.167 (round to 2 for simplicity)
-      // TODO: Calculate exact based on start_date if needed
-      return 2
-    }
-    
-    console.warn(`Unknown frequency: ${frequency}`)
-    return 0
+    return count
   }
 
   const open_edit = (month: string, field: string, current_value: number, notes?: string) => {

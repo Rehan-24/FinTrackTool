@@ -63,45 +63,56 @@ export default function DashboardPage() {
     return new Date(year, month - 1, day)
   }
 
-  // Helper: Count how many times a recurring income occurs in a date range
+  // Helper: Count how many times a recurring income occurs in a date range,
+  // respecting start_date and end_date mid-month boundaries.
   const count_income_occurrences_dashboard = (
-    income_entry: any, 
-    range_start: Date, 
+    income_entry: any,
+    range_start: Date,
     range_end: Date
   ) => {
-    const start_date = new Date(income_entry.date)
+    const anchor = income_entry.start_date
+      ? new Date(income_entry.start_date)
+      : new Date(income_entry.date)
+    const hard_end = income_entry.end_date ? new Date(income_entry.end_date) : null
+
+    if (anchor > range_end) return 0
+    if (hard_end && hard_end < range_start) return 0
+
+    const effective_end = hard_end && hard_end < range_end ? new Date(hard_end) : new Date(range_end)
+
+    const freq = income_entry.is_salary
+      ? (income_entry.pay_frequency || '').toLowerCase()
+      : (income_entry.frequency || '').toLowerCase()
+
     let count = 0
-    
-    if (start_date > range_end) return 0
-    
-    // Determine frequency in days
-    let freq_days = 0
-    if (income_entry.frequency === 'weekly') freq_days = 7
-    else if (income_entry.frequency === 'bi-weekly') freq_days = 14
-    else if (income_entry.frequency === 'monthly') freq_days = 30 // approximate
-    else if (income_entry.frequency === 'yearly') freq_days = 365
-    
-    if (income_entry.frequency === 'monthly') {
-      // For monthly, count months between dates
-      let current = new Date(start_date)
-      while (current <= range_end) {
-        if (current >= range_start) {
-          count++
-        }
-        // Move to next month, same day
-        current = new Date(current.getFullYear(), current.getMonth() + 1, start_date.getDate())
+
+    if (freq === 'monthly') {
+      let current = new Date(anchor)
+      while (current <= effective_end) {
+        if (current >= range_start) count++
+        current = new Date(current.getFullYear(), current.getMonth() + 1, anchor.getDate())
       }
+    } else if (freq === 'semi-monthly') {
+      let paychecks = 2
+      if (hard_end) {
+        const mid = new Date(range_start.getFullYear(), range_start.getMonth(), 15)
+        if (hard_end < mid) paychecks = 1
+      }
+      count = paychecks
     } else {
-      // For weekly, bi-weekly, yearly
-      let current = new Date(start_date)
-      while (current <= range_end) {
-        if (current >= range_start) {
-          count++
-        }
+      let freq_days = 0
+      if (freq === 'weekly') freq_days = 7
+      else if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') freq_days = 14
+      else if (freq === 'yearly') freq_days = 365
+      if (freq_days === 0) return 0
+
+      let current = new Date(anchor)
+      while (current <= effective_end) {
+        if (current >= range_start) count++
         current.setDate(current.getDate() + freq_days)
       }
     }
-    
+
     return count
   }
 

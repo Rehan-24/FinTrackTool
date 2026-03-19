@@ -9,6 +9,44 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.4.3',
+    date: '2026-03-18',
+    title: 'Income Date Boundary Fixes',
+    features: [],
+    bugFixes: [
+      'FIXED: Expired income no longer counted in "Earned This Month" after its end_date',
+      'FIXED: Expired income no longer counted in "Expected Remaining" after its end_date',
+      'FIXED: "Monthly Average (Recurring)" card now excludes expired income sources',
+      'FIXED: Dashboard monthly income no longer counts paychecks past an income end_date',
+      'FIXED: History page income totals now correctly cut off at end_date mid-month',
+      'FIXED: Planning page gross income stops counting paychecks after income end_date',
+      'FIXED: Planning page deductions and net income respect income end_date mid-month',
+      'FIXED: New income starting mid-month now counts from its start_date, not from the 1st',
+      'FIXED: Planning page bi-weekly paycheck count now uses exact date iteration (not flat × 2)',
+      'IMPROVED: All income occurrence counting shares consistent start/end date logic across every page',
+    ],
+    breaking: [],
+  },
+  {
+    version: '5.4.2',
+    date: '2026-03-18',
+    title: 'Salary Calculator Overhaul',
+    features: [
+      'NEW: All salary calculator fields now have $/period, $/mo, and % input toggles',
+      'NEW: Social Security, Medicare, State Disability, State Etc fields added to FICA section',
+      'NEW: Local tax field under Taxes section',
+      'NEW: Long-term disability and FSA fields under Pre-tax deductions',
+      'NEW: Auto Savings & Investments section with Roth IRA, HYSA, Crypto, Personal Investments, and Other',
+      'IMPROVED: Salary calculator reorganized into 5 sections: Pre-tax, Taxes, FICA, After-tax, Auto Savings',
+      'IMPROVED: Every field shows inline ($X/yr) amount in the label row',
+      'IMPROVED: All input boxes now have white backgrounds for better readability',
+    ],
+    bugFixes: [],
+    breaking: [
+      'MIGRATION REQUIRED: Run migration_salary_deductions_v2.sql in Supabase SQL Editor',
+    ],
+  },
+  {
     version: '5.4.1',
     date: '2026-02-02',
     title: 'Planning Page - Smart Paycheck Counting & Editable Net',
