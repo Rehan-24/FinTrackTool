@@ -9,6 +9,16 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.4.5',
+    date: '2026-03-18',
+    title: 'Critical Fix - White Screen on Planning Page',
+    features: [],
+    bugFixes: [
+      'FIXED: White screen crash caused by count_occurrences being called before its definition in planning page',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.4.4',
     date: '2026-03-18',
     title: 'Planning Page Annual Gross Fix',

@@ -52,6 +52,57 @@ export default function PlanningPage() {
     return () => document.removeEventListener('visibilitychange', handle_visibility)
   }, [year])
 
+  // Count actual paycheck occurrences in a month, respecting start_date and end_date.
+  const count_occurrences = (source: any, month_start: Date): number => {
+    const month_end = endOfMonth(month_start)
+
+    const anchor = source.start_date
+      ? new Date(source.start_date)
+      : new Date(source.date)
+    const hard_end = source.end_date ? new Date(source.end_date) : null
+
+    if (anchor > month_end) return 0
+    if (hard_end && hard_end < month_start) return 0
+
+    const effective_end = hard_end && hard_end < month_end ? new Date(hard_end) : new Date(month_end)
+
+    const freq = (source.is_salary
+      ? source.pay_frequency
+      : source.frequency
+    )?.toLowerCase() || ''
+
+    let count = 0
+
+    if (freq === 'monthly') {
+      let current = new Date(anchor)
+      while (current <= effective_end) {
+        if (current >= month_start) count++
+        current = new Date(current.getFullYear(), current.getMonth() + 1, anchor.getDate())
+      }
+    } else if (freq === 'semi-monthly') {
+      let paychecks = 2
+      if (hard_end) {
+        const mid = new Date(month_start.getFullYear(), month_start.getMonth(), 15)
+        if (hard_end < mid) paychecks = 1
+      }
+      count = paychecks
+    } else {
+      let freq_days = 0
+      if (freq === 'weekly') freq_days = 7
+      else if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') freq_days = 14
+      else if (freq === 'yearly') freq_days = 365
+      if (freq_days === 0) return 0
+
+      let current = new Date(anchor)
+      while (current <= effective_end) {
+        if (current >= month_start) count++
+        current.setDate(current.getDate() + freq_days)
+      }
+    }
+
+    return count
+  }
+
   const load_planning_data = async () => {
     setLoading(true)
     try {
@@ -557,56 +608,6 @@ export default function PlanningPage() {
     return categories.reduce((sum, c) => sum + parseFloat(c.monthly_budget.toString()), 0)
   }
 
-  // Count actual paycheck occurrences in a month, respecting start_date and end_date.
-  const count_occurrences = (source: any, month_start: Date): number => {
-    const month_end = endOfMonth(month_start)
-
-    const anchor = source.start_date
-      ? new Date(source.start_date)
-      : new Date(source.date)
-    const hard_end = source.end_date ? new Date(source.end_date) : null
-
-    if (anchor > month_end) return 0
-    if (hard_end && hard_end < month_start) return 0
-
-    const effective_end = hard_end && hard_end < month_end ? new Date(hard_end) : new Date(month_end)
-
-    const freq = (source.is_salary
-      ? source.pay_frequency
-      : source.frequency
-    )?.toLowerCase() || ''
-
-    let count = 0
-
-    if (freq === 'monthly') {
-      let current = new Date(anchor)
-      while (current <= effective_end) {
-        if (current >= month_start) count++
-        current = new Date(current.getFullYear(), current.getMonth() + 1, anchor.getDate())
-      }
-    } else if (freq === 'semi-monthly') {
-      let paychecks = 2
-      if (hard_end) {
-        const mid = new Date(month_start.getFullYear(), month_start.getMonth(), 15)
-        if (hard_end < mid) paychecks = 1
-      }
-      count = paychecks
-    } else {
-      let freq_days = 0
-      if (freq === 'weekly') freq_days = 7
-      else if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') freq_days = 14
-      else if (freq === 'yearly') freq_days = 365
-      if (freq_days === 0) return 0
-
-      let current = new Date(anchor)
-      while (current <= effective_end) {
-        if (current >= month_start) count++
-        current.setDate(current.getDate() + freq_days)
-      }
-    }
-
-    return count
-  }
 
   const open_edit = (month: string, field: string, current_value: number, notes?: string) => {
     setEditingMonth(month)
