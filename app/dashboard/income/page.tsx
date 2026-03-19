@@ -619,13 +619,31 @@ export default function IncomePage() {
     return end < today
   }
 
-  // Sort income: active first, expired last
-  const sorted_income = [...income].sort((a, b) => {
+  // Filter income to only entries relevant to the selected month,
+  // then sort: active first, expired last, then by date descending.
+  const filtered_income = income.filter(i => {
+    const [year, month] = filter_month.split('-')
+    const month_start = startOfMonth(new Date(parseInt(year), parseInt(month) - 1))
+    const month_end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1))
+
+    if (!i.is_recurring) {
+      // One-time: only show if its date falls within the selected month
+      const d = new Date(i.date)
+      return d >= month_start && d <= month_end
+    } else {
+      // Recurring/salary: show if active at any point during the selected month
+      const anchor = i.start_date ? new Date(i.start_date) : new Date(i.date)
+      if (anchor > month_end) return false
+      if (i.end_date && new Date(i.end_date) < month_start) return false
+      return true
+    }
+  })
+
+  const sorted_income = [...filtered_income].sort((a, b) => {
     const a_expired = is_expired(a)
     const b_expired = is_expired(b)
     if (a_expired && !b_expired) return 1
     if (!a_expired && b_expired) return -1
-    // Both same status, sort by date descending
     return new Date(b.date).getTime() - new Date(a.date).getTime()
   })
 

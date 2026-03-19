@@ -9,6 +9,18 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.4.6',
+    date: '2026-03-18',
+    title: 'Income Page Month Filtering',
+    features: [
+      'IMPROVED: Income list now filters to show only entries relevant to the selected month',
+      'IMPROVED: One-time income only shows in the month it was received',
+      'IMPROVED: Recurring/salary income shows in any month it was active, even if it started in a prior month',
+    ],
+    bugFixes: [],
+    breaking: [],
+  },
+  {
     version: '5.4.5',
     date: '2026-03-18',
     title: 'Critical Fix - White Screen on Planning Page',
