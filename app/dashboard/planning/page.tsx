@@ -296,8 +296,7 @@ export default function PlanningPage() {
                 ((deductions.accident_insurance || 0) / 12) +
                 ((deductions.legal_plan || 0) / 12) +
                 ((deductions.identity_theft || 0) / 12) +
-                // Auto savings (all savings vehicles)
-                ((deductions.auto_savings || 0) / 12) +
+                // Auto savings (individual fields only - auto_savings legacy field excluded)
                 ((deductions.roth_ira || 0) / 12) +
                 ((deductions.hysa || 0) / 12) +
                 ((deductions.crypto || 0) / 12) +
@@ -308,9 +307,8 @@ export default function PlanningPage() {
               console.log(`Total monthly deductions for ${source.description}: $${monthly_deductions}`)
               
               total_deductions += monthly_deductions
-              // Auto savings = all savings vehicles outside 401k and HSA/FSA
+              // Auto savings = all individual savings vehicles outside 401k and HSA/FSA
               auto_savings += (
-                ((deductions.auto_savings || 0) / 12) +
                 ((deductions.roth_ira || 0) / 12) +
                 ((deductions.hysa || 0) / 12) +
                 ((deductions.crypto || 0) / 12) +

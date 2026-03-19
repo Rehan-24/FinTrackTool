@@ -201,6 +201,7 @@ export default function IncomePage() {
           .insert({
             income_id: new_income.id,
             ...salary_calc.deductions,
+            auto_savings: 0, // legacy field zeroed out - replaced by individual savings fields
             net_yearly: salary_calc.net_yearly,
             net_monthly: salary_calc.net_monthly,
             net_biweekly: salary_calc.net_biweekly,
@@ -253,6 +254,7 @@ export default function IncomePage() {
 
         const deduction_data = {
           ...salary_calc.deductions,
+          auto_savings: 0, // legacy field zeroed out - replaced by individual savings fields
           net_yearly: salary_calc.net_yearly,
           net_monthly: salary_calc.net_monthly,
           net_biweekly: salary_calc.net_biweekly,

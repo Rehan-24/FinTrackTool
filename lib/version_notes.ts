@@ -9,6 +9,19 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.4.8',
+    date: '2026-03-18',
+    title: 'Auto Savings Double-Count Fix',
+    features: [],
+    bugFixes: [
+      'FIXED: Auto savings in Planning page no longer double-counts legacy auto_savings field alongside new individual savings fields (Roth IRA, HYSA, Crypto, etc.)',
+      'FIXED: New salary entries now explicitly zero out legacy auto_savings field to prevent future double-counting',
+    ],
+    breaking: [
+      'MIGRATION REQUIRED: Run migration_zero_legacy_auto_savings.sql in Supabase SQL Editor to clear legacy auto_savings values from existing salary entries',
+    ],
+  },
+  {
     version: '5.4.7',
     date: '2026-03-18',
     title: 'Planning Page Savings & Override Fixes',
