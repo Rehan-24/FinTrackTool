@@ -9,6 +9,20 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.5.0',
+    date: '2026-03-18',
+    title: 'Planning Page Code Audit & Fixes',
+    features: [],
+    bugFixes: [
+      'FIXED: Saving an override on a past/current month now correctly uses actual spending for cash calculation instead of projected',
+      'FIXED: Removed dead annual salary calculation code that was no longer used',
+      'FIXED: Removed three dead async functions (calculate_gross_income, calculate_net_income, get_savings_breakdown) that referenced stale field names',
+      'FIXED: Removed excessive console.log debug statements',
+      'IMPROVED: Cleaned up unused date-fns imports',
+    ],
+    breaking: [],
+  },
+  {
     version: '5.4.9',
     date: '2026-03-18',
     title: 'Salary Deductions Data Integrity Fixes',

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { format, startOfYear, endOfYear, addMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { ChevronLeft, ChevronRight, Edit2, TrendingUp, TrendingDown } from 'lucide-react'
 
 type MonthData = {
@@ -27,8 +27,6 @@ export default function PlanningPage() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [months, setMonths] = useState<MonthData[]>([])
   const [loading, setLoading] = useState(true)
-  const [annual_salary_total, setAnnualSalaryTotal] = useState(0)
-  const [annual_onetime_total, setAnnualOnetimeTotal] = useState(0)
   
   // Edit modal state
   const [editing_month, setEditingMonth] = useState<string | null>(null)
@@ -121,7 +119,6 @@ export default function PlanningPage() {
       const income_ids = income_sources?.filter(i => i.is_recurring).map(i => i.id) || []
       let deductions_map: any = {}
       
-      console.log('Income IDs to fetch deductions for:', income_ids)
       
       if (income_ids.length > 0) {
         const { data: all_deductions, error: deductions_error } = await supabase
@@ -129,17 +126,13 @@ export default function PlanningPage() {
           .select('*')
           .in('income_id', income_ids)
         
-        console.log('Deductions query result:', all_deductions)
-        console.log('Deductions query error:', deductions_error)
         
         // Map deductions by income_id for fast lookup
         all_deductions?.forEach(d => {
-          console.log(`Mapping deduction for income_id ${d.income_id}:`, d)
           deductions_map[d.income_id] = d
         })
       }
       
-      console.log('Final deductions_map:', deductions_map)
 
       // Get all categories once
       const { data: categories } = await supabase
@@ -169,11 +162,6 @@ export default function PlanningPage() {
       const months_data: MonthData[] = []
       
       // DEBUGGING: Log what we fetched
-      console.log('=== PLANNING DATA DEBUG ===')
-      console.log('Income sources:', income_sources)
-      console.log('Deductions map:', deductions_map)
-      console.log('Default budget:', default_budget)
-      console.log('Overrides map:', overrides_map)
       
       // Generate 12 months - now using cached data
       for (let i = 0; i < 12; i++) {
@@ -185,7 +173,6 @@ export default function PlanningPage() {
         
         const override = overrides_map[month_year]
 
-        console.log(`\n--- ${month_name} ---`)
         
         // Calculate gross income for this month
         let gross = 0
@@ -216,25 +203,21 @@ export default function PlanningPage() {
                   per_paycheck_gross = source.yearly_salary / 52
                 }
                 const monthly_gross = per_paycheck_gross * actual_paychecks
-                console.log(`${source.source}: $${per_paycheck_gross.toFixed(2)} × ${actual_paychecks} paychecks = $${monthly_gross.toFixed(2)}`)
                 gross += monthly_gross
               } else {
                 const monthly_gross = source.amount * actual_paychecks
-                console.log(`${source.source}: $${source.amount} × ${actual_paychecks} = $${monthly_gross.toFixed(2)}`)
                 gross += monthly_gross
               }
             } else {
               // One-time income: check if date is in this month
               const income_date = new Date(source.date)
               if (income_date >= month_start && income_date <= month_end) {
-                console.log(`${source.description} (one-time): $${source.amount}`)
                 gross += source.amount
               }
             }
           }
         }
         
-        console.log(`Total Gross: $${gross}`)
         
         // Calculate net income and savings breakdown
         let total_deductions = 0
@@ -255,19 +238,8 @@ export default function PlanningPage() {
             const occurrences = count_occurrences(source, month_start)
             const deductions = deductions_map[source.id]
             
-            console.log(`\n[Deductions Check] Source: ${source.description}`)
-            console.log(`  source.id: ${source.id}`)
-            console.log(`  Looking in deductions_map...`)
-            console.log(`  Found deductions:`, deductions)
             
             if (deductions) {
-              console.log(`  Yearly deduction values:`)
-              console.log(`    federal_tax: ${deductions.federal_tax}`)
-              console.log(`    state_tax: ${deductions.state_tax}`)
-              console.log(`    pre_tax_401k: ${deductions.pre_tax_401k}`)
-              console.log(`    after_tax_401k: ${deductions.after_tax_401k}`)
-              console.log(`    hsa: ${deductions.hsa}`)
-              console.log(`    auto_savings: ${deductions.auto_savings}`)
               
               // Deductions are YEARLY values - divide by 12 for monthly
               const monthly_deductions = (
@@ -304,7 +276,6 @@ export default function PlanningPage() {
                 ((deductions.other_savings || 0) / 12)
               )
               
-              console.log(`Total monthly deductions for ${source.description}: $${monthly_deductions}`)
               
               total_deductions += monthly_deductions
               // Auto savings = all individual savings vehicles outside 401k and HSA/FSA
@@ -330,13 +301,8 @@ export default function PlanningPage() {
           }
         }
         
-        console.log(`Total Deductions: $${total_deductions}`)
-        console.log(`Auto Savings: $${auto_savings}`)
-        console.log(`401k: $${retirement_401k}`)
-        console.log(`HSA: $${hsa}`)
         
         const net = gross - total_deductions
-        console.log(`Net Income: $${net}`)
         
         // Get actual spending for this month (only for past/current months)
         // Separate regular spending from savings transfers
@@ -394,8 +360,6 @@ export default function PlanningPage() {
         }
         // else: Future month, both stay 0
         
-        console.log(`Actual Spent: $${actual_spent}`)
-        console.log(`Saved Amount: $${saved_amount}`)
         
         // Apply overrides or use defaults (use ?? so 0 overrides are respected)
         const gross_income = override?.gross_income_override ?? gross
@@ -430,211 +394,11 @@ export default function PlanningPage() {
       }
 
       setMonths(months_data)
-      
-      // Calculate annual totals for summary cards
-      let yearly_salary_sum = 0
-      let yearly_onetime_sum = 0
-      
-      const year_start = startOfYear(new Date(year, 0, 1))
-      const year_end = endOfYear(new Date(year, 0, 1))
-      
-      if (income_sources) {
-        for (const source of income_sources) {
-          if (source.is_salary && source.yearly_salary) {
-            // For salary: use full yearly_salary if active any time this year
-            const start_date = source.start_date ? new Date(source.start_date) : new Date(source.date)
-            const end_date = source.end_date ? new Date(source.end_date) : null
-            
-            // Check if salary overlaps with this year at all
-            if (start_date <= year_end && (!end_date || end_date >= year_start)) {
-              yearly_salary_sum += source.yearly_salary
-            }
-          } else if (!source.is_recurring) {
-            // For one-time income: check if date is in this year
-            const income_date = new Date(source.date)
-            if (income_date >= year_start && income_date <= year_end) {
-              yearly_onetime_sum += source.amount
-            }
-          }
-        }
-      }
-      
-      setAnnualSalaryTotal(yearly_salary_sum)
-      setAnnualOnetimeTotal(yearly_onetime_sum)
     } catch (err) {
       console.error('Error loading planning data:', err)
     } finally {
       setLoading(false)
     }
-  }
-
-  const calculate_gross_income = async (user_id: string, month_date: Date): Promise<number> => {
-    // Get all income (both recurring and one-time)
-    const { data: income_sources, error } = await supabase
-      .from('income')
-      .select('*')
-      .eq('user_id', user_id)
-
-    if (error) {
-      console.error('Error fetching income:', error)
-      return 0
-    }
-
-    console.log('Income sources:', income_sources)
-
-    if (!income_sources) return 0
-
-    let total = 0
-    const month_start = startOfMonth(month_date)
-    const month_end = endOfMonth(month_date)
-    
-    for (const source of income_sources) {
-      if (source.is_recurring) {
-        // count_occurrences handles start_date, end_date, and mid-month boundaries
-        const occurrences = count_occurrences(source, month_start)
-        const source_total = source.amount * occurrences
-        total += source_total
-      } else {
-        const income_date = new Date(source.date)
-        if (income_date >= month_start && income_date <= month_end) {
-          total += source.amount
-        }
-      }
-    }
-
-    console.log('Total gross income:', total)
-    return total
-  }
-
-  const calculate_net_income = async (user_id: string, month_date: Date, gross: number): Promise<number> => {
-    // Get deductions from income table
-    const { data: income_sources } = await supabase
-      .from('income')
-      .select('*')
-      .eq('user_id', user_id)
-
-    if (!income_sources) return gross
-
-    let total_deductions = 0
-    const month_start = startOfMonth(month_date)
-    const month_end = endOfMonth(month_date)
-    
-    for (const source of income_sources) {
-      if (!source.is_recurring) continue
-      // Skip if fully outside this month
-      const _anchor = source.start_date ? new Date(source.start_date) : new Date(source.date)
-      const _hard_end = source.end_date ? new Date(source.end_date) : null
-      if (_anchor > month_end) continue
-      if (_hard_end && _hard_end < month_start) continue
-      
-      const occurrences = count_occurrences(source, month_start)
-      
-      // Get deductions from salary_deductions table
-      const { data: deductions } = await supabase
-        .from('salary_deductions')
-        .select('*')
-        .eq('income_id', source.id)
-        .single()
-      
-      if (deductions) {
-        const monthly_deductions = (
-          (deductions.federal_tax_monthly || 0) +
-          (deductions.state_tax_monthly || 0) +
-          (deductions.local_tax_monthly || 0) +
-          (deductions.fica_monthly || 0) +
-          (deductions.retirement_401k_monthly || 0) +
-          (deductions.hsa_monthly || 0) +
-          (deductions.medical_monthly || 0) +
-          (deductions.dental_monthly || 0) +
-          (deductions.vision_monthly || 0) +
-          (deductions.life_ins_monthly || 0) +
-          (deductions.ad_d_monthly || 0) +
-          (deductions.critical_illness_monthly || 0) +
-          (deductions.hospital_monthly || 0) +
-          (deductions.accident_monthly || 0) +
-          (deductions.legal_monthly || 0) +
-          (deductions.identity_theft_monthly || 0) +
-          (deductions.auto_savings_monthly || 0)
-        ) * occurrences
-        
-        console.log(`${source.description} deductions:`, {
-          federal_tax: deductions.federal_tax_monthly,
-          state_tax: deductions.state_tax_monthly,
-          retirement_401k: deductions.retirement_401k_monthly,
-          hsa: deductions.hsa_monthly,
-          auto_savings: deductions.auto_savings_monthly,
-          total_deductions: monthly_deductions
-        })
-        
-        total_deductions += monthly_deductions
-      }
-    }
-
-    console.log('Total deductions:', total_deductions)
-    console.log('Net income:', gross - total_deductions)
-    return gross - total_deductions
-  }
-
-  const get_savings_breakdown = async (user_id: string, month_date: Date) => {
-    const { data: income_sources } = await supabase
-      .from('income')
-      .select('*')
-      .eq('user_id', user_id)
-
-    if (!income_sources) return { auto_savings: 0, retirement_401k: 0, hsa: 0 }
-
-    let auto_savings = 0
-    let retirement_401k = 0
-    let hsa = 0
-    const month_start = startOfMonth(month_date)
-    
-    for (const source of income_sources) {
-      if (!source.is_recurring) continue
-      const _a = source.start_date ? new Date(source.start_date) : new Date(source.date)
-      const _e = source.end_date ? new Date(source.end_date) : null
-      if (_a > endOfMonth(month_start)) continue
-      if (_e && _e < month_start) continue
-      
-      const occurrences = count_occurrences(source, month_start)
-      
-      const { data: deductions } = await supabase
-        .from('salary_deductions')
-        .select('*')
-        .eq('income_id', source.id)
-        .single()
-      
-      if (deductions) {
-        auto_savings += (deductions.auto_savings_monthly || 0) * occurrences
-        retirement_401k += (deductions.retirement_401k_monthly || 0) * occurrences
-        hsa += (deductions.hsa_monthly || 0) * occurrences
-      }
-    }
-
-    console.log('Savings breakdown:', { auto_savings, retirement_401k, hsa })
-    return { auto_savings, retirement_401k, hsa }
-  }
-
-  const calculate_budget = async (user_id: string, month_year: string): Promise<number> => {
-    // Check budget history first
-    const { data: history } = await supabase
-      .from('category_budget_history')
-      .select('monthly_budget')
-      .eq('user_id', user_id)
-      .eq('month_year', month_year)
-
-    if (history && history.length > 0) {
-      return history.reduce((sum, h) => sum + parseFloat(h.monthly_budget.toString()), 0)
-    }
-
-    // Use current budgets
-    const { data: categories } = await supabase
-      .from('categories')
-      .select('monthly_budget')
-      .eq('user_id', user_id)
-
-    if (!categories) return 0
-
-    return categories.reduce((sum, c) => sum + parseFloat(c.monthly_budget.toString()), 0)
   }
 
 
@@ -701,7 +465,8 @@ export default function PlanningPage() {
 
           // Recalculate dependent values
           new_month.projected = new_month.housing + new_month.budget + new_month.additional
-          new_month.savings = new_month.net_income - new_month.projected
+          const spending_for_cash = new_month.actual_spent > 0 ? new_month.actual_spent : new_month.projected
+          new_month.savings = new_month.net_income - spending_for_cash
           new_month.savings_rate = new_month.net_income > 0 ? (new_month.savings / new_month.net_income) * 100 : 0
 
           return new_month
