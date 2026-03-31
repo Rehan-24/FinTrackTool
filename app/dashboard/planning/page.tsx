@@ -17,7 +17,8 @@ type MonthData = {
   projected: number
   actual_spent: number // actual spending (excluding savings categories)
   saved_amount: number // actual transfers to savings categories
-  savings: number // cash leftover (net - spent)
+  adjustments: number // manual adjustment that reduces leftover
+  savings: number // cash leftover (net - spent - adjustments)
   savings_rate: number
   auto_savings: number
   retirement_401k: number
@@ -282,9 +283,10 @@ export default function PlanningPage() {
         const additional = override?.additional_expenses ?? 0
         
         const projected = housing + budget + additional
+        const adjustments = override?.adjustments ?? 0
         // Use actual_spent for cash calculation if month has started, otherwise use projected
         const spending_for_cash = actual_spent > 0 ? actual_spent : projected
-        const savings = net_income - spending_for_cash
+        const savings = net_income - spending_for_cash - adjustments
         const savings_rate = net_income > 0 ? (savings / net_income) * 100 : 0
 
         months_data.push({
@@ -298,6 +300,7 @@ export default function PlanningPage() {
           projected,
           actual_spent,
           saved_amount,
+          adjustments,
           savings,
           savings_rate,
           auto_savings,
@@ -345,6 +348,7 @@ export default function PlanningPage() {
         update_data.additional_expenses = parseFloat(edit_value)
         update_data.additional_notes = edit_notes
       }
+      if (edit_field === 'adjustments') update_data.adjustments = parseFloat(edit_value)
 
       const { error } = await supabase
         .from('planning_overrides')
@@ -375,11 +379,14 @@ export default function PlanningPage() {
           if (edit_field === 'additional') {
             new_month.additional = parseFloat(edit_value)
           }
+          if (edit_field === 'adjustments') {
+            new_month.adjustments = parseFloat(edit_value)
+          }
 
           // Recalculate dependent values
           new_month.projected = new_month.housing + new_month.budget + new_month.additional
           const spending_for_cash = new_month.actual_spent > 0 ? new_month.actual_spent : new_month.projected
-          new_month.savings = new_month.net_income - spending_for_cash
+          new_month.savings = new_month.net_income - spending_for_cash - new_month.adjustments
           new_month.savings_rate = new_month.net_income > 0 ? (new_month.savings / new_month.net_income) * 100 : 0
 
           return new_month
@@ -448,13 +455,14 @@ export default function PlanningPage() {
         update_data.additional_expenses = null
         update_data.additional_notes = null
       }
-      
+      if (edit_field === 'adjustments') update_data.adjustments = null
+
       const { error } = await supabase
         .from('planning_overrides')
         .upsert(update_data, { onConflict: 'user_id,month_year' })
-      
+
       if (error) throw error
-      
+
       // Reload the data to get fresh calculated values
       await load_planning_data()
       close_edit()
@@ -556,6 +564,7 @@ export default function PlanningPage() {
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Add'l ✎</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Projected</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Actual</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Adjustments ✎</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Saved</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Leftover</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">%</th>
@@ -621,6 +630,15 @@ export default function PlanningPage() {
                   ${month.actual_spent.toLocaleString()}
                 </td>
                 
+                <td className="px-4 py-3 text-right text-sm">
+                  <button
+                    onClick={() => open_edit(month.month, 'adjustments', month.adjustments)}
+                    className={`hover:text-blue-600 transition ${month.adjustments !== 0 ? 'text-orange-600 font-medium' : 'text-gray-400'}`}
+                  >
+                    {month.adjustments !== 0 ? `$${month.adjustments.toLocaleString()}` : '—'}
+                  </button>
+                </td>
+
                 <td className={`px-4 py-3 text-right text-sm font-medium ${
                   month.saved_amount > 0 ? 'text-green-600' : 'text-gray-400'
                 }`}>
