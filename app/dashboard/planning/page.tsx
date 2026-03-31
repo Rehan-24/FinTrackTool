@@ -400,6 +400,29 @@ export default function PlanningPage() {
     setEditNotes('')
   }
   
+  const reset_all_overrides = async () => {
+    if (!confirm(`Reset all manually edited values for ${year}? This will restore every month back to its calculated defaults.`)) return
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error } = await supabase
+        .from('planning_overrides')
+        .delete()
+        .eq('user_id', user.id)
+        .gte('month_year', `${year}-01`)
+        .lte('month_year', `${year}-12`)
+
+      if (error) throw error
+
+      await load_planning_data()
+    } catch (err) {
+      console.error('Error resetting overrides:', err)
+      alert('Failed to reset values')
+    }
+  }
+
   const reset_to_default = async () => {
     if (!editing_month) return
     
@@ -474,12 +497,20 @@ export default function PlanningPage() {
           <ChevronLeft size={24} />
         </button>
         <div className="text-2xl font-bold text-gray-800">{year}</div>
-        <button
-          onClick={() => setYear(year + 1)}
-          className="p-2 hover:bg-gray-100 rounded-lg transition"
-        >
-          <ChevronRight size={24} />
-        </button>
+        <div className="flex items-center gap-3">
+          <button
+            onClick={reset_all_overrides}
+            className="px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition"
+          >
+            Reset Values
+          </button>
+          <button
+            onClick={() => setYear(year + 1)}
+            className="p-2 hover:bg-gray-100 rounded-lg transition"
+          >
+            <ChevronRight size={24} />
+          </button>
+        </div>
       </div>
 
       {/* Summary Cards */}
