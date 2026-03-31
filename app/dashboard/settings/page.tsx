@@ -317,6 +317,42 @@ export default function SettingsPage() {
           </div>
         )}
 
+        {/* Budget Summary */}
+        {categories.length > 0 && (() => {
+          const spending_total = categories
+            .filter(c => !c.is_savings)
+            .reduce((sum, c) => sum + parseFloat(c.monthly_budget.toString()), 0)
+          const savings_total = categories
+            .filter(c => c.is_savings)
+            .reduce((sum, c) => sum + parseFloat(c.monthly_budget.toString()), 0)
+          const grand_total = spending_total + savings_total
+
+          return (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-white rounded-lg border border-gray-200 p-4">
+                <div className="text-xs text-gray-500 mb-1">Total Monthly Budget</div>
+                <div className="text-2xl font-bold text-gray-800">${grand_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-xs text-gray-400 mt-1">{categories.length} categories</div>
+              </div>
+              <div className="bg-white rounded-lg border border-blue-100 p-4">
+                <div className="text-xs text-blue-500 mb-1">Spending</div>
+                <div className="text-2xl font-bold text-gray-800">${spending_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-xs text-gray-400 mt-1">{categories.filter(c => !c.is_savings).length} categories</div>
+              </div>
+              <div className="bg-white rounded-lg border border-green-100 p-4">
+                <div className="text-xs text-green-600 mb-1">Savings</div>
+                <div className="text-2xl font-bold text-gray-800">${savings_total.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-xs text-gray-400 mt-1">{categories.filter(c => c.is_savings).length} categories</div>
+              </div>
+              <div className="bg-white rounded-lg border border-purple-100 p-4">
+                <div className="text-xs text-purple-500 mb-1">Annual Total</div>
+                <div className="text-2xl font-bold text-gray-800">${(grand_total * 12).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                <div className="text-xs text-gray-400 mt-1">projected / year</div>
+              </div>
+            </div>
+          )
+        })()}
+
         {/* Categories List */}
         {categories.length === 0 ? (
           <div className="text-center py-16 text-gray-500">
