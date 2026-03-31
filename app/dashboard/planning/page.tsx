@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns'
+import { count_income_occurrences, pay_periods_per_year } from '@/lib/income-utils'
 import { ChevronLeft, ChevronRight, Edit2, TrendingUp, TrendingDown } from 'lucide-react'
 
 type MonthData = {
@@ -49,57 +50,6 @@ export default function PlanningPage() {
     document.addEventListener('visibilitychange', handle_visibility)
     return () => document.removeEventListener('visibilitychange', handle_visibility)
   }, [year])
-
-  // Count actual paycheck occurrences in a month, respecting start_date and end_date.
-  const count_occurrences = (source: any, month_start: Date): number => {
-    const month_end = endOfMonth(month_start)
-
-    const anchor = source.start_date
-      ? new Date(source.start_date)
-      : new Date(source.date)
-    const hard_end = source.end_date ? new Date(source.end_date) : null
-
-    if (anchor > month_end) return 0
-    if (hard_end && hard_end < month_start) return 0
-
-    const effective_end = hard_end && hard_end < month_end ? new Date(hard_end) : new Date(month_end)
-
-    const freq = (source.is_salary
-      ? source.pay_frequency
-      : source.frequency
-    )?.toLowerCase() || ''
-
-    let count = 0
-
-    if (freq === 'monthly') {
-      let current = new Date(anchor)
-      while (current <= effective_end) {
-        if (current >= month_start) count++
-        current = new Date(current.getFullYear(), current.getMonth() + 1, anchor.getDate())
-      }
-    } else if (freq === 'semi-monthly') {
-      let paychecks = 2
-      if (hard_end) {
-        const mid = new Date(month_start.getFullYear(), month_start.getMonth(), 15)
-        if (hard_end < mid) paychecks = 1
-      }
-      count = paychecks
-    } else {
-      let freq_days = 0
-      if (freq === 'weekly') freq_days = 7
-      else if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') freq_days = 14
-      else if (freq === 'yearly') freq_days = 365
-      if (freq_days === 0) return 0
-
-      let current = new Date(anchor)
-      while (current <= effective_end) {
-        if (current >= month_start) count++
-        current.setDate(current.getDate() + freq_days)
-      }
-    }
-
-    return count
-  }
 
   const load_planning_data = async () => {
     setLoading(true)
@@ -187,26 +137,15 @@ export default function PlanningPage() {
               if (start_date > month_end) continue
               if (end_date && end_date < month_start) continue
               
-              // Use count_occurrences for all recurring income (handles end_date mid-month)
-              const actual_paychecks = count_occurrences(source, month_start)
+              // Enumerate actual pay dates in this month from start_date
+              const actual_paychecks = count_income_occurrences(source, month_start, month_end)
 
               if (source.is_salary && source.yearly_salary) {
-                const freq = (source.pay_frequency || '').toLowerCase()
-                let per_paycheck_gross = 0
-                if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') {
-                  per_paycheck_gross = source.yearly_salary / 26
-                } else if (freq === 'semi-monthly') {
-                  per_paycheck_gross = source.yearly_salary / 24
-                } else if (freq === 'monthly') {
-                  per_paycheck_gross = source.yearly_salary / 12
-                } else if (freq === 'weekly') {
-                  per_paycheck_gross = source.yearly_salary / 52
-                }
-                const monthly_gross = per_paycheck_gross * actual_paychecks
-                gross += monthly_gross
+                const freq = source.pay_frequency || ''
+                const per_paycheck_gross = source.yearly_salary / pay_periods_per_year(freq)
+                gross += per_paycheck_gross * actual_paychecks
               } else {
-                const monthly_gross = source.amount * actual_paychecks
-                gross += monthly_gross
+                gross += source.amount * actual_paychecks
               }
             } else {
               // One-time income: check if date is in this month
@@ -229,74 +168,48 @@ export default function PlanningPage() {
           for (const source of income_sources) {
             if (!source.is_recurring) continue
             
-            // Skip if fully outside this month (count_occurrences also handles mid-month end_date)
+            // Skip if fully outside this month
             const anchor = source.start_date ? new Date(source.start_date) : new Date(source.date)
             const hard_end = source.end_date ? new Date(source.end_date) : null
             if (anchor > month_end) continue
             if (hard_end && hard_end < month_start) continue
-            
-            const occurrences = count_occurrences(source, month_start)
+
+            const occurrences = count_income_occurrences(source, month_start, month_end)
             const deductions = deductions_map[source.id]
-            
-            
-            if (deductions) {
-              
-              // Deductions are YEARLY values - divide by 12 for monthly
+
+            if (deductions && occurrences > 0) {
+              // Deductions are stored as YEARLY values.
+              // Scale by actual paychecks this month so 3-paycheck months
+              // correctly reflect 3 paychecks worth of deductions.
+              const periods = pay_periods_per_year(source.pay_frequency || '')
+              const scale = occurrences / periods
+
+              const d = (field: string) => ((deductions[field] || 0) * scale)
+
               const monthly_deductions = (
                 // Taxes
-                ((deductions.federal_tax || 0) / 12) +
-                ((deductions.state_tax || 0) / 12) +
-                ((deductions.local_tax || 0) / 12) +
-                ((deductions.fica_total || 0) / 12) +
-                ((deductions.ca_disability || 0) / 12) +
-                ((deductions.state_etc || 0) / 12) +
+                d('federal_tax') + d('state_tax') + d('local_tax') +
+                d('fica_total') + d('ca_disability') + d('state_etc') +
                 // Pre-tax benefits
-                ((deductions.pre_tax_401k || 0) / 12) +
-                ((deductions.hsa || 0) / 12) +
-                ((deductions.fsa || 0) / 12) +
-                ((deductions.medical_insurance || 0) / 12) +
-                ((deductions.dental_insurance || 0) / 12) +
-                ((deductions.vision_insurance || 0) / 12) +
-                ((deductions.long_term_disability || 0) / 12) +
-                ((deductions.life_insurance || 0) / 12) +
+                d('pre_tax_401k') + d('hsa') + d('fsa') +
+                d('medical_insurance') + d('dental_insurance') + d('vision_insurance') +
+                d('long_term_disability') + d('life_insurance') +
                 // After-tax deductions
-                ((deductions.after_tax_401k || 0) / 12) +
-                ((deductions.after_tax_401k_roth || 0) / 12) +
-                ((deductions.ad_d || 0) / 12) +
-                ((deductions.critical_illness || 0) / 12) +
-                ((deductions.hospital_indemnity || 0) / 12) +
-                ((deductions.accident_insurance || 0) / 12) +
-                ((deductions.legal_plan || 0) / 12) +
-                ((deductions.identity_theft || 0) / 12) +
-                // Auto savings (individual fields only - auto_savings legacy field excluded)
-                ((deductions.roth_ira || 0) / 12) +
-                ((deductions.hysa || 0) / 12) +
-                ((deductions.crypto || 0) / 12) +
-                ((deductions.personal_investments || 0) / 12) +
-                ((deductions.other_savings || 0) / 12)
+                d('after_tax_401k') + d('after_tax_401k_roth') +
+                d('ad_d') + d('critical_illness') + d('hospital_indemnity') +
+                d('accident_insurance') + d('legal_plan') + d('identity_theft') +
+                // Auto savings
+                d('roth_ira') + d('hysa') + d('crypto') +
+                d('personal_investments') + d('other_savings')
               )
-              
-              
+
               total_deductions += monthly_deductions
-              // Auto savings = all individual savings vehicles outside 401k and HSA/FSA
-              auto_savings += (
-                ((deductions.roth_ira || 0) / 12) +
-                ((deductions.hysa || 0) / 12) +
-                ((deductions.crypto || 0) / 12) +
-                ((deductions.personal_investments || 0) / 12) +
-                ((deductions.other_savings || 0) / 12)
-              )
+              // Auto savings = individual savings vehicles outside 401k and HSA/FSA
+              auto_savings += d('roth_ira') + d('hysa') + d('crypto') + d('personal_investments') + d('other_savings')
               // 401k = all 401k variants
-              retirement_401k += (
-                ((deductions.pre_tax_401k || 0) / 12) +
-                ((deductions.after_tax_401k || 0) / 12) +
-                ((deductions.after_tax_401k_roth || 0) / 12)
-              )
+              retirement_401k += d('pre_tax_401k') + d('after_tax_401k') + d('after_tax_401k_roth')
               // HSA + FSA
-              hsa += (
-                ((deductions.hsa || 0) / 12) +
-                ((deductions.fsa || 0) / 12)
-              )
+              hsa += d('hsa') + d('fsa')
             }
           }
         }

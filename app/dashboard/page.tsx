@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { sync_projected_purchases, convert_past_projected_to_actual } from '@/lib/recurring-utils'
+import { count_income_occurrences } from '@/lib/income-utils'
 import { VERSION_NOTES, CURRENT_VERSION, VersionNote } from '@/lib/version_notes'
 import { DollarSign, TrendingUp, PieChart, Receipt, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
@@ -61,59 +62,6 @@ export default function DashboardPage() {
   const parse_local_date = (date_string: string) => {
     const [year, month, day] = date_string.split('-').map(Number)
     return new Date(year, month - 1, day)
-  }
-
-  // Helper: Count how many times a recurring income occurs in a date range,
-  // respecting start_date and end_date mid-month boundaries.
-  const count_income_occurrences_dashboard = (
-    income_entry: any,
-    range_start: Date,
-    range_end: Date
-  ) => {
-    const anchor = income_entry.start_date
-      ? new Date(income_entry.start_date)
-      : new Date(income_entry.date)
-    const hard_end = income_entry.end_date ? new Date(income_entry.end_date) : null
-
-    if (anchor > range_end) return 0
-    if (hard_end && hard_end < range_start) return 0
-
-    const effective_end = hard_end && hard_end < range_end ? new Date(hard_end) : new Date(range_end)
-
-    const freq = income_entry.is_salary
-      ? (income_entry.pay_frequency || '').toLowerCase()
-      : (income_entry.frequency || '').toLowerCase()
-
-    let count = 0
-
-    if (freq === 'monthly') {
-      let current = new Date(anchor)
-      while (current <= effective_end) {
-        if (current >= range_start) count++
-        current = new Date(current.getFullYear(), current.getMonth() + 1, anchor.getDate())
-      }
-    } else if (freq === 'semi-monthly') {
-      let paychecks = 2
-      if (hard_end) {
-        const mid = new Date(range_start.getFullYear(), range_start.getMonth(), 15)
-        if (hard_end < mid) paychecks = 1
-      }
-      count = paychecks
-    } else {
-      let freq_days = 0
-      if (freq === 'weekly') freq_days = 7
-      else if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') freq_days = 14
-      else if (freq === 'yearly') freq_days = 365
-      if (freq_days === 0) return 0
-
-      let current = new Date(anchor)
-      while (current <= effective_end) {
-        if (current >= range_start) count++
-        current.setDate(current.getDate() + freq_days)
-      }
-    }
-
-    return count
   }
 
   useEffect(() => {
@@ -238,11 +186,7 @@ export default function DashboardPage() {
             if (end_date && end_date < month_start) return
             
             // Count actual occurrences in this month
-            const occurrences = count_income_occurrences_dashboard(
-              inc, 
-              month_start, 
-              month_end
-            )
+            const occurrences = count_income_occurrences(inc, month_start, month_end)
             console.log(`[Dashboard Income] ${inc.description}: ${occurrences} occurrences × $${amt} = $${occurrences * amt}`)
             total_income += occurrences * amt
           }

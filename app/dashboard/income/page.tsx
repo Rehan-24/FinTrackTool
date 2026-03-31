@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, Trash2, TrendingUp, Edit2, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
+import { count_income_occurrences } from '@/lib/income-utils'
 
 type FicaMode = 'pct' | 'mo' | 'period'
 
@@ -527,69 +528,6 @@ export default function IncomePage() {
     return total
   }
   
-  // Helper: Count how many times a recurring income occurs in a date range,
-  // fully respecting start_date, end_date, cutoff_date (past) and from_date (future).
-  const count_income_occurrences = (
-    income_entry: any,
-    range_start: Date,
-    range_end: Date,
-    cutoff_date?: Date | null,
-    from_date?: Date
-  ) => {
-    const anchor = income_entry.start_date
-      ? new Date(income_entry.start_date)
-      : new Date(income_entry.date)
-    const hard_end = income_entry.end_date ? new Date(income_entry.end_date) : null
-
-    if (anchor > range_end) return 0
-    if (hard_end && hard_end < range_start) return 0
-
-    let effective_end = new Date(range_end)
-    if (hard_end && hard_end < effective_end) effective_end = new Date(hard_end)
-    if (cutoff_date && cutoff_date < effective_end) effective_end = new Date(cutoff_date)
-
-    const effective_start = from_date && from_date > anchor ? from_date : anchor
-    if (effective_start > effective_end) return 0
-
-    const freq = income_entry.is_salary
-      ? (income_entry.pay_frequency || '').toLowerCase()
-      : (income_entry.frequency || '').toLowerCase()
-
-    let count = 0
-
-    if (freq === 'monthly') {
-      let current = new Date(anchor)
-      while (current <= effective_end) {
-        if (current >= range_start && current >= effective_start) count++
-        current = new Date(current.getFullYear(), current.getMonth() + 1, anchor.getDate())
-      }
-    } else if (freq === 'semi-monthly') {
-      let paychecks = effective_start <= effective_end ? 2 : 0
-      if (hard_end) {
-        const mid = new Date(range_start.getFullYear(), range_start.getMonth(), 15)
-        if (hard_end < mid) paychecks = 1
-      }
-      count = paychecks
-    } else {
-      let freq_days = 0
-      if (freq === 'weekly') freq_days = 7
-      else if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') freq_days = 14
-      else if (freq === 'yearly') freq_days = 365
-      if (freq_days === 0) return 0
-
-      let current = new Date(anchor)
-      while (current < effective_start) {
-        current.setDate(current.getDate() + freq_days)
-      }
-      while (current <= effective_end) {
-        if (current >= range_start) count++
-        current.setDate(current.getDate() + freq_days)
-      }
-    }
-
-    return count
-  }
-
   // Monthly average card — only counts currently active income sources,
   // using actual occurrence counting for this month respecting start/end dates.
   const get_recurring_monthly = () => {

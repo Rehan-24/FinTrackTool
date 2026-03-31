@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { sync_projected_purchases } from '@/lib/recurring-utils'
+import { count_income_occurrences } from '@/lib/income-utils'
 import { Download, ChevronLeft, ChevronRight, TrendingUp, TrendingDown } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, subMonths, addMonths, isBefore, isAfter } from 'date-fns'
 import * as XLSX from 'xlsx'
@@ -77,59 +78,6 @@ export default function MonthlyHistoryPage() {
 
       const start = format(startOfMonth(selected_month), 'yyyy-MM-dd')
       const end = format(endOfMonth(selected_month), 'yyyy-MM-dd')
-
-      // Helper: Count how many times a recurring income occurs in a date range
-      const count_income_occurrences = (
-        income_entry: any,
-        range_start: Date,
-        range_end: Date
-      ) => {
-        const anchor = income_entry.start_date
-          ? new Date(income_entry.start_date)
-          : new Date(income_entry.date)
-        const hard_end = income_entry.end_date ? new Date(income_entry.end_date) : null
-
-        if (anchor > range_end) return 0
-        if (hard_end && hard_end < range_start) return 0
-
-        const effective_end = hard_end && hard_end < range_end ? new Date(hard_end) : new Date(range_end)
-
-        const freq = (income_entry.is_salary
-          ? income_entry.pay_frequency
-          : income_entry.frequency
-        )?.toLowerCase() || ''
-
-        let count = 0
-
-        if (freq === 'monthly') {
-          let current = new Date(anchor)
-          while (current <= effective_end) {
-            if (current >= range_start) count++
-            current = new Date(current.getFullYear(), current.getMonth() + 1, anchor.getDate())
-          }
-        } else if (freq === 'semi-monthly') {
-          let paychecks = 2
-          if (hard_end) {
-            const mid = new Date(range_start.getFullYear(), range_start.getMonth(), 15)
-            if (hard_end < mid) paychecks = 1
-          }
-          count = paychecks
-        } else {
-          let freq_days = 0
-          if (freq === 'weekly') freq_days = 7
-          else if (freq === 'bi-weekly' || freq === 'biweekly' || freq === 'bi weekly') freq_days = 14
-          else if (freq === 'yearly') freq_days = 365
-          if (freq_days === 0) return 0
-
-          let current = new Date(anchor)
-          while (current <= effective_end) {
-            if (current >= range_start) count++
-            current.setDate(current.getDate() + freq_days)
-          }
-        }
-
-        return count
-      }
 
       // Get purchases (including projected)
       const { data: purchases } = await supabase
