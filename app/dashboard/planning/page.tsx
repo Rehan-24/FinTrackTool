@@ -543,10 +543,10 @@ export default function PlanningPage() {
           <div className="text-sm opacity-90 mb-2">Total Projected Savings ({year})</div>
           <div className="text-3xl font-bold">${total_savings.toLocaleString()}</div>
           <div className="text-xs mt-2 space-y-1">
-            <div>Auto: ${total_auto_savings.toLocaleString()} ({((total_auto_savings / total_savings) * 100).toFixed(0)}%)</div>
-            <div>401k: ${total_401k.toLocaleString()} ({((total_401k / total_savings) * 100).toFixed(0)}%)</div>
-            <div>HSA: ${total_hsa.toLocaleString()} ({((total_hsa / total_savings) * 100).toFixed(0)}%)</div>
-            <div>Saved: ${total_cash_savings.toLocaleString()} ({((total_cash_savings / total_savings) * 100).toFixed(0)}%)</div>
+            <div>Auto: ${total_auto_savings.toLocaleString()} ({total_gross > 0 ? ((total_auto_savings / total_gross) * 100).toFixed(1) : '0.0'}% of gross)</div>
+            <div>401k: ${total_401k.toLocaleString()} ({total_gross > 0 ? ((total_401k / total_gross) * 100).toFixed(1) : '0.0'}% of gross)</div>
+            <div>HSA: ${total_hsa.toLocaleString()} ({total_gross > 0 ? ((total_hsa / total_gross) * 100).toFixed(1) : '0.0'}% of gross)</div>
+            <div>Saved: ${total_cash_savings.toLocaleString()} ({total_gross > 0 ? ((total_cash_savings / total_gross) * 100).toFixed(1) : '0.0'}% of gross)</div>
           </div>
         </div>
       </div>
