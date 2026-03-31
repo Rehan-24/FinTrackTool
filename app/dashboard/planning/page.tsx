@@ -473,7 +473,7 @@ export default function PlanningPage() {
   const total_auto_savings = months.reduce((sum, m) => sum + m.auto_savings, 0)
   const total_401k = months.reduce((sum, m) => sum + m.retirement_401k, 0)
   const total_hsa = months.reduce((sum, m) => sum + m.hsa, 0)
-  const total_cash_savings = months.reduce((sum, m) => sum + m.savings, 0)
+  const total_cash_savings = months.reduce((sum, m) => sum + m.saved_amount, 0)
   const total_savings = total_auto_savings + total_401k + total_hsa + total_cash_savings
 
   if (loading) {
@@ -538,7 +538,7 @@ export default function PlanningPage() {
             <div>Auto: ${total_auto_savings.toLocaleString()} ({((total_auto_savings / total_savings) * 100).toFixed(0)}%)</div>
             <div>401k: ${total_401k.toLocaleString()} ({((total_401k / total_savings) * 100).toFixed(0)}%)</div>
             <div>HSA: ${total_hsa.toLocaleString()} ({((total_hsa / total_savings) * 100).toFixed(0)}%)</div>
-            <div>Cash: ${total_cash_savings.toLocaleString()} ({((total_cash_savings / total_savings) * 100).toFixed(0)}%)</div>
+            <div>Saved: ${total_cash_savings.toLocaleString()} ({((total_cash_savings / total_savings) * 100).toFixed(0)}%)</div>
           </div>
         </div>
       </div>
@@ -557,7 +557,7 @@ export default function PlanningPage() {
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Projected</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Actual</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Saved</th>
-              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Cash Left</th>
+              <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">Leftover</th>
               <th className="px-4 py-3 text-right text-sm font-medium text-gray-700">%</th>
             </tr>
           </thead>
