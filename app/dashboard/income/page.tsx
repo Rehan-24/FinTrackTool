@@ -6,6 +6,12 @@ import { Plus, Trash2, TrendingUp, Edit2, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { count_income_occurrences, pay_periods_per_year } from '@/lib/income-utils'
 
+// Parse yyyy-MM-dd as local date (not UTC) to avoid timezone off-by-one display bugs
+const parse_local = (date_str: string) => {
+  const [y, m, d] = date_str.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 type FicaMode = 'pct' | 'mo' | 'period'
 
 type SalaryCalculation = {
@@ -467,7 +473,7 @@ export default function IncomePage() {
     const end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1))
     
     return income.filter(i => {
-      const income_date = new Date(i.date)
+      const income_date = parse_local(i.date)
       return income_date >= start && income_date <= end
     }).reduce((sum, i) => sum + parseFloat(i.amount.toString()), 0)
   }
@@ -487,7 +493,7 @@ export default function IncomePage() {
       
       if (!inc.is_recurring) {
         // One-time income: count if date is in month AND has passed
-        const income_date = new Date(inc.date)
+        const income_date = parse_local(inc.date)
         if (income_date >= start && income_date <= end && income_date <= today) {
           total += amt
         }
@@ -518,7 +524,7 @@ export default function IncomePage() {
       
       if (!inc.is_recurring) {
         // One-time income: count if date is in month AND in future
-        const income_date = new Date(inc.date)
+        const income_date = parse_local(inc.date)
         if (income_date >= start && income_date <= end && income_date >= tomorrow) {
           total += amt
         }
@@ -542,7 +548,7 @@ export default function IncomePage() {
 
     return income.reduce((sum, i) => {
       if (!i.is_recurring) return sum
-      const anchor = i.start_date ? new Date(i.start_date) : new Date(i.date)
+      const anchor = i.start_date ? parse_local(i.start_date) : parse_local(i.date)
       if (anchor > month_end) return sum
       if (i.end_date && new Date(i.end_date) < month_start) return sum
       const occurrences = count_income_occurrences(i, month_start, month_end)
@@ -573,10 +579,10 @@ export default function IncomePage() {
       const year_start = new Date(year, 0, 1)
       const year_end = new Date(year, 11, 31)
       if (!i.is_recurring) {
-        const d = new Date(i.date)
+        const d = parse_local(i.date)
         return d >= year_start && d <= year_end
       } else {
-        const anchor = i.start_date ? new Date(i.start_date) : new Date(i.date)
+        const anchor = i.start_date ? parse_local(i.start_date) : parse_local(i.date)
         if (anchor > year_end) return false
         if (i.end_date && new Date(i.end_date) < year_start) return false
         return true
@@ -590,11 +596,11 @@ export default function IncomePage() {
 
     if (!i.is_recurring) {
       // One-time: only show if its date falls within the selected month
-      const d = new Date(i.date)
+      const d = parse_local(i.date)
       return d >= month_start && d <= month_end
     } else {
       // Recurring/salary: show if active at any point during the selected month
-      const anchor = i.start_date ? new Date(i.start_date) : new Date(i.date)
+      const anchor = i.start_date ? parse_local(i.start_date) : parse_local(i.date)
       if (anchor > month_end) return false
       if (i.end_date && new Date(i.end_date) < month_start) return false
       return true
@@ -1013,7 +1019,7 @@ export default function IncomePage() {
                     return (
                     <tr key={inc.id} className={`hover:bg-gray-50 ${expired ? 'opacity-60' : ''}`}>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                        {format(new Date(inc.date), 'MMM d, yyyy')}
+                        {format(parse_local(inc.date), 'MMM d, yyyy')}
                       </td>
                       <td className="px-6 py-4 text-sm">
                         <div className="flex items-center gap-2">
@@ -1031,12 +1037,12 @@ export default function IncomePage() {
                         )}
                         {inc.start_date && (
                           <div className="text-xs text-gray-500">
-                            Start: {format(new Date(inc.start_date), 'MMM d, yyyy')}
+                            Start: {format(parse_local(inc.start_date), 'MMM d, yyyy')}
                           </div>
                         )}
                         {inc.end_date && (
                           <div className="text-xs text-gray-500">
-                            End: {format(new Date(inc.end_date), 'MMM d, yyyy')}
+                            End: {format(parse_local(inc.end_date), 'MMM d, yyyy')}
                           </div>
                         )}
                       </td>

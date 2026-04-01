@@ -170,13 +170,13 @@ export default function DashboardPage() {
           
           if (!inc.is_recurring) {
             // One-time income: check if date is in this month
-            const income_date = new Date(inc.date)
+            const income_date = parse_local_date(inc.date)
             if (income_date >= month_start && income_date <= month_end) {
               total_income += amt
             }
           } else {
             // Recurring income: check if active this month
-            const start_date = inc.start_date ? new Date(inc.start_date) : new Date(inc.date)
+            const start_date = inc.start_date ? parse_local_date(inc.start_date) : parse_local_date(inc.date)
             const end_date = inc.end_date ? new Date(inc.end_date) : null
             
             // Skip if hasn't started yet

@@ -63,6 +63,11 @@ export default function MonthlyHistoryPage() {
   const [selected_purchase, setSelectedPurchase] = useState<any>(null)  // For view modal
   const [chart_view, setChartView] = useState<'categories' | 'tags'>('categories')
 
+  const parse_local = (date_str: string) => {
+    const [y, m, d] = date_str.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
+
   useEffect(() => {
     load_month_data()
   }, [selected_month])
@@ -177,7 +182,7 @@ export default function MonthlyHistoryPage() {
           
           if (!inc.is_recurring) {
             // One-time income: check if date is in this month
-            const income_date = new Date(inc.date)
+            const income_date = parse_local(inc.date)
             if (income_date >= month_start && income_date <= month_end) {
               income_sources.push({
                 source: inc.source,
@@ -190,7 +195,7 @@ export default function MonthlyHistoryPage() {
             }
           } else {
             // Recurring income: check if active this month
-            const start_date = inc.start_date ? new Date(inc.start_date) : new Date(inc.date)
+            const start_date = inc.start_date ? parse_local(inc.start_date) : parse_local(inc.date)
             const end_date = inc.end_date ? new Date(inc.end_date) : null
             
             // Skip if hasn't started yet

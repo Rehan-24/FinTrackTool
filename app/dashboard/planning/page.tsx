@@ -52,6 +52,11 @@ export default function PlanningPage() {
     return () => document.removeEventListener('visibilitychange', handle_visibility)
   }, [year])
 
+  const parse_local = (date_str: string) => {
+    const [y, m, d] = date_str.split('-').map(Number)
+    return new Date(y, m - 1, d)
+  }
+
   const load_planning_data = async () => {
     setLoading(true)
     try {
@@ -131,7 +136,7 @@ export default function PlanningPage() {
           for (const source of income_sources) {
             if (source.is_recurring) {
               // Check if active this month
-              const start_date = source.start_date ? new Date(source.start_date) : new Date(source.date)
+              const start_date = source.start_date ? parse_local(source.start_date) : parse_local(source.date)
               const end_date = source.end_date ? new Date(source.end_date) : null
               
               // Skip if hasn't started yet or already ended
@@ -150,7 +155,7 @@ export default function PlanningPage() {
               }
             } else {
               // One-time income: check if date is in this month
-              const income_date = new Date(source.date)
+              const income_date = parse_local(source.date)
               if (income_date >= month_start && income_date <= month_end) {
                 gross += source.amount
               }
@@ -170,7 +175,7 @@ export default function PlanningPage() {
             if (!source.is_recurring) continue
             
             // Skip if fully outside this month
-            const anchor = source.start_date ? new Date(source.start_date) : new Date(source.date)
+            const anchor = source.start_date ? parse_local(source.start_date) : parse_local(source.date)
             const hard_end = source.end_date ? new Date(source.end_date) : null
             if (anchor > month_end) continue
             if (hard_end && hard_end < month_start) continue
