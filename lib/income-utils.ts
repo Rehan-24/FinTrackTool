@@ -22,6 +22,14 @@
  * @param from_date      Optional lower bound – only count paychecks on or
  *                       after this date (used for "remaining this month").
  */
+// Parse a yyyy-MM-dd string as a LOCAL date (not UTC).
+// new Date('2026-01-02') is parsed as UTC midnight which rolls back one day
+// in any US timezone — this helper avoids that off-by-one.
+function parse_local(date_str: string): Date {
+  const [y, m, d] = date_str.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 export function count_income_occurrences(
   income_entry: any,
   range_start: Date,
@@ -30,9 +38,9 @@ export function count_income_occurrences(
   from_date?: Date
 ): number {
   const anchor = income_entry.start_date
-    ? new Date(income_entry.start_date)
-    : new Date(income_entry.date)
-  const hard_end = income_entry.end_date ? new Date(income_entry.end_date) : null
+    ? parse_local(income_entry.start_date)
+    : parse_local(income_entry.date)
+  const hard_end = income_entry.end_date ? parse_local(income_entry.end_date) : null
 
   if (anchor > range_end) return 0
   if (hard_end && hard_end < range_start) return 0
