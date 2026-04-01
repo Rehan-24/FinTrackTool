@@ -69,7 +69,9 @@ export default function TransactionsPage() {
   const [draft_payment_method, setDraftPaymentMethod] = useState<string>('all')
   const [draft_search_text, setDraftSearchText] = useState<string>('')
   const [draft_split_filter, setDraftSplitFilter] = useState<string>('all')
-  
+  const [applied_view_mode, setAppliedViewMode] = useState<'month' | 'year' | 'all'>('month')
+  const [draft_view_mode, setDraftViewMode] = useState<'month' | 'year' | 'all'>('month')
+
   const [chart_view, setChartView] = useState<'categories' | 'tags'>('categories')
 
   // View/Edit modal
@@ -78,12 +80,13 @@ export default function TransactionsPage() {
 
   useEffect(() => {
     load_data()
-  }, [applied_month, applied_year])
+  }, [applied_month, applied_year, applied_view_mode])
 
   const apply_filters = () => {
     // Copy draft filters to applied filters
     setAppliedMonth(draft_month)
     setAppliedYear(draft_year)
+    setAppliedViewMode(draft_view_mode)
     setAppliedCategory(draft_category)
     setAppliedType(draft_type)
     setAppliedTag(draft_tag)
@@ -95,20 +98,22 @@ export default function TransactionsPage() {
   const clear_filters = () => {
     const current_month = format(new Date(), 'MMMM')
     const current_year = format(new Date(), 'yyyy')
-    
+
     // Reset draft
     setDraftMonth(current_month)
     setDraftYear(current_year)
+    setDraftViewMode('month')
     setDraftCategory('all')
     setDraftType('all')
     setDraftTag('all')
     setDraftPaymentMethod('all')
     setDraftSearchText('')
     setDraftSplitFilter('all')
-    
+
     // Apply reset
     setAppliedMonth(current_month)
     setAppliedYear(current_year)
+    setAppliedViewMode('month')
     setAppliedCategory('all')
     setAppliedType('all')
     setAppliedTag('all')
@@ -123,17 +128,23 @@ export default function TransactionsPage() {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) return
 
-      // Convert month name + year to date
-      const month_names = ['January', 'February', 'March', 'April', 'May', 'June', 
+      // Compute date range based on view mode
+      const month_names = ['January', 'February', 'March', 'April', 'May', 'June',
                           'July', 'August', 'September', 'October', 'November', 'December']
-      const month_index = month_names.indexOf(applied_month)
-      const selected_date = new Date(parseInt(applied_year), month_index, 1)
-      
-      // Sync projected purchases for selected month
-      await sync_projected_purchases(user.id, selected_date)
+      let range_start: string | null = null
+      let range_end: string | null = null
 
-      const start = format(startOfMonth(selected_date), 'yyyy-MM-dd')
-      const end = format(endOfMonth(selected_date), 'yyyy-MM-dd')
+      if (applied_view_mode === 'month') {
+        const month_index = month_names.indexOf(applied_month)
+        const selected_date = new Date(parseInt(applied_year), month_index, 1)
+        await sync_projected_purchases(user.id, selected_date)
+        range_start = format(startOfMonth(selected_date), 'yyyy-MM-dd')
+        range_end = format(endOfMonth(selected_date), 'yyyy-MM-dd')
+      } else if (applied_view_mode === 'year') {
+        range_start = `${applied_year}-01-01`
+        range_end = `${applied_year}-12-31`
+      }
+      // 'all': no date filter — range_start and range_end stay null
 
       // Get categories
       const { data: cats } = await supabase
@@ -142,14 +153,18 @@ export default function TransactionsPage() {
         .eq('user_id', user.id)
         .order('name')
 
-      // Get purchases
-      const { data: purchase_data } = await supabase
+      // Build purchase query
+      let purchase_query = supabase
         .from('purchases')
         .select('*, category:categories(name, color, is_savings)')
         .eq('user_id', user.id)
-        .gte('date', start)
-        .lte('date', end)
         .order('date', { ascending: false })
+
+      if (range_start && range_end) {
+        purchase_query = purchase_query.gte('date', range_start).lte('date', range_end)
+      }
+
+      const { data: purchase_data } = await purchase_query
 
       if (cats) setCategories(cats)
       if (purchase_data) {
@@ -408,52 +423,74 @@ export default function TransactionsPage() {
             <h3 className="text-sm md:text-lg font-semibold text-gray-800">Filters</h3>
           </div>
           
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            {/* Month Dropdown */}
-            <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
-                Month
-              </label>
-              <select
-                value={draft_month}
-                onChange={(e) => setDraftMonth(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          {/* View Mode Toggle */}
+          <div className="flex gap-2 mb-4">
+            {(['month', 'year', 'all'] as const).map(mode => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setDraftViewMode(mode)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  draft_view_mode === mode
+                    ? 'bg-blue-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                <option value="January">January</option>
-                <option value="February">February</option>
-                <option value="March">March</option>
-                <option value="April">April</option>
-                <option value="May">May</option>
-                <option value="June">June</option>
-                <option value="July">July</option>
-                <option value="August">August</option>
-                <option value="September">September</option>
-                <option value="October">October</option>
-                <option value="November">November</option>
-                <option value="December">December</option>
-              </select>
-            </div>
+                {mode === 'month' ? 'Month' : mode === 'year' ? 'Full Year' : 'All Time'}
+              </button>
+            ))}
+          </div>
 
-            {/* Year Dropdown */}
-            <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
-                Year
-              </label>
-              <select
-                value={draft_year}
-                onChange={(e) => setDraftYear(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-              >
-                {Array.from({ length: 10 }, (_, i) => {
-                  const year = new Date().getFullYear() - 5 + i
-                  return (
-                    <option key={year} value={year.toString()}>
-                      {year}
-                    </option>
-                  )
-                })}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+            {/* Month Dropdown - only in month mode */}
+            {draft_view_mode === 'month' && (
+              <div>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                  Month
+                </label>
+                <select
+                  value={draft_month}
+                  onChange={(e) => setDraftMonth(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  <option value="January">January</option>
+                  <option value="February">February</option>
+                  <option value="March">March</option>
+                  <option value="April">April</option>
+                  <option value="May">May</option>
+                  <option value="June">June</option>
+                  <option value="July">July</option>
+                  <option value="August">August</option>
+                  <option value="September">September</option>
+                  <option value="October">October</option>
+                  <option value="November">November</option>
+                  <option value="December">December</option>
+                </select>
+              </div>
+            )}
+
+            {/* Year Dropdown - hidden in all-time mode */}
+            {draft_view_mode !== 'all' && (
+              <div>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                  Year
+                </label>
+                <select
+                  value={draft_year}
+                  onChange={(e) => setDraftYear(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                >
+                  {Array.from({ length: 10 }, (_, i) => {
+                    const year = new Date().getFullYear() - 5 + i
+                    return (
+                      <option key={year} value={year.toString()}>
+                        {year}
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+            )}
 
             {/* Text Search */}
             <div>

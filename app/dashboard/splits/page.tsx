@@ -208,6 +208,30 @@ export default function SplitsPage() {
 
       if (error) throw error
 
+      // Recalculate actual_cost on the purchase based on all split_payments
+      const { data: all_splits } = await supabase
+        .from('split_payments')
+        .select('amount_owed')
+        .eq('purchase_id', adding_to_transaction)
+
+      const { data: purchase } = await supabase
+        .from('purchases')
+        .select('total_amount')
+        .eq('id', adding_to_transaction)
+        .single()
+
+      if (purchase && all_splits) {
+        const total_owed = all_splits.reduce((sum: number, sp: any) => sum + parseFloat(sp.amount_owed.toString()), 0)
+        await supabase
+          .from('purchases')
+          .update({
+            amount_owed_back: total_owed,
+            actual_cost: parseFloat(purchase.total_amount.toString()) - total_owed,
+            num_people_owing: all_splits.length,
+          })
+          .eq('id', adding_to_transaction)
+      }
+
       close_add_modal()
       load_splits()
     } catch (err) {
