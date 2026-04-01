@@ -24,6 +24,7 @@ export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([])
   const [selected_asset, setSelectedAsset] = useState<Asset | null>(null)
   const [history, setHistory] = useState<AssetHistory[]>([])
+  const [history_map, setHistoryMap] = useState<Record<string, AssetHistory[]>>({})
   const [loading, setLoading] = useState(true)
   
   // Form states
@@ -60,7 +61,27 @@ export default function AssetsPage() {
         .eq('user_id', user.id)
         .order('name')
 
-      if (data) setAssets(data)
+      if (data) {
+        setAssets(data)
+        // Load history for all assets in one query to power the grid change %
+        if (data.length > 0) {
+          const asset_ids = data.map((a: Asset) => a.id)
+          const { data: all_history } = await supabase
+            .from('asset_history')
+            .select('*')
+            .in('asset_id', asset_ids)
+            .order('date', { ascending: false })
+
+          if (all_history) {
+            const map: Record<string, AssetHistory[]> = {}
+            all_history.forEach((h: any) => {
+              if (!map[h.asset_id]) map[h.asset_id] = []
+              map[h.asset_id].push(h)
+            })
+            setHistoryMap(map)
+          }
+        }
+      }
     } catch (err) {
       console.error('Error loading assets:', err)
     } finally {
@@ -248,11 +269,13 @@ export default function AssetsPage() {
 
   const calculate_change = (current: number, history: AssetHistory[]) => {
     if (history.length < 2) return { amount: 0, percentage: 0 }
-    
-    const oldest = history[history.length - 1].value
+
+    const oldest = parseFloat(history[history.length - 1].value.toString())
     const change_amount = current - oldest
-    const change_pct = (change_amount / oldest) * 100
-    
+    const change_pct = oldest === 0
+      ? (change_amount > 0 ? 100 : change_amount < 0 ? -100 : 0)
+      : (change_amount / oldest) * 100
+
     return { amount: change_amount, percentage: change_pct }
   }
 
@@ -699,7 +722,7 @@ export default function AssetsPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {assets.map((asset) => {
-              const change = calculate_change(parseFloat(asset.current_value.toString()), history)
+              const change = calculate_change(parseFloat(asset.current_value.toString()), history_map[asset.id] || [])
               
               // Determine border color based on asset type
               const border_color = 
