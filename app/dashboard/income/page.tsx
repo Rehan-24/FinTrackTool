@@ -79,7 +79,9 @@ export default function IncomePage() {
   const [applied_year, setAppliedYear] = useState<string>(format(new Date(), 'yyyy'))
   const [draft_month, setDraftMonth] = useState<string>(format(new Date(), 'MMMM'))
   const [draft_year, setDraftYear] = useState<string>(format(new Date(), 'yyyy'))
-  
+  const [applied_view_mode, setAppliedViewMode] = useState<'month' | 'year' | 'all'>('month')
+  const [draft_view_mode, setDraftViewMode] = useState<'month' | 'year' | 'all'>('month')
+
   // Form state
   const [source, setSource] = useState('')
   const [amount, setAmount] = useState('')
@@ -115,16 +117,18 @@ export default function IncomePage() {
   const apply_filters = () => {
     setAppliedMonth(draft_month)
     setAppliedYear(draft_year)
+    setAppliedViewMode(draft_view_mode)
   }
 
   const clear_filters = () => {
     const current_month = format(new Date(), 'MMMM')
     const current_year = format(new Date(), 'yyyy')
-    
     setDraftMonth(current_month)
     setDraftYear(current_year)
+    setDraftViewMode('month')
     setAppliedMonth(current_month)
     setAppliedYear(current_year)
+    setAppliedViewMode('month')
   }
 
   const load_income = async () => {
@@ -562,6 +566,24 @@ export default function IncomePage() {
   // Filter income to only entries relevant to the selected month,
   // then sort: active first, expired last, then by date descending.
   const filtered_income = income.filter(i => {
+    if (applied_view_mode === 'all') return true
+
+    if (applied_view_mode === 'year') {
+      const year = parseInt(applied_year)
+      const year_start = new Date(year, 0, 1)
+      const year_end = new Date(year, 11, 31)
+      if (!i.is_recurring) {
+        const d = new Date(i.date)
+        return d >= year_start && d <= year_end
+      } else {
+        const anchor = i.start_date ? new Date(i.start_date) : new Date(i.date)
+        if (anchor > year_end) return false
+        if (i.end_date && new Date(i.end_date) < year_start) return false
+        return true
+      }
+    }
+
+    // month mode (default)
     const [year, month] = filter_month.split('-')
     const month_start = startOfMonth(new Date(parseInt(year), parseInt(month) - 1))
     const month_end = endOfMonth(new Date(parseInt(year), parseInt(month) - 1))
@@ -615,7 +637,11 @@ export default function IncomePage() {
             </div>
             <div className="text-2xl md:text-4xl font-bold">${actual_earned.toFixed(2)}</div>
             <div className="text-xs mt-1 md:mt-2 opacity-80">
-              Received so far in {format(new Date(parseInt(filter_month.split('-')[0]), parseInt(filter_month.split('-')[1]) - 1, 1), 'MMMM yyyy')}
+              {applied_view_mode === 'month'
+                ? `Received so far in ${format(new Date(parseInt(filter_month.split('-')[0]), parseInt(filter_month.split('-')[1]) - 1, 1), 'MMMM yyyy')}`
+                : applied_view_mode === 'year'
+                  ? `Received so far in ${applied_year}`
+                  : 'All time'}
             </div>
           </div>
 
@@ -645,53 +671,75 @@ export default function IncomePage() {
         {/* Filter */}
         <div className="bg-white rounded-lg border border-gray-200 p-3 md:p-6 mb-3 md:mb-6">
           <h3 className="text-sm md:text-lg font-semibold text-gray-800 mb-3 md:mb-4">Filter</h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-            {/* Month Dropdown */}
-            <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
-                Month
-              </label>
-              <select
-                value={draft_month}
-                onChange={(e) => setDraftMonth(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
-              >
-                <option value="January">January</option>
-                <option value="February">February</option>
-                <option value="March">March</option>
-                <option value="April">April</option>
-                <option value="May">May</option>
-                <option value="June">June</option>
-                <option value="July">July</option>
-                <option value="August">August</option>
-                <option value="September">September</option>
-                <option value="October">October</option>
-                <option value="November">November</option>
-                <option value="December">December</option>
-              </select>
-            </div>
 
-            {/* Year Dropdown */}
-            <div>
-              <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
-                Year
-              </label>
-              <select
-                value={draft_year}
-                onChange={(e) => setDraftYear(e.target.value)}
-                className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+          {/* View Mode Toggle */}
+          <div className="flex gap-2 mb-4">
+            {(['month', 'year', 'all'] as const).map(mode => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => setDraftViewMode(mode)}
+                className={`px-4 py-2 rounded-lg text-sm font-medium transition ${
+                  draft_view_mode === mode
+                    ? 'bg-emerald-600 text-white'
+                    : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                }`}
               >
-                {Array.from({ length: 10 }, (_, i) => {
-                  const year = new Date().getFullYear() - 5 + i
-                  return (
-                    <option key={year} value={year.toString()}>
-                      {year}
-                    </option>
-                  )
-                })}
-              </select>
-            </div>
+                {mode === 'month' ? 'Month' : mode === 'year' ? 'Full Year' : 'All Time'}
+              </button>
+            ))}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+            {/* Month Dropdown - only in month mode */}
+            {draft_view_mode === 'month' && (
+              <div>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                  Month
+                </label>
+                <select
+                  value={draft_month}
+                  onChange={(e) => setDraftMonth(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                >
+                  <option value="January">January</option>
+                  <option value="February">February</option>
+                  <option value="March">March</option>
+                  <option value="April">April</option>
+                  <option value="May">May</option>
+                  <option value="June">June</option>
+                  <option value="July">July</option>
+                  <option value="August">August</option>
+                  <option value="September">September</option>
+                  <option value="October">October</option>
+                  <option value="November">November</option>
+                  <option value="December">December</option>
+                </select>
+              </div>
+            )}
+
+            {/* Year Dropdown - hidden in all-time mode */}
+            {draft_view_mode !== 'all' && (
+              <div>
+                <label className="block text-xs md:text-sm font-medium text-gray-700 mb-2">
+                  Year
+                </label>
+                <select
+                  value={draft_year}
+                  onChange={(e) => setDraftYear(e.target.value)}
+                  className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-transparent"
+                >
+                  {Array.from({ length: 10 }, (_, i) => {
+                    const year = new Date().getFullYear() - 5 + i
+                    return (
+                      <option key={year} value={year.toString()}>
+                        {year}
+                      </option>
+                    )
+                  })}
+                </select>
+              </div>
+            )}
           </div>
 
           {/* Search and Clear Buttons */}
