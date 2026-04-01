@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { Plus, Trash2, TrendingUp, Edit2, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
-import { count_income_occurrences } from '@/lib/income-utils'
+import { count_income_occurrences, pay_periods_per_year } from '@/lib/income-utils'
 
 type FicaMode = 'pct' | 'mo' | 'period'
 
@@ -163,7 +163,7 @@ export default function IncomePage() {
       if (is_salary && salary_calc) {
         income_data = {
           ...income_data,
-          amount: salary_calc.net_biweekly,
+          amount: salary_calc.gross_yearly / pay_periods_per_year(pay_frequency),
           frequency: pay_frequency,
           date: next_pay_date,
           yearly_salary: salary_calc.gross_yearly,
@@ -238,7 +238,7 @@ export default function IncomePage() {
       if (is_salary && salary_calc) {
         update_data = {
           ...update_data,
-          amount: salary_calc.net_biweekly,
+          amount: salary_calc.gross_yearly / pay_periods_per_year(pay_frequency),
           frequency: pay_frequency,
           date: next_pay_date,
           yearly_salary: salary_calc.gross_yearly,
