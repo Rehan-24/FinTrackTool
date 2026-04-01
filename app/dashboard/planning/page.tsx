@@ -209,7 +209,7 @@ export default function PlanningPage() {
                 d('personal_investments') + d('other_savings')
               )
 
-              total_deductions += monthly_deductions
+              total_deductions += Math.round(monthly_deductions * 100) / 100
               // Auto savings = individual savings vehicles outside 401k and HSA/FSA
               auto_savings += d('roth_ira') + d('hysa') + d('crypto') + d('personal_investments') + d('other_savings')
               // 401k = all 401k variants

@@ -69,9 +69,6 @@ export async function generate_projected_purchases(user_id: string, start_date: 
         }
       }
 
-      if (expense.frequency !== 'weekly') {
-        break
-      }
     }
   }
 

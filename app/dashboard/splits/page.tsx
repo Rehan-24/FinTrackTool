@@ -222,11 +222,16 @@ export default function SplitsPage() {
 
       if (purchase && all_splits) {
         const total_owed = all_splits.reduce((sum: number, sp: any) => sum + parseFloat(sp.amount_owed.toString()), 0)
+        const purchase_total = parseFloat(purchase.total_amount.toString())
+        if (total_owed > purchase_total) {
+          alert(`Split amounts ($${total_owed.toFixed(2)}) exceed the purchase total ($${purchase_total.toFixed(2)}). Please adjust the amounts.`)
+          return
+        }
         await supabase
           .from('purchases')
           .update({
             amount_owed_back: total_owed,
-            actual_cost: parseFloat(purchase.total_amount.toString()) - total_owed,
+            actual_cost: purchase_total - total_owed,
             num_people_owing: all_splits.length,
           })
           .eq('id', adding_to_transaction)

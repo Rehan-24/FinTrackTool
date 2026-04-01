@@ -226,6 +226,11 @@ export default function AddPurchasePage() {
       }
       
       if (is_split) {
+        const people_count = parseInt(num_people)
+        if (!people_count || people_count < 2) {
+          alert('Split payments require at least 2 people.')
+          return
+        }
         if (use_custom_split) {
           // Calculate total owed back from split_people array
           owed_back = split_people
@@ -234,10 +239,14 @@ export default function AddPurchasePage() {
               const amount = person.amount ? parseFloat(person.amount) : 0
               return sum + amount
             }, 0)
+          if (owed_back > total) {
+            alert(`Split amounts ($${owed_back.toFixed(2)}) exceed the purchase total ($${total.toFixed(2)}). Please adjust.`)
+            return
+          }
           actual = total - owed_back
         } else {
           // Use even split
-          actual = total / parseInt(num_people)
+          actual = total / people_count
           owed_back = total - actual
         }
       } else {
@@ -287,9 +296,9 @@ export default function AddPurchasePage() {
             purchase_id,
             user_id: user.id,
             person_name: person.name.trim(),
-            amount_owed: use_custom_split && person.amount 
-              ? parseFloat(person.amount) 
-              : parseFloat(total_amount) / parseInt(num_people),
+            amount_owed: use_custom_split && person.amount
+              ? parseFloat(person.amount)
+              : parseFloat(total_amount) / Math.max(parseInt(num_people) || 2, 2),
             is_paid_back: false
           }))
 
