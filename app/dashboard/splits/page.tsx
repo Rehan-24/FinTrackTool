@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { format } from 'date-fns'
-import { CheckCircle2, Circle, DollarSign, Users, Edit2, Trash2, X } from 'lucide-react'
+import { CheckCircle2, Circle, DollarSign, Users, Edit2, Trash2, X, UserPlus } from 'lucide-react'
 
 type SplitPayment = {
   id: string
@@ -34,6 +34,11 @@ export default function SplitsPage() {
   const [editing_split, setEditingSplit] = useState<SplitPayment | null>(null)
   const [edit_name, setEditName] = useState('')
   const [edit_amount, setEditAmount] = useState('')
+
+  // Add person modal state
+  const [adding_to_transaction, setAddingToTransaction] = useState<string | null>(null)
+  const [add_name, setAddName] = useState('')
+  const [add_amount, setAddAmount] = useState('')
 
   useEffect(() => {
     load_splits()
@@ -169,6 +174,45 @@ export default function SplitsPage() {
     } catch (err) {
       console.error('Error deleting split payment:', err)
       alert('Failed to delete split payment')
+    }
+  }
+
+  const open_add_modal = (transaction_id: string) => {
+    setAddingToTransaction(transaction_id)
+    setAddName('')
+    setAddAmount('')
+  }
+
+  const close_add_modal = () => {
+    setAddingToTransaction(null)
+    setAddName('')
+    setAddAmount('')
+  }
+
+  const save_add_person = async () => {
+    if (!adding_to_transaction || !add_name.trim() || !add_amount) return
+
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+
+      const { error } = await supabase
+        .from('split_payments')
+        .insert({
+          purchase_id: adding_to_transaction,
+          user_id: user.id,
+          person_name: add_name.trim(),
+          amount_owed: parseFloat(add_amount),
+          is_paid_back: false,
+        })
+
+      if (error) throw error
+
+      close_add_modal()
+      load_splits()
+    } catch (err) {
+      console.error('Error adding split payment:', err)
+      alert('Failed to add person')
     }
   }
 
@@ -409,6 +453,17 @@ export default function SplitsPage() {
                   ))}
                 </div>
 
+                {/* Add Person Button */}
+                <div className="mt-3">
+                  <button
+                    onClick={() => open_add_modal(transaction.id)}
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800 font-medium py-1"
+                  >
+                    <UserPlus size={16} />
+                    Add Person
+                  </button>
+                </div>
+
                 {/* Summary */}
                 {!is_complete && (
                   <div className="mt-4 pt-4 border-t border-gray-200 flex justify-between items-center">
@@ -421,6 +476,73 @@ export default function SplitsPage() {
           })
         )}
       </div>
+
+      {/* Add Person Modal */}
+      {adding_to_transaction && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-xl font-bold text-gray-800">Add Person</h2>
+              <button
+                onClick={close_add_modal}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Person Name
+                </label>
+                <input
+                  type="text"
+                  value={add_name}
+                  onChange={(e) => setAddName(e.target.value)}
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Enter name"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Amount Owed
+                </label>
+                <div className="relative">
+                  <span className="absolute left-4 top-3 text-gray-500">$</span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={add_amount}
+                    onChange={(e) => setAddAmount(e.target.value)}
+                    className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  onClick={close_add_modal}
+                  className="flex-1 px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-medium hover:bg-gray-300 transition"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={save_add_person}
+                  disabled={!add_name.trim() || !add_amount}
+                  className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Add
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Edit Modal */}
       {editing_split && (
