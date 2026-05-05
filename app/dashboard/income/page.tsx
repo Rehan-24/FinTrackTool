@@ -173,7 +173,7 @@ export default function IncomePage() {
       if (is_salary && salary_calc) {
         income_data = {
           ...income_data,
-          amount: salary_calc.gross_yearly / pay_periods_per_year(pay_frequency),
+          amount: salary_calc.net_yearly / pay_periods_per_year(pay_frequency),
           frequency: pay_frequency,
           date: next_pay_date,
           yearly_salary: salary_calc.gross_yearly,
@@ -248,7 +248,7 @@ export default function IncomePage() {
       if (is_salary && salary_calc) {
         update_data = {
           ...update_data,
-          amount: salary_calc.gross_yearly / pay_periods_per_year(pay_frequency),
+          amount: salary_calc.net_yearly / pay_periods_per_year(pay_frequency),
           frequency: pay_frequency,
           date: next_pay_date,
           yearly_salary: salary_calc.gross_yearly,
