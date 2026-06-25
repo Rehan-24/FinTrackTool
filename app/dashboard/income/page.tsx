@@ -66,6 +66,7 @@ type Income = {
   date: string
   is_recurring: boolean
   is_salary: boolean
+  is_taxable: boolean
   yearly_salary: number | null
   pay_frequency: string | null
   next_pay_date: string | null
@@ -102,6 +103,8 @@ export default function IncomePage() {
   const [start_date, setStartDate] = useState('')
   const [has_end_date, setHasEndDate] = useState(false)
   const [end_date, setEndDate] = useState('')
+
+  const [is_taxable, setIsTaxable] = useState(true)
 
   // Salary calculator state
   const [salary_calc, setSalaryCalc] = useState<SalaryCalculation | null>(null)
@@ -168,6 +171,7 @@ export default function IncomePage() {
         source,
         is_recurring: is_salary || frequency !== 'one-time',
         is_salary,
+        is_taxable: is_salary ? true : is_taxable,
       }
 
       if (is_salary && salary_calc) {
@@ -243,6 +247,7 @@ export default function IncomePage() {
         source,
         is_recurring: is_salary || frequency !== 'one-time',
         is_salary,
+        is_taxable: is_salary ? true : is_taxable,
       }
 
       if (is_salary && salary_calc) {
@@ -358,7 +363,8 @@ export default function IncomePage() {
     setFrequency(inc.frequency)
     setDate(inc.date)
     setIsSalary(inc.is_salary)
-    
+    setIsTaxable(inc.is_taxable !== false)
+
     // Load start/end dates
     setHasStartDate(!!inc.start_date)
     setStartDate(inc.start_date || '')
@@ -457,6 +463,7 @@ export default function IncomePage() {
     setFrequency('one-time')
     setDate(format(new Date(), 'yyyy-MM-dd'))
     setIsSalary(false)
+    setIsTaxable(true)
     setPayFrequency('bi-weekly')
     setNextPayDate(format(new Date(), 'yyyy-MM-dd'))
     setHasStartDate(false)
@@ -799,6 +806,23 @@ export default function IncomePage() {
                   />
                 </div>
 
+                {/* Non-Taxable Toggle — hidden for salary (taxes handled by deductions) */}
+                {!is_salary && (
+                  <div className="flex items-center justify-between py-3 border-t border-gray-200">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Non-Taxable Income?</label>
+                      <p className="text-xs text-gray-500">e.g. gifts, insurance payouts, inheritances</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsTaxable(!is_taxable)}
+                      className={`relative w-14 h-7 rounded-full transition ${!is_taxable ? 'bg-emerald-600' : 'bg-gray-300'}`}
+                    >
+                      <div className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full transition transform ${!is_taxable ? 'translate-x-7' : ''}`}></div>
+                    </button>
+                  </div>
+                )}
+
                 {/* Salary Toggle */}
                 <div className="border-t border-b border-gray-200 py-4">
                   <div className="flex items-center justify-between mb-3">
@@ -1047,13 +1071,20 @@ export default function IncomePage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          inc.is_salary ? 'bg-emerald-100 text-emerald-700' :
-                          inc.is_recurring ? 'bg-blue-100 text-blue-700' : 
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {inc.is_salary ? 'Salary' : inc.frequency.replace('-', ' ')}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            inc.is_salary ? 'bg-emerald-100 text-emerald-700' :
+                            inc.is_recurring ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {inc.is_salary ? 'Salary' : inc.frequency.replace('-', ' ')}
+                          </span>
+                          {inc.is_taxable === false && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                              Non-Taxable
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-emerald-600">
                         ${parseFloat(inc.amount.toString()).toFixed(2)}
