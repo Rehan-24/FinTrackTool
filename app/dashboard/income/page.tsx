@@ -1279,12 +1279,13 @@ function SalaryCalculatorInline({
   const switchMode = (
     mode: FicaMode, setMode: (m: FicaMode) => void,
     val: string,    setVal:  (v: string)   => void,
-    newMode: FicaMode
+    newMode: FicaMode,
+    base?: number
   ) => {
-    const gross = parseFloat(gross_salary) || 0
-    const yearly = toYearly(val, mode, gross)
+    const b = base ?? (parseFloat(gross_salary) || 0)
+    const yearly = toYearly(val, mode, b)
     setMode(newMode)
-    setVal(fromYearly(yearly, newMode, gross))
+    setVal(fromYearly(yearly, newMode, b))
   }
 
   // ── compute all yearly amounts ──
@@ -1386,8 +1387,8 @@ function SalaryCalculatorInline({
       k401a_yr, roth_yr, legal_yr, crit_yr, idt_yr, acc_yr, hosp_yr, add_yr,
       ira_yr, hysa_yr, crypto_yr, invest_yr, other_yr, net_yearly, onChange])
 
-  const sw = (mode: FicaMode, setMode: (m: FicaMode) => void, val: string, setVal: (v: string) => void) =>
-    (m: FicaMode) => switchMode(mode, setMode, val, setVal, m)
+  const sw = (mode: FicaMode, setMode: (m: FicaMode) => void, val: string, setVal: (v: string) => void, base?: number) =>
+    (m: FicaMode) => switchMode(mode, setMode, val, setVal, m, base)
 
   return (
     <div className="mt-4 bg-emerald-50 rounded-lg p-4 border border-emerald-200">
@@ -1419,9 +1420,9 @@ function SalaryCalculatorInline({
 
       {/* Taxes */}
       <CalcSection title="Taxes">
-        <ToggleField label="Federal tax" value={fed_val} mode={fed_mode} onValueChange={setFedVal} onModeChange={sw(fed_mode, setFedMode, fed_val, setFedVal)} yearlyAmt={fed_yr} />
-        <ToggleField label="State tax" value={state_val} mode={state_mode} onValueChange={setStateVal} onModeChange={sw(state_mode, setStateMode, state_val, setStateVal)} yearlyAmt={state_yr} />
-        <ToggleField label="Local tax" value={local_val} mode={local_mode} onValueChange={setLocalVal} onModeChange={sw(local_mode, setLocalMode, local_val, setLocalVal)} yearlyAmt={local_yr} />
+        <ToggleField label="Federal tax" value={fed_val} mode={fed_mode} onValueChange={setFedVal} onModeChange={sw(fed_mode, setFedMode, fed_val, setFedVal, taxable)} yearlyAmt={fed_yr} />
+        <ToggleField label="State tax" value={state_val} mode={state_mode} onValueChange={setStateVal} onModeChange={sw(state_mode, setStateMode, state_val, setStateVal, taxable)} yearlyAmt={state_yr} />
+        <ToggleField label="Local tax" value={local_val} mode={local_mode} onValueChange={setLocalVal} onModeChange={sw(local_mode, setLocalMode, local_val, setLocalVal, taxable)} yearlyAmt={local_yr} />
       </CalcSection>
 
       {/* FICA */}
@@ -1434,8 +1435,8 @@ function SalaryCalculatorInline({
 
       {/* After-tax */}
       <CalcSection title="After-tax deductions">
-        <ToggleField label="401k after-tax" value={k401a_val} mode={k401a_mode} onValueChange={setK401aVal} onModeChange={sw(k401a_mode, setK401aMode, k401a_val, setK401aVal)} yearlyAmt={k401a_yr} color="green" />
-        <ToggleField label="401k Roth" value={roth_val} mode={roth_mode} onValueChange={setRothVal} onModeChange={sw(roth_mode, setRothMode, roth_val, setRothVal)} yearlyAmt={roth_yr} color="green" />
+        <ToggleField label="401k after-tax" value={k401a_val} mode={k401a_mode} onValueChange={setK401aVal} onModeChange={sw(k401a_mode, setK401aMode, k401a_val, setK401aVal, after_tax)} yearlyAmt={k401a_yr} color="green" />
+        <ToggleField label="401k Roth" value={roth_val} mode={roth_mode} onValueChange={setRothVal} onModeChange={sw(roth_mode, setRothMode, roth_val, setRothVal, after_tax)} yearlyAmt={roth_yr} color="green" />
         <ToggleField label="Legal plan" value={legal_val} mode={legal_mode} onValueChange={setLegalVal} onModeChange={sw(legal_mode, setLegalMode, legal_val, setLegalVal)} yearlyAmt={legal_yr} />
         <ToggleField label="Critical illness" value={crit_val} mode={crit_mode} onValueChange={setCritVal} onModeChange={sw(crit_mode, setCritMode, crit_val, setCritVal)} yearlyAmt={crit_yr} />
         <ToggleField label="ID theft" value={idt_val} mode={idt_mode} onValueChange={setIdtVal} onModeChange={sw(idt_mode, setIdtMode, idt_val, setIdtVal)} yearlyAmt={idt_yr} />
