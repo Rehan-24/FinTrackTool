@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus } from 'lucide-react'
+import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus, Upload } from 'lucide-react'
 import Link from 'next/link'
 
 import { CURRENT_VERSION } from '@/lib/version_notes'
@@ -108,7 +108,7 @@ export default function DashboardLayout({
             <Receipt size={20} />
             Transactions
           </Link>
-          <Link 
+          <Link
             href="/dashboard/history"
             className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700"
           >
@@ -117,7 +117,14 @@ export default function DashboardLayout({
             </svg>
             History
           </Link>
-          <Link 
+          <Link
+            href="/dashboard/import"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700"
+          >
+            <Upload size={20} />
+            Import
+          </Link>
+          <Link
             href="/dashboard/recurring"
             className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700"
           >
@@ -249,7 +256,18 @@ export default function DashboardLayout({
                   <div className="text-sm text-gray-500">View all purchases</div>
                 </div>
               </Link>
-              <Link 
+              <Link
+                href="/dashboard/import"
+                onClick={() => setShowMobileMenu(false)}
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg"
+              >
+                <Upload size={24} className="text-gray-600" />
+                <div>
+                  <div className="font-medium text-gray-800">Import</div>
+                  <div className="text-sm text-gray-500">Bulk-add from a spreadsheet</div>
+                </div>
+              </Link>
+              <Link
                 href="/dashboard/recurring"
                 onClick={() => setShowMobileMenu(false)}
                 className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg"
