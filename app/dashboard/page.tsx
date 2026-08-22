@@ -349,6 +349,7 @@ export default function DashboardPage() {
                 const totalToUse = cat.total || cat.spent
                 const percentage = cat.monthly_budget > 0 ? (totalToUse / parseFloat(cat.monthly_budget.toString())) * 100 : 0
                 const isOverBudget = percentage > 100
+                const projected = cat.projected ?? 0
 
                 return (
                   <div key={cat.id}>
@@ -364,9 +365,9 @@ export default function DashboardPage() {
                         <span className={`font-medium ${isOverBudget ? 'text-red-600' : 'text-gray-600'}`}>
                           ${cat.spent.toFixed(2)}
                         </span>
-                        {cat.projected && cat.projected > 0 && (
+                        {projected > 0 && (
                           <span className="text-yellow-600 text-sm">
-                            {' '}+ ${cat.projected.toFixed(2)}
+                            {' '}+ ${projected.toFixed(2)}
                           </span>
                         )}
                         <span className="text-gray-400"> / </span>
@@ -384,9 +385,9 @@ export default function DashboardPage() {
                         }}
                       />
                     </div>
-                    {cat.projected && cat.projected > 0 && (
+                    {projected > 0 && (
                       <div className="text-xs text-gray-500 mt-1">
-                        Includes ${cat.projected.toFixed(2)} upcoming charges
+                        Includes ${projected.toFixed(2)} upcoming charges
                       </div>
                     )}
                     {isOverBudget && (

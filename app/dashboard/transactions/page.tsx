@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { sync_projected_purchases } from '@/lib/recurring-utils'
-import { Filter, Plus, X } from 'lucide-react'
+import { Filter, Plus, Upload, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import Link from 'next/link'
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts'
@@ -403,13 +403,22 @@ export default function TransactionsPage() {
             <h2 className="text-xl md:text-3xl font-bold text-gray-800">Transactions</h2>
             <p className="text-gray-600 mt-1 text-xs md:text-base">View and filter your purchases</p>
           </div>
-          <Link
-            href="/dashboard/add"
-            className="hidden md:flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
-          >
-            <Plus size={20} />
-            Add Purchase
-          </Link>
+          <div className="hidden md:flex items-center gap-3">
+            <Link
+              href="/dashboard/import"
+              className="flex items-center gap-2 bg-gray-500 text-white px-6 py-3 rounded-lg font-medium hover:bg-gray-600 transition"
+            >
+              <Upload size={20} />
+              Import
+            </Link>
+            <Link
+              href="/dashboard/add"
+              className="flex items-center gap-2 bg-blue-600 text-white px-6 py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+            >
+              <Plus size={20} />
+              Add Purchase
+            </Link>
+          </div>
         </div>
 
         {/* Summary Cards */}

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus, Upload } from 'lucide-react'
+import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus } from 'lucide-react'
 import Link from 'next/link'
 
 import { CURRENT_VERSION } from '@/lib/version_notes'
@@ -116,13 +116,6 @@ export default function DashboardLayout({
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
             History
-          </Link>
-          <Link
-            href="/dashboard/import"
-            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700"
-          >
-            <Upload size={20} />
-            Import
           </Link>
           <Link
             href="/dashboard/recurring"
@@ -254,17 +247,6 @@ export default function DashboardLayout({
                 <div>
                   <div className="font-medium text-gray-800">Transactions</div>
                   <div className="text-sm text-gray-500">View all purchases</div>
-                </div>
-              </Link>
-              <Link
-                href="/dashboard/import"
-                onClick={() => setShowMobileMenu(false)}
-                className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg"
-              >
-                <Upload size={24} className="text-gray-600" />
-                <div>
-                  <div className="font-medium text-gray-800">Import</div>
-                  <div className="text-sm text-gray-500">Bulk-add from a spreadsheet</div>
                 </div>
               </Link>
               <Link
