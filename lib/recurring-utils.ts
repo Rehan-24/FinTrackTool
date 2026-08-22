@@ -11,6 +11,16 @@ export async function generate_projected_purchases(user_id: string, start_date: 
 
   if (!recurring_expenses) return
 
+  // Occurrences the user has explicitly deleted before — never regenerate these.
+  const { data: deleted_occurrences } = await supabase
+    .from('deleted_recurring_occurrences')
+    .select('recurring_expense_id, occurrence_date')
+    .eq('user_id', user_id)
+
+  const deleted_set = new Set(
+    (deleted_occurrences || []).map(d => `${d.recurring_expense_id}_${d.occurrence_date}`)
+  )
+
   const projected_purchases = []
 
   for (const expense of recurring_expenses) {
@@ -43,13 +53,20 @@ export async function generate_projected_purchases(user_id: string, start_date: 
       }
 
       if (next_date && !isAfter(next_date, end_date)) {
+        const next_date_str = next_date.toISOString().split('T')[0]
+
+        // Skip occurrences the user has already deleted for this recurring expense
+        if (deleted_set.has(`${expense.id}_${next_date_str}`)) {
+          continue
+        }
+
         // Check if purchase already exists for this date (projected or actual)
         const { data: existing } = await supabase
           .from('purchases')
           .select('id')
           .eq('user_id', user_id)
           .eq('category_id', expense.category_id)
-          .eq('date', next_date.toISOString().split('T')[0])
+          .eq('date', next_date_str)
           .eq('description', expense.name)
 
         // Don't create if ANY purchase exists for this date + description

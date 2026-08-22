@@ -28,6 +28,7 @@ type Purchase = {
   tags?: string[] | null
   payment_method?: string | null
   notes?: string | null
+  recurring_expense_id?: string | null
   category: {
     name: string
     color: string
@@ -340,6 +341,30 @@ export default function TransactionsPage() {
     }
 
     try {
+      // If this transaction was generated from a recurring expense, remember
+      // that this specific occurrence was removed so it doesn't get
+      // re-created the next time recurring purchases are synced.
+      if (selected_purchase.recurring_expense_id) {
+        const { data: { user } } = await supabase.auth.getUser()
+        if (user) {
+          const { error: skip_error } = await supabase
+            .from('deleted_recurring_occurrences')
+            .upsert(
+              {
+                user_id: user.id,
+                recurring_expense_id: selected_purchase.recurring_expense_id,
+                occurrence_date: selected_purchase.date,
+              },
+              { onConflict: 'recurring_expense_id,occurrence_date', ignoreDuplicates: true }
+            )
+
+          if (skip_error) {
+            console.error('Error recording deleted recurring occurrence:', skip_error)
+            throw skip_error
+          }
+        }
+      }
+
       const { error } = await supabase
         .from('purchases')
         .delete()
