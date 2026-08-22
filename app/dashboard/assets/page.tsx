@@ -5,6 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { Plus, TrendingUp, TrendingDown } from 'lucide-react'
 import { format } from 'date-fns'
 
+// Parse yyyy-MM-dd as a local date (not UTC) to avoid timezone off-by-one bugs
+const parse_local = (date_str: string) => {
+  const [y, m, d] = date_str.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 type Asset = {
   id: string
   name: string
@@ -330,7 +336,7 @@ export default function AssetsPage() {
               ${parseFloat(selected_asset.current_value.toString()).toLocaleString()}
             </div>
             <div className="text-sm opacity-80">
-              Last updated: {format(new Date(selected_asset.last_updated), 'MMM d, yyyy')}
+              Last updated: {format(parse_local(selected_asset.last_updated), 'MMM d, yyyy')}
             </div>
           </div>
 
@@ -377,7 +383,7 @@ export default function AssetsPage() {
                           ${parseFloat(entry.value.toString()).toLocaleString()}
                         </div>
                         <div className="text-sm text-gray-500">
-                          {format(new Date(entry.date), 'MMM d, yyyy')}
+                          {format(parse_local(entry.date), 'MMM d, yyyy')}
                         </div>
                       </div>
                       {change !== 0 && (
@@ -751,7 +757,7 @@ export default function AssetsPage() {
                           {asset.asset_type}
                         </span>
                         <p className="text-sm text-gray-500">
-                          Updated {format(new Date(asset.last_updated), 'MMM d')}
+                          Updated {format(parse_local(asset.last_updated), 'MMM d')}
                         </p>
                       </div>
                     </div>

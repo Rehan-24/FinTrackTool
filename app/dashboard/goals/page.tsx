@@ -5,6 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { Plus, Target, TrendingUp, Calendar, DollarSign, Edit2, Trash2, X } from 'lucide-react'
 import { format, differenceInMonths, isBefore } from 'date-fns'
 
+// Parse yyyy-MM-dd as a local date (not UTC) to avoid timezone off-by-one bugs
+const parse_local = (date_str: string) => {
+  const [y, m, d] = date_str.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 // Soccer Goal Icon Component
 const SoccerGoal = ({ size = 24, className = '' }: { size?: number, className?: string }) => (
   <svg width={size} height={size} viewBox="0 0 24 24" fill="none" className={className}>
@@ -179,7 +185,7 @@ export default function GoalsPage() {
     const current = actual_current !== undefined ? actual_current : goal.current_amount
     const progress = (current / goal.target_amount) * 100
     const today = new Date()
-    const deadline_date = new Date(goal.deadline)
+    const deadline_date = parse_local(goal.deadline)
     
     if (progress >= 100) {
       return { status: 'achieved', color: 'bg-green-500', text: 'Goal Achieved! 🎉' }
@@ -194,7 +200,7 @@ export default function GoalsPage() {
     const current = actual_current !== undefined ? actual_current : goal.current_amount
     const remaining = goal.target_amount - current
     const today = new Date()
-    const deadline_date = new Date(goal.deadline)
+    const deadline_date = parse_local(goal.deadline)
     const months_left = differenceInMonths(deadline_date, today)
     
     if (months_left <= 0) return 0
@@ -425,7 +431,7 @@ export default function GoalsPage() {
                         Deadline
                       </div>
                       <div className="font-semibold text-gray-800">
-                        {format(new Date(goal.deadline), 'MMM d, yyyy')}
+                        {format(parse_local(goal.deadline), 'MMM d, yyyy')}
                       </div>
                     </div>
                     <div>

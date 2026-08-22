@@ -5,6 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { format } from 'date-fns'
 import { CheckCircle2, Circle, DollarSign, Users, Edit2, Trash2, X, UserPlus } from 'lucide-react'
 
+// Parse yyyy-MM-dd as a local date (not UTC) to avoid timezone off-by-one bugs
+const parse_local = (date_str: string) => {
+  const [y, m, d] = date_str.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 type SplitPayment = {
   id: string
   person_name: string
@@ -32,6 +38,7 @@ export default function SplitsPage() {
   
   // Edit modal state
   const [editing_split, setEditingSplit] = useState<SplitPayment | null>(null)
+  const [editing_purchase_id, setEditingPurchaseId] = useState<string | null>(null)
   const [edit_name, setEditName] = useState('')
   const [edit_amount, setEditAmount] = useState('')
 
@@ -104,6 +111,36 @@ export default function SplitsPage() {
     }
   }
 
+  // Recompute a purchase's amount_owed_back/actual_cost/num_people_owing from its
+  // current split_payments rows. Must be called after any add/edit/delete of a split
+  // so the purchase totals shown elsewhere in the app stay in sync.
+  const recompute_purchase_totals = async (purchase_id: string) => {
+    const { data: all_splits } = await supabase
+      .from('split_payments')
+      .select('amount_owed')
+      .eq('purchase_id', purchase_id)
+
+    const { data: purchase } = await supabase
+      .from('purchases')
+      .select('total_amount')
+      .eq('id', purchase_id)
+      .single()
+
+    if (!purchase || !all_splits) return
+
+    const total_owed = all_splits.reduce((sum: number, sp: any) => sum + parseFloat(sp.amount_owed.toString()), 0)
+    const purchase_total = parseFloat(purchase.total_amount.toString())
+
+    await supabase
+      .from('purchases')
+      .update({
+        amount_owed_back: total_owed,
+        actual_cost: purchase_total - total_owed,
+        num_people_owing: all_splits.length,
+      })
+      .eq('id', purchase_id)
+  }
+
   const toggle_paid_status = async (split_id: string, current_status: boolean) => {
     try {
       const new_status = !current_status
@@ -125,20 +162,22 @@ export default function SplitsPage() {
     }
   }
 
-  const open_edit_modal = (split: SplitPayment) => {
+  const open_edit_modal = (split: SplitPayment, purchase_id: string) => {
     setEditingSplit(split)
+    setEditingPurchaseId(purchase_id)
     setEditName(split.person_name)
     setEditAmount(split.amount_owed.toString())
   }
 
   const close_edit_modal = () => {
     setEditingSplit(null)
+    setEditingPurchaseId(null)
     setEditName('')
     setEditAmount('')
   }
 
   const save_edit = async () => {
-    if (!editing_split) return
+    if (!editing_split || !editing_purchase_id) return
 
     try {
       const { error } = await supabase
@@ -151,6 +190,8 @@ export default function SplitsPage() {
 
       if (error) throw error
 
+      await recompute_purchase_totals(editing_purchase_id)
+
       close_edit_modal()
       load_splits()
     } catch (err) {
@@ -159,7 +200,7 @@ export default function SplitsPage() {
     }
   }
 
-  const delete_split = async (split_id: string) => {
+  const delete_split = async (split_id: string, purchase_id: string) => {
     if (!confirm('Delete this split payment? This cannot be undone.')) return
 
     try {
@@ -169,6 +210,8 @@ export default function SplitsPage() {
         .eq('id', split_id)
 
       if (error) throw error
+
+      await recompute_purchase_totals(purchase_id)
 
       load_splits()
     } catch (err) {
@@ -398,7 +441,7 @@ export default function SplitsPage() {
                       </span>
                     </div>
                     <div className="flex items-center gap-4 text-sm text-gray-600">
-                      <span>{format(new Date(transaction.date), 'MMM d, yyyy')}</span>
+                      <span>{format(parse_local(transaction.date), 'MMM d, yyyy')}</span>
                       <div className="flex items-center gap-1">
                         <div
                           className="w-3 h-3 rounded-full"
@@ -446,7 +489,7 @@ export default function SplitsPage() {
                           <div className="font-medium text-gray-800">{split.person_name}</div>
                           {split.is_paid_back && split.paid_back_date && (
                             <div className="text-xs text-gray-500">
-                              Paid on {format(new Date(split.paid_back_date), 'MMM d, yyyy')}
+                              Paid on {format(parse_local(split.paid_back_date), 'MMM d, yyyy')}
                             </div>
                           )}
                         </div>
@@ -463,14 +506,14 @@ export default function SplitsPage() {
                         </div>
                         <div className="flex gap-2">
                           <button
-                            onClick={() => open_edit_modal(split)}
+                            onClick={() => open_edit_modal(split, transaction.id)}
                             className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg transition"
                             title="Edit"
                           >
                             <Edit2 size={18} />
                           </button>
                           <button
-                            onClick={() => delete_split(split.id)}
+                            onClick={() => delete_split(split.id, transaction.id)}
                             className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition"
                             title="Delete"
                           >

@@ -1,6 +1,22 @@
 import { supabase } from './supabase'
 import { startOfMonth, endOfMonth, addDays, addWeeks, addMonths, addYears, isBefore, isAfter } from 'date-fns'
 
+// Format a Date as a local yyyy-MM-dd string. Date.toISOString() converts to UTC first,
+// which shifts the calendar date by one day for any user not in a UTC+0 timezone.
+function format_local_date(d: Date): string {
+  const y = d.getFullYear()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${y}-${m}-${day}`
+}
+
+// Parse a yyyy-MM-dd string as a local date. new Date('2026-01-02') is parsed as UTC
+// midnight, which rolls back one day in any negative-UTC-offset timezone.
+function parse_local_date(date_str: string): Date {
+  const [y, m, d] = date_str.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 export async function generate_projected_purchases(user_id: string, start_date: Date, end_date: Date) {
   // Get all active recurring expenses
   const { data: recurring_expenses } = await supabase
@@ -53,7 +69,7 @@ export async function generate_projected_purchases(user_id: string, start_date: 
       }
 
       if (next_date && !isAfter(next_date, end_date)) {
-        const next_date_str = next_date.toISOString().split('T')[0]
+        const next_date_str = format_local_date(next_date)
 
         // Skip occurrences the user has already deleted for this recurring expense
         if (deleted_set.has(`${expense.id}_${next_date_str}`)) {
@@ -77,7 +93,7 @@ export async function generate_projected_purchases(user_id: string, start_date: 
             total_amount: expense.amount,
             actual_cost: expense.amount,
             description: expense.name,
-            date: next_date.toISOString().split('T')[0],
+            date: next_date_str,
             is_projected: true,
             recurring_expense_id: expense.id,
             is_split: false,
@@ -105,8 +121,8 @@ export async function sync_projected_purchases(user_id: string, month: Date) {
     .delete()
     .eq('user_id', user_id)
     .eq('is_projected', true)
-    .gte('date', start.toISOString().split('T')[0])
-    .lte('date', end.toISOString().split('T')[0])
+    .gte('date', format_local_date(start))
+    .lte('date', format_local_date(end))
 
   // STEP 2: Generate new purchases for the entire month
   const projected = await generate_projected_purchases(user_id, start, end)
@@ -117,9 +133,8 @@ export async function sync_projected_purchases(user_id: string, month: Date) {
     const future_projected = []
     
     for (const p of projected) {
-      const purchase_date = new Date(p.date)
-      purchase_date.setHours(0, 0, 0, 0)
-      
+      const purchase_date = parse_local_date(p.date)
+
       if (purchase_date < today) {
         // Past date - insert as actual purchase (not projected)
         past_purchases.push({
@@ -172,7 +187,7 @@ export async function convert_past_projected_to_actual(user_id: string) {
     .select('*')
     .eq('user_id', user_id)
     .eq('is_projected', true)
-    .lt('date', today.toISOString().split('T')[0])
+    .lt('date', format_local_date(today))
 
   if (past_projected && past_projected.length > 0) {
     console.log(`[Cleanup] Converting ${past_projected.length} past projected purchases to actual`)

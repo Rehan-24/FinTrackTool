@@ -557,7 +557,7 @@ export default function IncomePage() {
       if (!i.is_recurring) return sum
       const anchor = i.start_date ? parse_local(i.start_date) : parse_local(i.date)
       if (anchor > month_end) return sum
-      if (i.end_date && new Date(i.end_date) < month_start) return sum
+      if (i.end_date && parse_local(i.end_date) < month_start) return sum
       const occurrences = count_income_occurrences(i, month_start, month_end)
       return sum + occurrences * parseFloat(i.amount.toString())
     }, 0)
@@ -570,7 +570,7 @@ export default function IncomePage() {
   // Helper to check if income is expired
   const is_expired = (inc: Income) => {
     if (!inc.end_date) return false
-    const end = new Date(inc.end_date)
+    const end = parse_local(inc.end_date)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     return end < today
@@ -591,7 +591,7 @@ export default function IncomePage() {
       } else {
         const anchor = i.start_date ? parse_local(i.start_date) : parse_local(i.date)
         if (anchor > year_end) return false
-        if (i.end_date && new Date(i.end_date) < year_start) return false
+        if (i.end_date && parse_local(i.end_date) < year_start) return false
         return true
       }
     }
@@ -609,7 +609,7 @@ export default function IncomePage() {
       // Recurring/salary: show if active at any point during the selected month
       const anchor = i.start_date ? parse_local(i.start_date) : parse_local(i.date)
       if (anchor > month_end) return false
-      if (i.end_date && new Date(i.end_date) < month_start) return false
+      if (i.end_date && parse_local(i.end_date) < month_start) return false
       return true
     }
   })

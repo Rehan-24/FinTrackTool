@@ -381,7 +381,7 @@ export default function MonthlyHistoryPage() {
     const purchases_data = [
       ['Date', 'Description', 'Category', 'Amount', 'Split Payment', 'Status'],
       ...monthly_data.purchases.map(p => [
-        format(new Date(p.date), 'MMM d, yyyy'),
+        format(parse_local(p.date), 'MMM d, yyyy'),
         p.description,
         p.category,
         p.amount.toFixed(2),
@@ -716,7 +716,7 @@ export default function MonthlyHistoryPage() {
                       className={`cursor-pointer transition ${purchase.is_projected ? 'bg-yellow-50 hover:bg-yellow-100' : 'hover:bg-gray-100'}`}
                     >
                       <td className="px-2 md:px-6 py-2 md:py-4 whitespace-nowrap text-gray-600">
-                        {format(new Date(purchase.date), 'MMM d')}
+                        {format(parse_local(purchase.date), 'MMM d')}
                       </td>
                       <td className="px-2 md:px-6 py-2 md:py-4 text-gray-800">
                         <div className="font-medium">{purchase.description}</div>
@@ -961,7 +961,7 @@ export default function MonthlyHistoryPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">Date</label>
-                    <div className="text-gray-800">{format(new Date(selected_purchase.date), 'MMM d, yyyy')}</div>
+                    <div className="text-gray-800">{format(parse_local(selected_purchase.date), 'MMM d, yyyy')}</div>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-500 mb-1">Amount</label>

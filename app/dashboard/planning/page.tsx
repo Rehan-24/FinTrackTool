@@ -226,6 +226,7 @@ export default function PlanningPage() {
         // Get actual spending for this month (only for past/current months)
         // Separate regular spending from savings transfers
         const today = new Date()
+        today.setHours(0, 0, 0, 0)
         let actual_spent = 0
         let saved_amount = 0
         
@@ -241,7 +242,7 @@ export default function PlanningPage() {
           if (purchases) {
             // Count only non-projected OR projected that have passed
             purchases.forEach(p => {
-              const should_count = !p.is_projected || new Date(p.date) < today
+              const should_count = !p.is_projected || parse_local(p.date) < today
               if (should_count) {
                 const amount = parseFloat(p.actual_cost.toString())
                 // @ts-ignore - Supabase join syntax
@@ -264,7 +265,7 @@ export default function PlanningPage() {
           
           if (purchases) {
             purchases.forEach(p => {
-              const should_count = !p.is_projected || new Date(p.date) < today
+              const should_count = !p.is_projected || parse_local(p.date) < today
               if (should_count) {
                 const amount = parseFloat(p.actual_cost.toString())
                 // @ts-ignore - Supabase join syntax

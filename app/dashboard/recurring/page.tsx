@@ -5,6 +5,12 @@ import { supabase } from '@/lib/supabase'
 import { Plus, Trash2, ToggleLeft, ToggleRight, Edit2, X } from 'lucide-react'
 import { format } from 'date-fns'
 
+// Parse yyyy-MM-dd as a local date (not UTC) to avoid timezone off-by-one bugs
+const parse_local = (date_str: string) => {
+  const [y, m, d] = date_str.split('-').map(Number)
+  return new Date(y, m - 1, d)
+}
+
 type Category = {
   id: string
   name: string
@@ -299,7 +305,7 @@ export default function RecurringExpensesPage() {
   // Helper to check if recurring is expired
   const is_recurring_expired = (rec: RecurringExpense) => {
     if (!rec.end_date) return false
-    const end = new Date(rec.end_date)
+    const end = parse_local(rec.end_date)
     const today = new Date()
     today.setHours(0, 0, 0, 0)
     return end < today
@@ -722,12 +728,12 @@ export default function RecurringExpensesPage() {
                     </div>
                     {rec.start_date && (
                       <div className="text-xs text-gray-500 mt-1">
-                        Start: {format(new Date(rec.start_date), 'MMM d, yyyy')}
+                        Start: {format(parse_local(rec.start_date), 'MMM d, yyyy')}
                       </div>
                     )}
                     {rec.end_date && (
                       <div className="text-xs text-gray-500">
-                        End: {format(new Date(rec.end_date), 'MMM d, yyyy')}
+                        End: {format(parse_local(rec.end_date), 'MMM d, yyyy')}
                       </div>
                     )}
                   </div>
