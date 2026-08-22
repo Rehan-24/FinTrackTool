@@ -42,24 +42,24 @@ export default function LoginPage() {
           setIsSignup(false)
         }
       } else {
-        // Sign in
-        const { data, error } = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        })
+        // Sign in with a 15-second timeout so mobile never hangs silently
+        const sign_in_promise = supabase.auth.signInWithPassword({ email, password })
+        const timeout_promise = new Promise<never>((_, reject) =>
+          setTimeout(() => reject(new Error('Sign in timed out. Please try again.')), 15000)
+        )
+        const { data, error } = await Promise.race([sign_in_promise, timeout_promise])
 
         if (error) throw error
 
         if (data.user) {
-          // Store session preference
           if (keep_signed_in) {
             localStorage.setItem('keep_signed_in', 'true')
           } else {
             sessionStorage.setItem('temp_session', 'true')
           }
-          
-          router.push('/dashboard')
-          router.refresh()
+          // Hard navigate to avoid Next.js router cache issues on mobile
+          window.location.href = '/dashboard'
+          return
         }
       }
     } catch (err: any) {

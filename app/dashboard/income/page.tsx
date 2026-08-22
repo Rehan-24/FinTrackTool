@@ -66,6 +66,7 @@ type Income = {
   date: string
   is_recurring: boolean
   is_salary: boolean
+  is_taxable: boolean
   yearly_salary: number | null
   pay_frequency: string | null
   next_pay_date: string | null
@@ -102,6 +103,8 @@ export default function IncomePage() {
   const [start_date, setStartDate] = useState('')
   const [has_end_date, setHasEndDate] = useState(false)
   const [end_date, setEndDate] = useState('')
+
+  const [is_taxable, setIsTaxable] = useState(true)
 
   // Salary calculator state
   const [salary_calc, setSalaryCalc] = useState<SalaryCalculation | null>(null)
@@ -168,12 +171,13 @@ export default function IncomePage() {
         source,
         is_recurring: is_salary || frequency !== 'one-time',
         is_salary,
+        is_taxable: is_salary ? true : is_taxable,
       }
 
       if (is_salary && salary_calc) {
         income_data = {
           ...income_data,
-          amount: salary_calc.gross_yearly / pay_periods_per_year(pay_frequency),
+          amount: salary_calc.net_yearly / pay_periods_per_year(pay_frequency),
           frequency: pay_frequency,
           date: next_pay_date,
           yearly_salary: salary_calc.gross_yearly,
@@ -243,12 +247,13 @@ export default function IncomePage() {
         source,
         is_recurring: is_salary || frequency !== 'one-time',
         is_salary,
+        is_taxable: is_salary ? true : is_taxable,
       }
 
       if (is_salary && salary_calc) {
         update_data = {
           ...update_data,
-          amount: salary_calc.gross_yearly / pay_periods_per_year(pay_frequency),
+          amount: salary_calc.net_yearly / pay_periods_per_year(pay_frequency),
           frequency: pay_frequency,
           date: next_pay_date,
           yearly_salary: salary_calc.gross_yearly,
@@ -358,7 +363,8 @@ export default function IncomePage() {
     setFrequency(inc.frequency)
     setDate(inc.date)
     setIsSalary(inc.is_salary)
-    
+    setIsTaxable(inc.is_taxable !== false)
+
     // Load start/end dates
     setHasStartDate(!!inc.start_date)
     setStartDate(inc.start_date || '')
@@ -457,6 +463,7 @@ export default function IncomePage() {
     setFrequency('one-time')
     setDate(format(new Date(), 'yyyy-MM-dd'))
     setIsSalary(false)
+    setIsTaxable(true)
     setPayFrequency('bi-weekly')
     setNextPayDate(format(new Date(), 'yyyy-MM-dd'))
     setHasStartDate(false)
@@ -799,6 +806,23 @@ export default function IncomePage() {
                   />
                 </div>
 
+                {/* Non-Taxable Toggle — hidden for salary (taxes handled by deductions) */}
+                {!is_salary && (
+                  <div className="flex items-center justify-between py-3 border-t border-gray-200">
+                    <div>
+                      <label className="text-sm font-medium text-gray-700">Non-Taxable Income?</label>
+                      <p className="text-xs text-gray-500">e.g. gifts, insurance payouts, inheritances</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setIsTaxable(!is_taxable)}
+                      className={`relative w-14 h-7 rounded-full transition ${!is_taxable ? 'bg-emerald-600' : 'bg-gray-300'}`}
+                    >
+                      <div className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full transition transform ${!is_taxable ? 'translate-x-7' : ''}`}></div>
+                    </button>
+                  </div>
+                )}
+
                 {/* Salary Toggle */}
                 <div className="border-t border-b border-gray-200 py-4">
                   <div className="flex items-center justify-between mb-3">
@@ -1047,13 +1071,20 @@ export default function IncomePage() {
                         )}
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
-                        <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                          inc.is_salary ? 'bg-emerald-100 text-emerald-700' :
-                          inc.is_recurring ? 'bg-blue-100 text-blue-700' : 
-                          'bg-gray-100 text-gray-700'
-                        }`}>
-                          {inc.is_salary ? 'Salary' : inc.frequency.replace('-', ' ')}
-                        </span>
+                        <div className="flex flex-wrap gap-1">
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            inc.is_salary ? 'bg-emerald-100 text-emerald-700' :
+                            inc.is_recurring ? 'bg-blue-100 text-blue-700' :
+                            'bg-gray-100 text-gray-700'
+                          }`}>
+                            {inc.is_salary ? 'Salary' : inc.frequency.replace('-', ' ')}
+                          </span>
+                          {inc.is_taxable === false && (
+                            <span className="px-2 py-1 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+                              Non-Taxable
+                            </span>
+                          )}
+                        </div>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm text-right font-medium text-emerald-600">
                         ${parseFloat(inc.amount.toString()).toFixed(2)}
@@ -1279,12 +1310,13 @@ function SalaryCalculatorInline({
   const switchMode = (
     mode: FicaMode, setMode: (m: FicaMode) => void,
     val: string,    setVal:  (v: string)   => void,
-    newMode: FicaMode
+    newMode: FicaMode,
+    base?: number
   ) => {
-    const gross = parseFloat(gross_salary) || 0
-    const yearly = toYearly(val, mode, gross)
+    const b = base ?? (parseFloat(gross_salary) || 0)
+    const yearly = toYearly(val, mode, b)
     setMode(newMode)
-    setVal(fromYearly(yearly, newMode, gross))
+    setVal(fromYearly(yearly, newMode, b))
   }
 
   // ── compute all yearly amounts ──
@@ -1386,8 +1418,8 @@ function SalaryCalculatorInline({
       k401a_yr, roth_yr, legal_yr, crit_yr, idt_yr, acc_yr, hosp_yr, add_yr,
       ira_yr, hysa_yr, crypto_yr, invest_yr, other_yr, net_yearly, onChange])
 
-  const sw = (mode: FicaMode, setMode: (m: FicaMode) => void, val: string, setVal: (v: string) => void) =>
-    (m: FicaMode) => switchMode(mode, setMode, val, setVal, m)
+  const sw = (mode: FicaMode, setMode: (m: FicaMode) => void, val: string, setVal: (v: string) => void, base?: number) =>
+    (m: FicaMode) => switchMode(mode, setMode, val, setVal, m, base)
 
   return (
     <div className="mt-4 bg-emerald-50 rounded-lg p-4 border border-emerald-200">
@@ -1419,9 +1451,9 @@ function SalaryCalculatorInline({
 
       {/* Taxes */}
       <CalcSection title="Taxes">
-        <ToggleField label="Federal tax" value={fed_val} mode={fed_mode} onValueChange={setFedVal} onModeChange={sw(fed_mode, setFedMode, fed_val, setFedVal)} yearlyAmt={fed_yr} />
-        <ToggleField label="State tax" value={state_val} mode={state_mode} onValueChange={setStateVal} onModeChange={sw(state_mode, setStateMode, state_val, setStateVal)} yearlyAmt={state_yr} />
-        <ToggleField label="Local tax" value={local_val} mode={local_mode} onValueChange={setLocalVal} onModeChange={sw(local_mode, setLocalMode, local_val, setLocalVal)} yearlyAmt={local_yr} />
+        <ToggleField label="Federal tax" value={fed_val} mode={fed_mode} onValueChange={setFedVal} onModeChange={sw(fed_mode, setFedMode, fed_val, setFedVal, taxable)} yearlyAmt={fed_yr} />
+        <ToggleField label="State tax" value={state_val} mode={state_mode} onValueChange={setStateVal} onModeChange={sw(state_mode, setStateMode, state_val, setStateVal, taxable)} yearlyAmt={state_yr} />
+        <ToggleField label="Local tax" value={local_val} mode={local_mode} onValueChange={setLocalVal} onModeChange={sw(local_mode, setLocalMode, local_val, setLocalVal, taxable)} yearlyAmt={local_yr} />
       </CalcSection>
 
       {/* FICA */}
@@ -1434,8 +1466,8 @@ function SalaryCalculatorInline({
 
       {/* After-tax */}
       <CalcSection title="After-tax deductions">
-        <ToggleField label="401k after-tax" value={k401a_val} mode={k401a_mode} onValueChange={setK401aVal} onModeChange={sw(k401a_mode, setK401aMode, k401a_val, setK401aVal)} yearlyAmt={k401a_yr} color="green" />
-        <ToggleField label="401k Roth" value={roth_val} mode={roth_mode} onValueChange={setRothVal} onModeChange={sw(roth_mode, setRothMode, roth_val, setRothVal)} yearlyAmt={roth_yr} color="green" />
+        <ToggleField label="401k after-tax" value={k401a_val} mode={k401a_mode} onValueChange={setK401aVal} onModeChange={sw(k401a_mode, setK401aMode, k401a_val, setK401aVal, after_tax)} yearlyAmt={k401a_yr} color="green" />
+        <ToggleField label="401k Roth" value={roth_val} mode={roth_mode} onValueChange={setRothVal} onModeChange={sw(roth_mode, setRothMode, roth_val, setRothVal, after_tax)} yearlyAmt={roth_yr} color="green" />
         <ToggleField label="Legal plan" value={legal_val} mode={legal_mode} onValueChange={setLegalVal} onModeChange={sw(legal_mode, setLegalMode, legal_val, setLegalVal)} yearlyAmt={legal_yr} />
         <ToggleField label="Critical illness" value={crit_val} mode={crit_mode} onValueChange={setCritVal} onModeChange={sw(crit_mode, setCritMode, crit_val, setCritVal)} yearlyAmt={crit_yr} />
         <ToggleField label="ID theft" value={idt_val} mode={idt_mode} onValueChange={setIdtVal} onModeChange={sw(idt_mode, setIdtMode, idt_val, setIdtVal)} yearlyAmt={idt_yr} />
