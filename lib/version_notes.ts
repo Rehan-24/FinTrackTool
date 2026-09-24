@@ -9,6 +9,38 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.6.0',
+    date: '2026-09-24',
+    title: 'Planning Page Redesign, Tax Calculator & Duplicate Income',
+    features: [
+      'NEW: Planning table reorganized into Income, Paycheck, Plan and Actual groups: Salary, One Time and Additional Income; Taxes, Benefits, 401k, Roth and Additional Auto Savings; Planned Spend, Planned Save, Housing, Additional, Projected Out, Additional Savings and Planned Leftover; Actual Spend, Actual Saved, Adjustments and Actual Leftover',
+      'NEW: Every value in the Planning table is editable, including totals like Gross, Net and Leftover. The edit window shows the calculated value so you can always reset back to it',
+      'NEW: "Also apply to the rest of the year" option when editing a Planning value',
+      'NEW: Show or hide Planning columns by clicking a group name (Income, Paycheck, Plan, Actual). Your choice is saved to your account',
+      'NEW: Planned Save column shows your savings category budgets separately, so savings are no longer counted as spending',
+      'NEW: Planning summary cards now show Income, Savings to date, Spend (current and projected) and Projected Savings. Hover any label to see which columns it adds up',
+      'NEW: Hover a Planning column name for an explanation of what it shows',
+      'NEW: Totals row, current month highlight, and markers for manually set values and notes in the Planning table',
+      'NEW: Tax calculator in the salary form. Enter your ZIP code and filing status and press Calculate to fill in federal, state and local tax, or Social Security, Medicare and state disability, using 2026 rates',
+      'NEW: Duplicate button on income entries opens a pre-filled copy, including all salary deductions',
+      'IMPROVED: Planning table fits on screen without scrolling on most laptop and desktop screens',
+      'IMPROVED: The Planning page refreshes quietly when you come back to it instead of reloading',
+      'IMPROVED: Version notes now show once per account (not per device). Click the version number to see them again from any page',
+    ],
+    bugFixes: [
+      'FIXED: Housing and Additional notes in Planning were cleared whenever the value was edited',
+      'FIXED: Income with an end date could be left out of that month in some time zones',
+      'FIXED: Planning amounts sometimes showed fractions of a cent',
+      'FIXED: Net Income card showed "NaN%" when there was no income',
+      'FIXED: Saving an empty value in Planning showed $NaN',
+      'FIXED: State tax estimate now counts HSA contributions in CA and NJ, and 401k contributions in PA, since those states tax them',
+    ],
+    breaking: [
+      'CHANGED: A positive Adjustment in Planning now adds to Actual Leftover (for example a refund) and a negative one subtracts. Previously a positive Adjustment reduced it',
+      'CHANGED: Planned Spend now defaults to your non-savings category budgets only. Savings category budgets appear in the new Planned Save column',
+    ],
+  },
+  {
     version: '5.5.0',
     date: '2026-03-18',
     title: 'Planning Page Code Audit & Fixes',
