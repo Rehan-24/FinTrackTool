@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
-import { Plus, Trash2, TrendingUp, Edit2, X } from 'lucide-react'
+import { Plus, Trash2, TrendingUp, Edit2, Copy, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { count_income_occurrences, pay_periods_per_year } from '@/lib/income-utils'
 
@@ -79,6 +79,8 @@ export default function IncomePage() {
   const [loading, setLoading] = useState(true)
   const [show_add_form, setShowAddForm] = useState(false)
   const [edit_income, setEditIncome] = useState<Income | null>(null)
+  // Income being duplicated: the add form opens pre-filled from it and saves as a new entry
+  const [duplicate_of, setDuplicateOf] = useState<Income | null>(null)
   const [filter_month, setFilterMonth] = useState<string>(format(new Date(), 'yyyy-MM'))
   
   // Draft and applied filters for search button
@@ -358,6 +360,18 @@ export default function IncomePage() {
 
   const start_edit = async (inc: Income) => {
     setEditIncome(inc)
+    await load_into_form(inc)
+  }
+
+  const start_duplicate = async (inc: Income) => {
+    setDuplicateOf(inc)
+    setShowAddForm(true)
+    await load_into_form(inc)
+    setSource(`${inc.source} (copy)`)
+  }
+
+  // Fill the add/edit form (including salary deductions) from an existing income entry
+  const load_into_form = async (inc: Income) => {
     setSource(inc.source)
     setAmount(inc.amount.toString())
     setFrequency(inc.frequency)
@@ -499,6 +513,7 @@ export default function IncomePage() {
     setEndDate('')
     setSalaryCalc(null)
     setLoadedSalaryValues(null)
+    setDuplicateOf(null)
   }
 
   const get_monthly_income = () => {
@@ -805,7 +820,7 @@ export default function IncomePage() {
             <div className="bg-white rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-xl font-bold text-gray-800">
-                  {edit_income ? 'Edit Income' : 'Add Income'}
+                  {edit_income ? 'Edit Income' : duplicate_of ? 'Duplicate Income' : 'Add Income'}
                 </h3>
                 <button
                   onClick={() => {
@@ -869,7 +884,7 @@ export default function IncomePage() {
                   {is_salary && (
                     <>
                       <SalaryCalculatorInline 
-                        key={loaded_salary_values ? `editing-${edit_income?.id}` : 'new'}
+                        key={loaded_salary_values ? `editing-${edit_income?.id ?? `copy-${duplicate_of?.id}`}` : 'new'}
                         onChange={setSalaryCalc} 
                         initialValues={loaded_salary_values}
                       />
@@ -1124,8 +1139,16 @@ export default function IncomePage() {
                           <button
                             onClick={() => start_edit(inc)}
                             className="text-blue-500 hover:text-blue-700"
+                            title="Edit"
                           >
                             <Edit2 size={18} />
+                          </button>
+                          <button
+                            onClick={() => start_duplicate(inc)}
+                            className="text-gray-500 hover:text-gray-700"
+                            title="Duplicate"
+                          >
+                            <Copy size={18} />
                           </button>
                           <button
                             onClick={() => delete_income(inc.id)}
