@@ -403,22 +403,36 @@ export default function IncomePage() {
             (deductions.medicare || 0) + (deductions.ca_disability || 0) + (deductions.state_etc || 0)
           const after_tax  = gr - total_pre - total_tax
 
+          const PP = pay_periods_per_year(inc.pay_frequency || 'bi-weekly')
+          const ppd = (yr: number) => (yr / PP).toFixed(2)
+
           const values = {
             gross_yearly:    gr,
-            // pre-tax
+            // pre-tax — 401k stays %, flat amounts reload as $/pd
             k401_pct:        gr > 0 ? ((k401_yr / gr) * 100).toFixed(2) : '0.00',
-            medical_monthly: ((deductions.medical_insurance || 0) / 12).toFixed(2),
-            dental_monthly:  ((deductions.dental_insurance  || 0) / 12).toFixed(2),
-            vision_monthly:  ((deductions.vision_insurance  || 0) / 12).toFixed(2),
-            ltd_monthly:     ((deductions.long_term_disability || 0) / 12).toFixed(2),
-            life_ins_monthly:((deductions.life_insurance    || 0) / 12).toFixed(2),
-            hsa_monthly:     ((deductions.hsa               || 0) / 12).toFixed(2),
-            fsa_monthly:     ((deductions.fsa               || 0) / 12).toFixed(2),
-            // taxes
+            k401_mode:       'pct' as FicaMode,
+            medical_monthly: ppd(deductions.medical_insurance || 0),
+            medical_mode:    'period' as FicaMode,
+            dental_monthly:  ppd(deductions.dental_insurance  || 0),
+            dental_mode:     'period' as FicaMode,
+            vision_monthly:  ppd(deductions.vision_insurance  || 0),
+            vision_mode:     'period' as FicaMode,
+            ltd_monthly:     ppd(deductions.long_term_disability || 0),
+            ltd_mode:        'period' as FicaMode,
+            life_ins_monthly:ppd(deductions.life_insurance    || 0),
+            life_mode:       'period' as FicaMode,
+            hsa_monthly:     ppd(deductions.hsa               || 0),
+            hsa_mode:        'period' as FicaMode,
+            fsa_monthly:     ppd(deductions.fsa               || 0),
+            fsa_mode:        'period' as FicaMode,
+            // taxes — % is their natural form
             federal_tax_pct: taxable > 0 ? (((deductions.federal_tax || 0) / taxable) * 100).toFixed(2) : '0.00',
+            fed_mode:        'pct' as FicaMode,
             state_tax_pct:   taxable > 0 ? (((deductions.state_tax   || 0) / taxable) * 100).toFixed(2) : '0.00',
+            state_mode:      'pct' as FicaMode,
             local_tax_pct:   taxable > 0 ? (((deductions.local_tax   || 0) / taxable) * 100).toFixed(2) : '0.00',
-            // fica — store as % of gross (default mode)
+            local_mode:      'pct' as FicaMode,
+            // fica
             ss_val:          gr > 0 ? (((deductions.social_security || 0) / gr) * 100).toFixed(2) : '0.00',
             ss_mode:         'pct' as FicaMode,
             med_val:         gr > 0 ? (((deductions.medicare        || 0) / gr) * 100).toFixed(2) : '0.00',
@@ -427,21 +441,34 @@ export default function IncomePage() {
             cadis_mode:      'pct' as FicaMode,
             state_etc_val:   gr > 0 ? (((deductions.state_etc       || 0) / gr) * 100).toFixed(2) : '0.00',
             state_etc_mode:  'pct' as FicaMode,
-            // after-tax
+            // after-tax — 401k/Roth stay %, flat amounts reload as $/pd
             k401_after_pct:  after_tax > 0 ? (((deductions.after_tax_401k      || 0) / after_tax) * 100).toFixed(2) : '0.00',
+            k401a_mode:      'pct' as FicaMode,
             k401_roth_pct:   after_tax > 0 ? (((deductions.after_tax_401k_roth || 0) / after_tax) * 100).toFixed(2) : '0.00',
-            legal_monthly:   ((deductions.legal_plan         || 0) / 12).toFixed(2),
-            critical_illness_monthly: ((deductions.critical_illness  || 0) / 12).toFixed(2),
-            identity_theft_monthly:   ((deductions.identity_theft    || 0) / 12).toFixed(2),
-            accident_monthly:((deductions.accident_insurance || 0) / 12).toFixed(2),
-            hospital_monthly:((deductions.hospital_indemnity || 0) / 12).toFixed(2),
-            ad_d_monthly:    ((deductions.ad_d               || 0) / 12).toFixed(2),
-            // auto savings
-            ira_monthly:     ((deductions.roth_ira              || 0) / 12).toFixed(2),
-            hysa_monthly:    ((deductions.hysa                  || 0) / 12).toFixed(2),
-            crypto_monthly:  ((deductions.crypto                || 0) / 12).toFixed(2),
-            invest_monthly:  ((deductions.personal_investments  || 0) / 12).toFixed(2),
-            other_savings_monthly: ((deductions.other_savings   || 0) / 12).toFixed(2),
+            roth_mode:       'pct' as FicaMode,
+            legal_monthly:   ppd(deductions.legal_plan         || 0),
+            legal_mode:      'period' as FicaMode,
+            critical_illness_monthly: ppd(deductions.critical_illness  || 0),
+            crit_mode:       'period' as FicaMode,
+            identity_theft_monthly:   ppd(deductions.identity_theft    || 0),
+            idt_mode:        'period' as FicaMode,
+            accident_monthly:ppd(deductions.accident_insurance || 0),
+            acc_mode:        'period' as FicaMode,
+            hospital_monthly:ppd(deductions.hospital_indemnity || 0),
+            hosp_mode:       'period' as FicaMode,
+            ad_d_monthly:    ppd(deductions.ad_d               || 0),
+            add_mode:        'period' as FicaMode,
+            // auto savings — reload as $/pd
+            ira_monthly:     ppd(deductions.roth_ira             || 0),
+            ira_mode:        'period' as FicaMode,
+            hysa_monthly:    ppd(deductions.hysa                 || 0),
+            hysa_mode:       'period' as FicaMode,
+            crypto_monthly:  ppd(deductions.crypto               || 0),
+            crypto_mode:     'period' as FicaMode,
+            invest_monthly:  ppd(deductions.personal_investments || 0),
+            invest_mode:     'period' as FicaMode,
+            other_savings_monthly: ppd(deductions.other_savings  || 0),
+            other_mode:      'period' as FicaMode,
           }
           setLoadedSalaryValues(values)
         } else {
@@ -842,7 +869,7 @@ export default function IncomePage() {
                   {is_salary && (
                     <>
                       <SalaryCalculatorInline 
-                        key={loaded_salary_values ? 'editing' : 'new'}
+                        key={loaded_salary_values ? `editing-${edit_income?.id}` : 'new'}
                         onChange={setSalaryCalc} 
                         initialValues={loaded_salary_values}
                       />
