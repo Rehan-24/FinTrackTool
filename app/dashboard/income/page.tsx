@@ -5,6 +5,10 @@ import { supabase } from '@/lib/supabase'
 import { Plus, Trash2, TrendingUp, Edit2, Copy, X } from 'lucide-react'
 import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { count_income_occurrences, pay_periods_per_year } from '@/lib/income-utils'
+import {
+  TAX_YEAR, FILING_STATUS_LABELS, FilingStatus, SS_WAGE_BASE, ADDITIONAL_MEDICARE_THRESHOLD,
+  zip_to_state, federal_income_tax, state_income_tax, local_income_tax, payroll_taxes,
+} from '@/lib/tax-estimates'
 
 // Parse yyyy-MM-dd as local date (not UTC) to avoid timezone off-by-one display bugs
 const parse_local = (date_str: string) => {
@@ -1182,12 +1186,12 @@ function toYearly(val: string, mode: FicaMode, gross: number): number {
   return 0
 }
 
-function fromYearly(yearly: number, mode: FicaMode, gross: number): string {
+function fromYearly(yearly: number, mode: FicaMode, gross: number, pct_digits = 2): string {
   let v = 0
   if (mode === 'pct')    v = gross > 0 ? (yearly / gross) * 100 : 0
   if (mode === 'mo')     v = yearly / 12
   if (mode === 'period') v = yearly / PP
-  return v.toFixed(2)
+  return v.toFixed(mode === 'pct' ? pct_digits : 2)
 }
 
 function fmtYr(n: number): string {
@@ -1267,16 +1271,86 @@ function ToggleField({
 }
 
 /** Section divider */
-function CalcSection({ title, children }: { title: string; children: React.ReactNode }) {
+function CalcSection({ title, toolbar, children }: { title: string; toolbar?: React.ReactNode; children: React.ReactNode }) {
   return (
     <div className="mt-4">
       <div className="text-[10px] font-medium text-gray-500 uppercase tracking-wide mb-2 border-t border-emerald-200 pt-3">
         {title}
       </div>
+      {toolbar}
       <div className="grid grid-cols-3 gap-2">{children}</div>
     </div>
   )
 }
+
+type CalcMessage = { kind: 'ok' | 'error', text: string } | null
+
+/** ZIP (+ optional filing status) inputs and a Calculate button with a hover/focus explanation */
+function CalcToolbar({ zip, onZipChange, filingStatus, onFilingStatusChange, onCalculate, tooltip, message }: {
+  zip: string
+  onZipChange: (zip: string) => void
+  filingStatus?: FilingStatus
+  onFilingStatusChange?: (status: FilingStatus) => void
+  onCalculate: () => void
+  tooltip: string
+  message: CalcMessage
+}) {
+  return (
+    <div className="mb-3">
+      <div className="flex flex-wrap items-center gap-2">
+        <input
+          type="text" inputMode="numeric" autoComplete="postal-code" aria-label="ZIP code" placeholder="ZIP code"
+          value={zip}
+          onChange={e => onZipChange(e.target.value.replace(/\D/g, '').slice(0, 5))}
+          // Enter would otherwise submit the whole income form
+          onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); onCalculate() } }}
+          className="w-24 px-2 py-1 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-emerald-500 outline-none"
+        />
+        {filingStatus && onFilingStatusChange && (
+          <select
+            aria-label="Filing status"
+            value={filingStatus}
+            onChange={e => onFilingStatusChange(e.target.value as FilingStatus)}
+            className="px-2 py-1 text-sm border border-gray-300 rounded bg-white focus:ring-1 focus:ring-emerald-500 outline-none"
+          >
+            {(Object.keys(FILING_STATUS_LABELS) as FilingStatus[]).map(s => (
+              <option key={s} value={s}>{FILING_STATUS_LABELS[s]}</option>
+            ))}
+          </select>
+        )}
+        <span className="relative group">
+          <button
+            type="button"
+            onClick={onCalculate}
+            className="px-3 py-1 text-xs font-medium bg-emerald-600 text-white rounded hover:bg-emerald-700 transition"
+          >
+            Calculate
+          </button>
+          <span
+            role="tooltip"
+            className="pointer-events-none absolute left-0 top-full mt-2 w-72 rounded-md bg-gray-900 px-3 py-2 text-xs leading-relaxed text-white shadow-lg z-20 opacity-0 invisible transition-opacity group-hover:opacity-100 group-hover:visible group-focus-within:opacity-100 group-focus-within:visible"
+          >
+            {tooltip}
+          </span>
+        </span>
+      </div>
+      {message && (
+        <p className={`mt-1 text-xs ${message.kind === 'error' ? 'text-red-600' : 'text-emerald-700'}`}>{message.text}</p>
+      )}
+    </div>
+  )
+}
+
+const TAXES_TOOLTIP =
+  `Estimates yearly federal, state and local income tax using ${TAX_YEAR} brackets for your filing status and the state ` +
+  'for your ZIP code. Starts from gross salary minus the pre-tax deductions above, then applies standard deductions. ' +
+  'Ignores dependents, itemized deductions and most credits. Local tax is only calculated for New York City and ' +
+  'Yonkers. Fills in the three fields below; check them against a paystub.'
+
+const FICA_TOOLTIP =
+  `Calculates Social Security (6.2% up to $${SS_WAGE_BASE.toLocaleString()}), Medicare (1.45%, plus 0.9% above ` +
+  `$${ADDITIONAL_MEDICARE_THRESHOLD.toLocaleString()}) and your state's employee disability and paid-leave deductions ` +
+  `for ${TAX_YEAR}. Uses gross salary minus pre-tax medical, dental, vision, HSA and FSA. Fills in the four fields below.`
 
 // ── main component ────────────────────────────────────────────────────────────
 
@@ -1325,6 +1399,34 @@ function SalaryCalculatorInline({
   const [cadis_mode,     setCadisMode]     = useState<FicaMode>(d.cadis_mode         || 'pct')
   const [state_etc_val,  setStateEtcVal]   = useState(d.state_etc_val?.toString()    || '0.00')
   const [state_etc_mode, setStateEtcMode]  = useState<FicaMode>(d.state_etc_mode     || 'pct')
+
+  // ── tax calculator inputs (remembered on the user's account) ──
+  const [tax_zip,        setTaxZip]        = useState('')
+  const [filing_status,  setFilingStatus]  = useState<FilingStatus>('single')
+  const [taxes_msg,      setTaxesMsg]      = useState<CalcMessage>(null)
+  const [fica_msg,       setFicaMsg]       = useState<CalcMessage>(null)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const meta = user?.user_metadata || {}
+      if (typeof meta.tax_zip === 'string') setTaxZip(meta.tax_zip)
+      if (meta.tax_filing_status in FILING_STATUS_LABELS) setFilingStatus(meta.tax_filing_status)
+    })
+  }, [])
+
+  const remember_tax_inputs = () => {
+    supabase.auth.updateUser({ data: { tax_zip, tax_filing_status: filing_status } })
+      .then(({ error }) => { if (error) console.error('Error saving tax inputs:', error) })
+  }
+
+  // Validates the ZIP and gross salary, returning the state code or reporting why it can't
+  const resolve_state = (report: (m: CalcMessage) => void) => {
+    if (!(parseFloat(gross_salary) > 0)) { report({ kind: 'error', text: 'Enter your yearly gross salary first.' }); return null }
+    if (!/^\d{5}$/.test(tax_zip)) { report({ kind: 'error', text: 'Enter a 5-digit ZIP code.' }); return null }
+    const state = zip_to_state(tax_zip)
+    if (!state) { report({ kind: 'error', text: 'That ZIP code isn\'t in a US state we have tax rates for.' }); return null }
+    return state
+  }
 
   // ── after-tax ──
   const [k401a_val,      setK401aVal]      = useState(d.k401_after_pct?.toString()   || '0.00')
@@ -1471,6 +1573,52 @@ function SalaryCalculatorInline({
   const sw = (mode: FicaMode, setMode: (m: FicaMode) => void, val: string, setVal: (v: string) => void, base?: number) =>
     (m: FicaMode) => switchMode(mode, setMode, val, setVal, m, base)
 
+  const calculate_taxes = () => {
+    const state = resolve_state(setTaxesMsg)
+    if (!state) return
+    remember_tax_inputs()
+
+    // Tax fields are a share of taxable income (gross minus pre-tax deductions)
+    const fed = federal_income_tax(taxable, filing_status)
+    const st = state_income_tax(state, taxable, filing_status) ?? 0
+    const local = local_income_tax(tax_zip, taxable, filing_status)
+
+    setFedVal(fromYearly(fed, fed_mode, taxable, 4))
+    setStateVal(fromYearly(st, state_mode, taxable, 4))
+    if (local) setLocalVal(fromYearly(local.tax, local_mode, taxable, 4))
+
+    setTaxesMsg({
+      kind: 'ok',
+      text: `Estimated for ${state}, ${FILING_STATUS_LABELS[filing_status].toLowerCase()}, ${TAX_YEAR} rates. ` +
+        (local
+          ? `Includes ${local.area} local tax.`
+          : 'Local tax isn\'t calculated for this ZIP, so it was left as is.'),
+    })
+  }
+
+  const calculate_fica = () => {
+    const state = resolve_state(setFicaMsg)
+    if (!state) return
+    remember_tax_inputs()
+
+    // FICA wages exclude cafeteria-plan (section 125) benefits but not 401k
+    const fica_wages = Math.max(0, gross - medical_yr - dental_yr - vision_yr - hsa_yr - fsa_yr)
+    const p = payroll_taxes(state, fica_wages)
+
+    setSsVal(fromYearly(p.social_security, ss_mode, gross, 4))
+    setMedVal(fromYearly(p.medicare, med_mode, gross, 4))
+    setCadisVal(fromYearly(p.state_disability, cadis_mode, gross, 4))
+    setStateEtcVal(fromYearly(p.state_other, state_etc_mode, gross, 4))
+
+    setFicaMsg({
+      kind: 'ok',
+      text: `Social Security and Medicare for ${TAX_YEAR}` +
+        (p.programs.length
+          ? `, plus ${state} ${p.programs.join(', ')}.`
+          : `. ${state} has no employee disability or paid-leave deduction, so those are $0.`),
+    })
+  }
+
   return (
     <div className="mt-4 bg-emerald-50 rounded-lg p-4 border border-emerald-200">
 
@@ -1500,14 +1648,22 @@ function SalaryCalculatorInline({
       </CalcSection>
 
       {/* Taxes */}
-      <CalcSection title="Taxes">
+      <CalcSection title="Taxes" toolbar={
+        <CalcToolbar
+          zip={tax_zip} onZipChange={setTaxZip}
+          filingStatus={filing_status} onFilingStatusChange={setFilingStatus}
+          onCalculate={calculate_taxes} tooltip={TAXES_TOOLTIP} message={taxes_msg}
+        />
+      }>
         <ToggleField label="Federal tax" value={fed_val} mode={fed_mode} onValueChange={setFedVal} onModeChange={sw(fed_mode, setFedMode, fed_val, setFedVal, taxable)} yearlyAmt={fed_yr} />
         <ToggleField label="State tax" value={state_val} mode={state_mode} onValueChange={setStateVal} onModeChange={sw(state_mode, setStateMode, state_val, setStateVal, taxable)} yearlyAmt={state_yr} />
         <ToggleField label="Local tax" value={local_val} mode={local_mode} onValueChange={setLocalVal} onModeChange={sw(local_mode, setLocalMode, local_val, setLocalVal, taxable)} yearlyAmt={local_yr} />
       </CalcSection>
 
       {/* FICA */}
-      <CalcSection title="Social Security &amp; FICA">
+      <CalcSection title="Social Security &amp; FICA" toolbar={
+        <CalcToolbar zip={tax_zip} onZipChange={setTaxZip} onCalculate={calculate_fica} tooltip={FICA_TOOLTIP} message={fica_msg} />
+      }>
         <ToggleField label="Social Security" value={ss_val} mode={ss_mode} onValueChange={setSsVal} onModeChange={sw(ss_mode, setSsMode, ss_val, setSsVal)} yearlyAmt={ss_yr} />
         <ToggleField label="Medicare" value={med_val} mode={med_mode} onValueChange={setMedVal} onModeChange={sw(med_mode, setMedMode, med_val, setMedVal)} yearlyAmt={med_yr} />
         <ToggleField label="State disability" value={cadis_val} mode={cadis_mode} onValueChange={setCadisVal} onModeChange={sw(cadis_mode, setCadisMode, cadis_val, setCadisVal)} yearlyAmt={cadis_yr} />
