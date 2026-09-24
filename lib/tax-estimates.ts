@@ -192,7 +192,26 @@ const STATE_TAX: Record<string, StateTax | null> = {
   },
 }
 
-/** State income tax on wages after pre-tax deductions. Returns null for an unknown state code. */
+/**
+ * Wages a state taxes, starting from gross minus federal pre-tax deductions. Some states don't
+ * follow the federal exclusions: California and New Jersey tax HSA contributions, and
+ * Pennsylvania taxes 401k deferrals. Returns the wages plus a note on what was added back.
+ */
+export const state_taxable_wages = (
+  state: string,
+  income_after_pretax: number,
+  pretax: { hsa: number, retirement_401k: number },
+) => {
+  if ((state === 'CA' || state === 'NJ') && pretax.hsa > 0) {
+    return { wages: income_after_pretax + pretax.hsa, note: `${state} taxes HSA contributions, so they were added back` }
+  }
+  if (state === 'PA' && pretax.retirement_401k > 0) {
+    return { wages: income_after_pretax + pretax.retirement_401k, note: 'PA taxes 401k contributions, so they were added back' }
+  }
+  return { wages: income_after_pretax, note: null }
+}
+
+/** State income tax on the wages from state_taxable_wages. Returns null for an unknown state code. */
 export const state_income_tax = (state: string, income_after_pretax: number, status: FilingStatus) => {
   if (!(state in STATE_TAX)) return null
   const cfg = STATE_TAX[state]

@@ -7,7 +7,7 @@ import { format, startOfMonth, endOfMonth } from 'date-fns'
 import { count_income_occurrences, pay_periods_per_year } from '@/lib/income-utils'
 import {
   TAX_YEAR, FILING_STATUS_LABELS, FilingStatus, SS_WAGE_BASE, ADDITIONAL_MEDICARE_THRESHOLD,
-  zip_to_state, federal_income_tax, state_income_tax, local_income_tax, payroll_taxes,
+  zip_to_state, federal_income_tax, state_taxable_wages, state_income_tax, local_income_tax, payroll_taxes,
 } from '@/lib/tax-estimates'
 
 // Parse yyyy-MM-dd as local date (not UTC) to avoid timezone off-by-one display bugs
@@ -1343,7 +1343,8 @@ function CalcToolbar({ zip, onZipChange, filingStatus, onFilingStatusChange, onC
 
 const TAXES_TOOLTIP =
   `Estimates yearly federal, state and local income tax using ${TAX_YEAR} brackets for your filing status and the state ` +
-  'for your ZIP code. Starts from gross salary minus the pre-tax deductions above, then applies standard deductions. ' +
+  'for your ZIP code. Starts from gross salary minus the pre-tax deductions above (adding back HSA in CA and NJ, and ' +
+  '401k in PA, since those states tax them), then applies standard deductions. ' +
   'Ignores dependents, itemized deductions and most credits. Local tax is only calculated for New York City and ' +
   'Yonkers. Fills in the three fields below; check them against a paystub.'
 
@@ -1580,7 +1581,8 @@ function SalaryCalculatorInline({
 
     // Tax fields are a share of taxable income (gross minus pre-tax deductions)
     const fed = federal_income_tax(taxable, filing_status)
-    const st = state_income_tax(state, taxable, filing_status) ?? 0
+    const state_wages = state_taxable_wages(state, taxable, { hsa: hsa_yr, retirement_401k: k401_yr })
+    const st = state_income_tax(state, state_wages.wages, filing_status) ?? 0
     const local = local_income_tax(tax_zip, taxable, filing_status)
 
     setFedVal(fromYearly(fed, fed_mode, taxable, 4))
@@ -1590,6 +1592,7 @@ function SalaryCalculatorInline({
     setTaxesMsg({
       kind: 'ok',
       text: `Estimated for ${state}, ${FILING_STATUS_LABELS[filing_status].toLowerCase()}, ${TAX_YEAR} rates. ` +
+        (state_wages.note ? `${state_wages.note}. ` : '') +
         (local
           ? `Includes ${local.area} local tax.`
           : 'Local tax isn\'t calculated for this ZIP, so it was left as is.'),
