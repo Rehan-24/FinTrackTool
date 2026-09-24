@@ -3,10 +3,10 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus } from 'lucide-react'
+import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus, X } from 'lucide-react'
 import Link from 'next/link'
 
-import { CURRENT_VERSION } from '@/lib/version_notes'
+import { VERSION_NOTES, CURRENT_VERSION } from '@/lib/version_notes'
 
 // Soccer Goal Icon Component
 const SoccerGoal = ({ size = 24, className = '' }: { size?: number, className?: string }) => (
@@ -29,6 +29,7 @@ export default function DashboardLayout({
   const [user, setUser] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [show_mobile_menu, setShowMobileMenu] = useState(false)
+  const [show_version_notes, setShowVersionNotes] = useState(false)
 
   useEffect(() => {
     const get_user = async () => {
@@ -42,14 +43,10 @@ export default function DashboardLayout({
       setUser(user)
       setLoading(false)
 
-      // Check if user should see version notes
-      const last_seen_version = localStorage.getItem('last_seen_version')
-      if (!last_seen_version || last_seen_version !== CURRENT_VERSION) {
-        // Show version notes after a short delay
-        setTimeout(() => {
-          window.dispatchEvent(new CustomEvent('show-version-notes'))
-          localStorage.setItem('last_seen_version', CURRENT_VERSION)
-        }, 1000)
+      // Auto-show version notes only if this user hasn't dismissed them for
+      // the current version (tracked on the account, not per browser)
+      if (user.user_metadata?.last_seen_version !== CURRENT_VERSION) {
+        setTimeout(() => setShowVersionNotes(true), 1000)
       }
     }
 
@@ -65,6 +62,16 @@ export default function DashboardLayout({
 
     return () => subscription.unsubscribe()
   }, [router])
+
+  // Remember on the user's account that they've seen this version's notes,
+  // so the modal only auto-opens once per user across devices
+  const dismiss_version_notes = async () => {
+    setShowVersionNotes(false)
+    const { data: { user } } = await supabase.auth.getUser()
+    if (user && user.user_metadata?.last_seen_version !== CURRENT_VERSION) {
+      await supabase.auth.updateUser({ data: { last_seen_version: CURRENT_VERSION } })
+    }
+  }
 
   const handle_signout = async () => {
     await supabase.auth.signOut()
@@ -86,10 +93,10 @@ export default function DashboardLayout({
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-2xl font-bold text-blue-600">Finance Tracker</h1>
           <button
-            onClick={() => window.dispatchEvent(new CustomEvent('show-version-notes'))}
+            onClick={() => setShowVersionNotes(true)}
             className="text-xs text-gray-500 mt-1 hover:text-blue-600 cursor-pointer transition"
           >
-            v5.5.0
+            v{CURRENT_VERSION}
           </button>
         </div>
         
@@ -336,6 +343,74 @@ export default function DashboardLayout({
                 </button>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Version Notes Modal */}
+      {show_version_notes && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-[70]">
+          <div className="bg-white rounded-lg p-6 max-w-2xl w-full max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h3 className="text-2xl font-bold text-gray-800">
+                  What's New in v{VERSION_NOTES[0].version}
+                </h3>
+                <p className="text-gray-600 text-sm mt-1">{VERSION_NOTES[0].title}</p>
+              </div>
+              <button
+                onClick={dismiss_version_notes}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            {VERSION_NOTES[0].features.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-800 mb-3">New Features</h4>
+                <ul className="space-y-2">
+                  {VERSION_NOTES[0].features.map((feature, idx) => (
+                    <li key={idx} className="text-gray-700 pl-4">
+                      {feature}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {VERSION_NOTES[0].bugFixes.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold text-gray-800 mb-3">Bug Fixes</h4>
+                <ul className="space-y-2">
+                  {VERSION_NOTES[0].bugFixes.map((fix, idx) => (
+                    <li key={idx} className="text-gray-700 pl-4">
+                      • {fix}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {VERSION_NOTES[0].breaking.length > 0 && (
+              <div className="mb-6">
+                <h4 className="font-semibold text-red-600 mb-3">Breaking Changes</h4>
+                <ul className="space-y-2">
+                  {VERSION_NOTES[0].breaking.map((change, idx) => (
+                    <li key={idx} className="text-red-700 pl-4">
+                      • {change}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <button
+              onClick={dismiss_version_notes}
+              className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 transition"
+            >
+              Got it
+            </button>
           </div>
         </div>
       )}
