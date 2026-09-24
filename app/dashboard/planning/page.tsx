@@ -98,16 +98,17 @@ const parse_local = (date_str: string) => {
 
 // Hover/focus tooltip. `align` picks which edge it anchors to so it stays inside the
 // table's scroll area at either end. tabIndex lets touch devices open it with a tap.
-const Tooltip = ({ text, align = 'right', children }: {
+const Tooltip = ({ text, align = 'right', width = 'w-64', children }: {
   text: string
   align?: 'left' | 'right'
+  width?: string
   children: React.ReactNode
 }) => (
   <span tabIndex={0} className="relative group inline-flex items-center gap-1 cursor-help outline-none">
     {children}
     <span
       role="tooltip"
-      className={`pointer-events-none absolute top-full ${align === 'left' ? 'left-0' : 'right-0'} mt-2 w-64 rounded-md bg-gray-900 px-3 py-2 text-xs font-normal normal-case leading-relaxed text-white text-left whitespace-normal shadow-lg z-20 opacity-0 invisible transition-opacity group-hover:opacity-100 group-hover:visible group-focus:opacity-100 group-focus:visible`}
+      className={`pointer-events-none absolute top-full ${align === 'left' ? 'left-0' : 'right-0'} mt-2 ${width} rounded-md bg-gray-900 px-3 py-2 text-xs font-normal normal-case leading-relaxed text-white text-left whitespace-normal shadow-lg z-20 opacity-0 invisible transition-opacity group-hover:opacity-100 group-hover:visible group-focus:opacity-100 group-focus:visible`}
     >
       {text}
     </span>
@@ -601,9 +602,26 @@ export default function PlanningPage() {
   const cell_base = 'px-1 py-2 text-right whitespace-nowrap tabular-nums'
   const divider = (col: Column) => (group_start.has(col.id) ? 'border-l border-gray-200' : '')
 
-  const stat = (label: string, value: number, sub?: string) => (
+  // Month ranges for the card tooltips, e.g. "Jan–Sep" and "Oct–Dec"
+  const range = (list: MonthData[]) =>
+    list.length === 0 ? null
+      : list.length === 1 ? list[0].month_name.slice(0, 3)
+      : `${list[0].month_name.slice(0, 3)}–${list[list.length - 1].month_name.slice(0, 3)}`
+  const elapsed_range = range(elapsed)
+  const future_range = range(future)
+  // "Jan–Sep: <past>. Oct–Dec: <future>." leaving out whichever side has no months
+  const split_explainer = (past: string, upcoming: string) =>
+    [elapsed_range && `${elapsed_range}: ${past}.`, future_range && `${future_range}: ${upcoming}.`].filter(Boolean).join(' ')
+
+  // "<columns>, Jan–Sep." or a note that no months have passed yet
+  const past_explainer = (text: string) =>
+    elapsed_range ? `${text}, ${elapsed_range}.` : 'No months have passed yet.'
+
+  const stat = (label: string, value: number, sub: string | undefined, tooltip: string) => (
     <div className="flex items-baseline justify-between gap-2">
-      <span className="text-sm opacity-90">{label}</span>
+      <Tooltip text={tooltip} align="left" width="w-56">
+        <span className="text-sm opacity-90 underline decoration-dotted decoration-white/60 underline-offset-2">{label}</span>
+      </Tooltip>
       <span className="text-right">
         <span className="text-2xl font-bold">{money(value, false)}</span>
         {sub && <span className="block text-xs opacity-80">{sub}</span>}
@@ -614,7 +632,7 @@ export default function PlanningPage() {
   const card = (className: string, title: string, subtitle: string, tooltip: string, children: React.ReactNode) => (
     <div className={`bg-gradient-to-br ${className} text-white rounded-lg p-4 space-y-3`}>
       <div className="flex items-center justify-between gap-2">
-        <Tooltip text={tooltip} align="left">
+        <Tooltip text={tooltip} align="left" width="w-56">
           <span className="text-sm font-semibold underline decoration-dotted decoration-white/60 underline-offset-2">{title}</span>
         </Tooltip>
         <span className="text-xs opacity-80">{subtitle}</span>
@@ -713,32 +731,40 @@ export default function PlanningPage() {
           {card('from-blue-500 to-blue-600', 'Income', `${year}`,
             'All 12 months. Past months are calculated from your income setup, not recorded deposits.',
             <>
-              {stat('Gross Income', total_gross)}
-              {stat('Net Income', total_net, total_gross > 0 ? `${pct(total_net, total_gross)} of gross` : undefined)}
+              {stat('Gross Income', total_gross, undefined,
+                "Gross Income column (Salary + One Time + Add'l Income), all 12 months.")}
+              {stat('Net Income', total_net, total_gross > 0 ? `${pct(total_net, total_gross)} of gross` : undefined,
+                "Net Income column (Gross minus Taxes, Benefits, 401k, Roth and Add'l Auto Savings), all 12 months. The percentage is Net ÷ Gross.")}
             </>
           )}
 
           {card('from-green-500 to-green-600', 'Savings (actual)', to_date_label,
             'Through the current month. Additional Savings is paycheck auto-deducted savings plus actual transfers to savings categories.',
             <>
-              {stat('Retirement', ytd_retirement, `401k + Roth IRA · ${pct(ytd_retirement, ytd_gross)} of gross`)}
-              {stat('Additional Savings', ytd_additional, `${pct(ytd_additional, ytd_gross)} of gross`)}
+              {stat('Retirement', ytd_retirement, `401k + Roth IRA · ${pct(ytd_retirement, ytd_gross)} of gross`,
+                past_explainer('401k + Roth columns') + ' The percentage is of Gross Income over the same months.')}
+              {stat('Additional Savings', ytd_additional, `${pct(ytd_additional, ytd_gross)} of gross`,
+                past_explainer("Add'l Auto Savings + Actual Saved columns") + ' The percentage is of Gross Income over the same months.')}
             </>
           )}
 
           {card('from-purple-500 to-purple-600', 'Spend', `${year}`,
             'Current Spend is actual spending so far. Projected Spend adds Projected Out for future months. Neither includes savings.',
             <>
-              {stat('Current Spend', current_spend, to_date_label)}
-              {stat('Projected Spend', projected_spend, 'actual + upcoming projected')}
+              {stat('Current Spend', current_spend, to_date_label,
+                past_explainer('Actual Spend column') + ' Does not include transfers to savings.')}
+              {stat('Projected Spend', projected_spend, 'actual + upcoming projected',
+                split_explainer('Actual Spend column', "Projected Out column (Planned Spend + Housing + Add'l)") + " Does not include Planned Save or Add'l Savings.")}
             </>
           )}
 
           {card('from-orange-500 to-orange-600', 'Savings (projected)', `${year}`,
             'Actual savings so far, plus future months: paycheck auto-savings, Planned Save and Additional Savings.',
             <>
-              {stat('Retirement', projected_retirement, `401k + Roth IRA · ${pct(projected_retirement, total_gross)} of gross`)}
-              {stat('Additional Savings', projected_additional, `${pct(projected_additional, total_gross)} of gross`)}
+              {stat('Retirement', projected_retirement, `401k + Roth IRA · ${pct(projected_retirement, total_gross)} of gross`,
+                '401k + Roth columns, all 12 months. The percentage is of full-year Gross Income.')}
+              {stat('Additional Savings', projected_additional, `${pct(projected_additional, total_gross)} of gross`,
+                split_explainer("Add'l Auto Savings + Actual Saved columns", "Add'l Auto Savings + Planned Save + Add'l Savings columns") + ' The percentage is of full-year Gross Income.')}
             </>
           )}
         </div>
