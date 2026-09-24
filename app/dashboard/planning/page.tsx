@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { count_income_occurrences, pay_periods_per_year } from '@/lib/income-utils'
-import { ChevronLeft, ChevronRight, Info, MessageSquare } from 'lucide-react'
+import { ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react'
 
 type Field = 'additional_income' | 'budget' | 'housing' | 'additional' | 'additional_savings' | 'adjustments'
 
@@ -27,7 +27,8 @@ type MonthData = {
   auto_savings: number
   net_income: number
   // Plan
-  budget: number // "Planned Spend", editable, defaults to sum of category budgets
+  budget: number // "Planned Spend", editable, defaults to sum of non-savings category budgets
+  planned_save: number // sum of savings category budgets
   housing: number // editable
   additional: number // editable
   projected_out: number
@@ -52,7 +53,7 @@ const FIELDS: Record<Field, {
   hint?: string
 }> = {
   additional_income: { label: 'Additional Income', column: 'additional_income', hint: 'Adds to Gross Income for this month.' },
-  budget: { label: 'Planned Spend', column: 'budget_override', hint: 'Defaults to the sum of your category budgets.' },
+  budget: { label: 'Planned Spend', column: 'budget_override', hint: 'Defaults to the sum of your non-savings category budgets.' },
   housing: { label: 'Housing', column: 'housing_override', notes_column: 'housing_notes' },
   additional: { label: 'Additional Expenses', column: 'additional_expenses', notes_column: 'additional_notes', zero_default: true },
   additional_savings: { label: 'Additional Savings', column: 'additional_savings', hint: 'Extra money to set aside. Reduces Planned Leftover.' },
@@ -70,6 +71,8 @@ const ROTH_FIELDS = ['roth_ira']
 const AUTO_SAVINGS_FIELDS = ['hysa', 'crypto', 'personal_investments', 'other_savings', 'hsa', 'fsa']
 
 const PAGE_SIZE = 1000
+
+const SOFT_HYPHEN = '\u00ad'
 
 const round2 = (n: number) => Math.round(n * 100) / 100
 
@@ -121,7 +124,7 @@ const with_totals = (m: MonthData): MonthData => {
     gross_income,
     net_income,
     projected_out,
-    planned_leftover: net_income - projected_out - m.additional_savings,
+    planned_leftover: net_income - projected_out - m.planned_save - m.additional_savings,
     actual_leftover: net_income - m.actual_spent - m.saved_amount + m.adjustments,
   }
 }
@@ -161,24 +164,26 @@ const COLUMNS: Column[] = [
   { id: 'net', label: 'Net Income', group: 'paycheck', value: m => m.net_income, tone: () => 'font-medium text-gray-900',
     tooltip: 'Gross Income minus Taxes, Benefits, 401k, Roth and Additional Auto Savings.' },
   { id: 'budget', label: 'Planned Spend', group: 'plan', field: 'budget', value: m => m.budget,
-    tooltip: 'Defaults to the sum of your category budgets for the month. Click a value to change it.' },
+    tooltip: 'Defaults to the sum of your non-savings category budgets for the month. Click a value to change it.' },
+  { id: 'planned_save', label: 'Planned Save', group: 'plan', value: m => m.planned_save,
+    tooltip: 'Sum of your savings category budgets for the month.' },
   { id: 'housing', label: 'Housing', group: 'plan', field: 'housing', value: m => m.housing },
   { id: 'additional', label: "Add'l", group: 'plan', field: 'additional', value: m => m.additional,
     tooltip: 'Additional expenses planned for this month.' },
   { id: 'projected_out', label: 'Projected Out', group: 'plan', value: m => m.projected_out, tone: () => 'text-gray-600',
-    tooltip: "Planned Spend + Housing + Add'l." },
+    tooltip: "Planned Spend + Housing + Add'l. Does not include Planned Save." },
   { id: 'additional_savings', label: "Add'l Savings", group: 'plan', field: 'additional_savings', value: m => m.additional_savings,
     tooltip: 'Additional Savings: extra money you plan to set aside this month. Starts at $0. Click a value to add.' },
   { id: 'planned_leftover', label: 'Planned Leftover', group: 'plan', value: m => m.planned_leftover,
     tone: m => leftover_tone(m.planned_leftover),
-    tooltip: 'Net Income − Projected Out − Additional Savings.' },
+    tooltip: 'Net Income − Projected Out − Planned Save − Additional Savings.' },
   { id: 'actual_spent', label: 'Actual Spend', group: 'actual', actual: true, value: m => m.actual_spent,
     tone: () => 'text-blue-600 font-medium',
     tooltip: 'Spending this month, not counting transfers to savings categories. The current month counts spending so far.' },
   { id: 'saved', label: 'Actual Saved', group: 'actual', actual: true, value: m => m.saved_amount,
     tone: () => 'text-green-600 font-medium',
     tooltip: 'Transfers to savings categories this month.' },
-  { id: 'adjustments', label: 'Adjust­ments', group: 'actual', field: 'adjustments', value: m => m.adjustments,
+  { id: 'adjustments', label: `Adjust${SOFT_HYPHEN}ments`, group: 'actual', field: 'adjustments', value: m => m.adjustments,
     tooltip: 'Manual corrections. Positive adds to Actual Leftover (e.g. a refund); negative subtracts.' },
   { id: 'actual_leftover', label: 'Actual Leftover', group: 'actual', actual: true, value: m => m.actual_leftover,
     tone: m => leftover_tone(m.actual_leftover),
@@ -192,15 +197,16 @@ const GROUPS: { id: Column['group'], label: string }[] = [
   { id: 'actual', label: 'Actual' },
 ]
 
-// Left border at the start of each group to visually separate them
-const group_start = new Set(GROUPS.map(g => COLUMNS.find(c => c.group === g.id)!.id))
 
 export default function PlanningPage() {
   const [year, setYear] = useState(new Date().getFullYear())
   const [months, setMonths] = useState<MonthData[]>([])
-  const [savings_budget, setSavingsBudget] = useState(0)
   const [loading, setLoading] = useState(true)
   const load_id = useRef(0)
+
+  // Column visibility, saved on the user's account so it follows them across devices
+  const [hidden_columns, setHiddenColumns] = useState<string[]>([])
+  const [open_group, setOpenGroup] = useState<Column['group'] | null>(null)
 
   // Edit modal state
   const [editing_month, setEditingMonth] = useState<string | null>(null)
@@ -209,6 +215,20 @@ export default function PlanningPage() {
   const [edit_notes, setEditNotes] = useState('')
   const [apply_to_rest, setApplyToRest] = useState(false)
   const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      const saved = user?.user_metadata?.planning_hidden_columns
+      if (Array.isArray(saved)) setHiddenColumns(saved)
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!open_group) return
+    const handle_key = (e: KeyboardEvent) => { if (e.key === 'Escape') setOpenGroup(null) }
+    document.addEventListener('keydown', handle_key)
+    return () => document.removeEventListener('keydown', handle_key)
+  }, [open_group])
 
   useEffect(() => {
     load_planning_data()
@@ -283,8 +303,9 @@ export default function PlanningPage() {
       }
 
       const budget_of = (c: any) => parseFloat(c.monthly_budget.toString())
-      const default_budget = categories?.reduce((sum, c) => sum + budget_of(c), 0) || 0
-      const planned_transfers = categories?.filter(c => c.is_savings).reduce((sum, c) => sum + budget_of(c), 0) || 0
+      // Savings categories feed Planned Save; everything else feeds Planned Spend
+      const default_budget = categories?.filter(c => !c.is_savings).reduce((sum, c) => sum + budget_of(c), 0) || 0
+      const planned_save = categories?.filter(c => c.is_savings).reduce((sum, c) => sum + budget_of(c), 0) || 0
 
       const overrides_map: Record<string, any> = {}
       all_overrides?.forEach(o => { overrides_map[o.month_year] = o })
@@ -390,6 +411,7 @@ export default function PlanningPage() {
           roth: round2(roth),
           auto_savings: round2(auto_savings),
           budget: values.budget,
+          planned_save: round2(planned_save),
           housing: values.housing,
           additional: values.additional,
           additional_savings: values.additional_savings,
@@ -409,7 +431,6 @@ export default function PlanningPage() {
       // Ignore responses from a load that a newer one (e.g. a quick year change) superseded
       if (id !== load_id.current) return
       setMonths(months_data)
-      setSavingsBudget(planned_transfers)
     } catch (err) {
       console.error('Error loading planning data:', err)
     } finally {
@@ -533,23 +554,74 @@ export default function PlanningPage() {
   const elapsed = months.filter(m => m.status !== 'future')
   const future = months.filter(m => m.status === 'future')
 
+  const retirement_of = (m: MonthData) => m.retirement_401k + m.roth
+
+  // Income (full year)
   const total_gross = sum(m => m.gross_income)
   const total_net = sum(m => m.net_income)
-  const total_projected_out = sum(m => m.projected_out)
-  const total_401k = sum(m => m.retirement_401k)
-  const total_roth = sum(m => m.roth)
-  const total_auto_savings = sum(m => m.auto_savings)
-  // Actual transfers so far, plus planned transfers (savings-category budgets + Additional Savings) ahead
-  const total_cash_savings = sum(m => m.saved_amount, elapsed) + sum(m => savings_budget + m.additional_savings, future)
-  const total_savings = total_401k + total_roth + total_auto_savings + total_cash_savings
 
-  const pct_of_gross = (n: number) => (total_gross > 0 ? ((n / total_gross) * 100).toFixed(1) : '0.0')
+  // Savings to date: paycheck auto-savings plus actual transfers to savings categories
+  const ytd_gross = sum(m => m.gross_income, elapsed)
+  const ytd_retirement = sum(retirement_of, elapsed)
+  const ytd_additional = sum(m => m.auto_savings + m.saved_amount, elapsed)
+
+  // Spend: actual through the current month, Projected Out (no Planned Save) after that
+  const current_spend = sum(m => m.actual_spent, elapsed)
+  const projected_spend = current_spend + sum(m => m.projected_out, future)
+
+  // Projected savings (full year): to date, plus planned savings for future months
+  const projected_retirement = sum(retirement_of)
+  const projected_additional = ytd_additional + sum(m => m.auto_savings + m.planned_save + m.additional_savings, future)
+
+  const pct = (n: number, of: number) => (of > 0 ? `${((n / of) * 100).toFixed(1)}%` : '0%')
+  const last_elapsed = elapsed[elapsed.length - 1]
+  const to_date_label = future.length === 0 ? `${year}` : last_elapsed ? `through ${last_elapsed.month_name}` : 'none yet'
+
+  const visible_columns = COLUMNS.filter(c => !hidden_columns.includes(c.id))
+  // Left border at the first visible column of each group to separate them
+  const group_start = new Set(GROUPS.map(g => visible_columns.find(c => c.group === g.id)?.id))
+
+  const save_hidden_columns = (next: string[]) => {
+    setHiddenColumns(next)
+    supabase.auth.updateUser({ data: { planning_hidden_columns: next } })
+      .then(({ error }) => { if (error) console.error('Error saving column visibility:', error) })
+  }
+
+  const toggle_column = (id: string) =>
+    save_hidden_columns(hidden_columns.includes(id) ? hidden_columns.filter(c => c !== id) : [...hidden_columns, id])
+
+  const show_group = (group: Column['group']) => {
+    const ids = COLUMNS.filter(c => c.group === group).map(c => c.id)
+    save_hidden_columns(hidden_columns.filter(c => !ids.includes(c)))
+  }
 
   const editing = months.find(m => m.month === editing_month)
   const remaining_after_edit = editing ? months.length - months.indexOf(editing) - 1 : 0
 
   const cell_base = 'px-1 py-2 text-right whitespace-nowrap tabular-nums'
   const divider = (col: Column) => (group_start.has(col.id) ? 'border-l border-gray-200' : '')
+
+  const stat = (label: string, value: number, sub?: string) => (
+    <div className="flex items-baseline justify-between gap-2">
+      <span className="text-sm opacity-90">{label}</span>
+      <span className="text-right">
+        <span className="text-2xl font-bold">{money(value, false)}</span>
+        {sub && <span className="block text-xs opacity-80">{sub}</span>}
+      </span>
+    </div>
+  )
+
+  const card = (className: string, title: string, subtitle: string, tooltip: string, children: React.ReactNode) => (
+    <div className={`bg-gradient-to-br ${className} text-white rounded-lg p-4 space-y-3`}>
+      <div className="flex items-center justify-between gap-2">
+        <Tooltip text={tooltip} align="left">
+          <span className="text-sm font-semibold underline decoration-dotted decoration-white/60 underline-offset-2">{title}</span>
+        </Tooltip>
+        <span className="text-xs opacity-80">{subtitle}</span>
+      </div>
+      {children}
+    </div>
+  )
 
   const render_cell = (month: MonthData, col: Column) => {
     const value = col.value(month)
@@ -637,40 +709,38 @@ export default function PlanningPage() {
 
       <div className={loading ? 'opacity-50 pointer-events-none transition-opacity' : 'transition-opacity'}>
         {/* Summary Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          <div className="bg-gradient-to-br from-blue-500 to-blue-600 text-white rounded-lg p-4">
-            <div className="text-sm opacity-90 mb-2">Gross Income ({year})</div>
-            <div className="text-3xl font-bold">{money(total_gross, false)}</div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4 mb-6">
+          {card('from-blue-500 to-blue-600', 'Income', `${year}`,
+            'All 12 months. Past months are calculated from your income setup, not recorded deposits.',
+            <>
+              {stat('Gross Income', total_gross)}
+              {stat('Net Income', total_net, total_gross > 0 ? `${pct(total_net, total_gross)} of gross` : undefined)}
+            </>
+          )}
 
-          <div className="bg-gradient-to-br from-green-500 to-green-600 text-white rounded-lg p-4">
-            <div className="text-sm opacity-90 mb-2">Net Income ({year})</div>
-            <div className="text-3xl font-bold">{money(total_net, false)}</div>
-            {total_gross > 0 && (
-              <div className="text-sm opacity-90">({((total_net / total_gross) * 100).toFixed(0)}% of gross)</div>
-            )}
-          </div>
+          {card('from-green-500 to-green-600', 'Savings (actual)', to_date_label,
+            'Through the current month. Additional Savings is paycheck auto-deducted savings plus actual transfers to savings categories.',
+            <>
+              {stat('Retirement', ytd_retirement, `401k + Roth IRA · ${pct(ytd_retirement, ytd_gross)} of gross`)}
+              {stat('Additional Savings', ytd_additional, `${pct(ytd_additional, ytd_gross)} of gross`)}
+            </>
+          )}
 
-          <div className="bg-gradient-to-br from-purple-500 to-purple-600 text-white rounded-lg p-4">
-            <div className="text-sm opacity-90 mb-2">Total Projected Out ({year})</div>
-            <div className="text-3xl font-bold">{money(total_projected_out, false)}</div>
-          </div>
+          {card('from-purple-500 to-purple-600', 'Spend', `${year}`,
+            'Current Spend is actual spending so far. Projected Spend adds Projected Out for future months. Neither includes savings.',
+            <>
+              {stat('Current Spend', current_spend, to_date_label)}
+              {stat('Projected Spend', projected_spend, 'actual + upcoming projected')}
+            </>
+          )}
 
-          <div className="bg-gradient-to-br from-orange-500 to-orange-600 text-white rounded-lg p-4">
-            <div className="text-sm opacity-90 mb-2">Total Projected Savings ({year})</div>
-            <div className="text-3xl font-bold">{money(total_savings, false)}</div>
-            <div className="text-xs mt-2 space-y-1">
-              <div>401k: {money(total_401k, false)} ({pct_of_gross(total_401k)}% of gross)</div>
-              <div>Roth: {money(total_roth, false)} ({pct_of_gross(total_roth)}% of gross)</div>
-              <div>Auto: {money(total_auto_savings, false)} ({pct_of_gross(total_auto_savings)}% of gross)</div>
-              <div>
-                <Tooltip text="Actual transfers to savings categories so far, plus planned savings for the rest of the year: your savings categories' monthly budgets and any Additional Savings.">
-                  Saved: {money(total_cash_savings, false)} ({pct_of_gross(total_cash_savings)}% of gross)
-                  <Info size={11} className="opacity-80" />
-                </Tooltip>
-              </div>
-            </div>
-          </div>
+          {card('from-orange-500 to-orange-600', 'Savings (projected)', `${year}`,
+            'Actual savings so far, plus future months: paycheck auto-savings, Planned Save and Additional Savings.',
+            <>
+              {stat('Retirement', projected_retirement, `401k + Roth IRA · ${pct(projected_retirement, total_gross)} of gross`)}
+              {stat('Additional Savings', projected_additional, `${pct(projected_additional, total_gross)} of gross`)}
+            </>
+          )}
         </div>
 
         {/* Monthly Table */}
@@ -679,19 +749,76 @@ export default function PlanningPage() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr className="border-b border-gray-200">
                 <th />
-                {GROUPS.map(g => (
-                  <th
-                    key={g.id}
-                    colSpan={COLUMNS.filter(c => c.group === g.id).length}
-                    className="px-1.5 pt-2 pb-1 text-center text-[11px] font-semibold uppercase tracking-wide text-gray-500 border-l border-gray-200"
-                  >
-                    {g.label}
-                  </th>
-                ))}
+                {GROUPS.map((g, gi) => {
+                  const group_columns = COLUMNS.filter(c => c.group === g.id)
+                  const visible_count = group_columns.filter(c => !hidden_columns.includes(c.id)).length
+                  return (
+                    <th
+                      key={g.id}
+                      colSpan={visible_count}
+                      className="relative px-1.5 pt-2 pb-1 text-center border-l border-gray-200"
+                    >
+                      <button
+                        onClick={() => setOpenGroup(open_group === g.id ? null : g.id)}
+                        className="text-[11px] font-semibold uppercase tracking-wide text-gray-500 hover:text-blue-600 transition"
+                        aria-haspopup="true"
+                        aria-expanded={open_group === g.id}
+                      >
+                        {g.label}
+                        {visible_count < group_columns.length && (
+                          <span className="ml-1 normal-case font-normal">({visible_count}/{group_columns.length})</span>
+                        )}
+                        <span className="ml-1">▾</span>
+                      </button>
+
+                      {open_group === g.id && (
+                        <>
+                          <div className="fixed inset-0 z-20" onClick={() => setOpenGroup(null)} />
+                          <div className={`absolute top-full mt-1 z-30 w-52 bg-white border border-gray-200 rounded-lg shadow-lg p-3 text-left normal-case tracking-normal ${
+                            gi < GROUPS.length / 2 ? 'left-0' : 'right-0'
+                          }`}>
+                            <div className="text-xs font-semibold text-gray-700 mb-2">Show {g.label} columns</div>
+                            <div className="space-y-1.5">
+                              {group_columns.map(c => {
+                                const checked = !hidden_columns.includes(c.id)
+                                // Keep at least one column per group so its header stays clickable
+                                const locked = checked && visible_count === 1
+                                return (
+                                  <label
+                                    key={c.id}
+                                    className={`flex items-center gap-2 text-xs font-normal ${locked ? 'text-gray-400' : 'text-gray-700 cursor-pointer'}`}
+                                    title={locked ? 'Each group needs at least one visible column' : undefined}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={checked}
+                                      disabled={locked}
+                                      onChange={() => toggle_column(c.id)}
+                                      className="rounded border-gray-300"
+                                    />
+                                    {c.label.replace(SOFT_HYPHEN, '')}
+                                  </label>
+                                )
+                              })}
+                            </div>
+                            {visible_count < group_columns.length && (
+                              <button
+                                onClick={() => show_group(g.id)}
+                                className="mt-3 text-xs font-medium text-blue-600 hover:text-blue-700"
+                              >
+                                Show all
+                              </button>
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </th>
+                  )
+                })}
               </tr>
               <tr>
                 <th className="px-1.5 py-2 text-left font-medium text-gray-700 align-bottom">Month</th>
-                {COLUMNS.map((col, i) => (
+                {visible_columns.map((col, i) => (
                   <th
                     key={col.id}
                     className={`px-1 py-2 text-right font-medium align-bottom leading-tight ${divider(col)} ${
@@ -699,7 +826,7 @@ export default function PlanningPage() {
                     }`}
                   >
                     {col.tooltip ? (
-                      <Tooltip text={col.tooltip} align={i < COLUMNS.length / 2 ? 'left' : 'right'}>
+                      <Tooltip text={col.tooltip} align={i < visible_columns.length / 2 ? 'left' : 'right'}>
                         <span className="underline decoration-dotted decoration-gray-400 underline-offset-2">{col.label}</span>
                       </Tooltip>
                     ) : col.label}
@@ -719,7 +846,7 @@ export default function PlanningPage() {
                       <span className="2xl:hidden">{month.month_name.slice(0, 3)}</span>
                       <span className="hidden 2xl:inline">{month.month_name}</span>
                     </td>
-                    {COLUMNS.map(col => render_cell(month, col))}
+                    {visible_columns.map(col => render_cell(month, col))}
                   </tr>
                 )
               })}
@@ -727,7 +854,7 @@ export default function PlanningPage() {
             <tfoot className="bg-gray-50 border-t-2 border-gray-200 font-semibold">
               <tr>
                 <td className="px-1.5 py-2 text-gray-800">Total</td>
-                {COLUMNS.map(render_total)}
+                {visible_columns.map(render_total)}
               </tr>
             </tfoot>
           </table>
@@ -735,6 +862,7 @@ export default function PlanningPage() {
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-gray-500">
           <span><span className="text-blue-700 font-medium">Blue columns</span> are editable: click a value</span>
+          <span>Click a group name (Income, Paycheck, Plan, Actual) to show or hide columns</span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Manually set
           </span>
