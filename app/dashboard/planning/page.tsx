@@ -6,7 +6,16 @@ import { format, addMonths, startOfMonth, endOfMonth } from 'date-fns'
 import { count_income_occurrences, pay_periods_per_year } from '@/lib/income-utils'
 import { ChevronLeft, ChevronRight, MessageSquare } from 'lucide-react'
 
-type Field = 'additional_income' | 'budget' | 'housing' | 'additional' | 'additional_savings' | 'adjustments'
+// Every table column is editable. Input fields default to a calculated value; derived fields
+// default to a sum of other columns. An override on either replaces the value everywhere,
+// including in the columns calculated from it.
+type InputField =
+  | 'salary_income' | 'one_time_income' | 'additional_income'
+  | 'taxes' | 'benefits' | 'retirement_401k' | 'roth' | 'auto_savings'
+  | 'budget' | 'planned_save' | 'housing' | 'additional' | 'additional_savings'
+  | 'actual_spent' | 'saved_amount' | 'adjustments'
+type DerivedField = 'gross_income' | 'net_income' | 'projected_out' | 'planned_leftover' | 'actual_leftover'
+type Field = InputField | DerivedField
 
 type MonthStatus = 'past' | 'current' | 'future'
 
@@ -17,7 +26,7 @@ type MonthData = {
   // Income
   salary_income: number // all recurring income
   one_time_income: number
-  additional_income: number // editable
+  additional_income: number
   gross_income: number
   // Paycheck deductions
   taxes: number
@@ -27,23 +36,25 @@ type MonthData = {
   auto_savings: number
   net_income: number
   // Plan
-  budget: number // "Planned Spend", editable, defaults to sum of non-savings category budgets
-  planned_save: number // sum of savings category budgets
-  housing: number // editable
-  additional: number // editable
+  budget: number // "Planned Spend", defaults to sum of non-savings category budgets
+  planned_save: number // defaults to sum of savings category budgets
+  housing: number
+  additional: number
   projected_out: number
-  additional_savings: number // editable
+  additional_savings: number
   planned_leftover: number
   // Actual
   actual_spent: number // spending excluding savings categories
   saved_amount: number // transfers to savings categories
-  adjustments: number // editable; positive adds to actual leftover
+  adjustments: number // positive adds to actual leftover
   actual_leftover: number
-  overridden: Partial<Record<Field, boolean>>
+  defaults: Record<InputField, number> // calculated value of each input field
+  overrides: Partial<Record<Field, number>> // manually set values
   notes: Partial<Record<Field, string>>
 }
 
-// Single source of truth for how each editable field maps to state and to planning_overrides
+// Single source of truth for how each field maps to planning_overrides
+const DERIVED_HINT = 'Replaces the calculated total. Columns calculated from it use this value.'
 const FIELDS: Record<Field, {
   label: string
   column: string
@@ -52,13 +63,35 @@ const FIELDS: Record<Field, {
   zero_default?: boolean
   hint?: string
 }> = {
+  salary_income: { label: 'Salary Income', column: 'salary_income_override' },
+  one_time_income: { label: 'One Time Income', column: 'one_time_income_override' },
   additional_income: { label: 'Additional Income', column: 'additional_income', hint: 'Adds to Gross Income for this month.' },
+  gross_income: { label: 'Gross Income', column: 'gross_income_override', hint: DERIVED_HINT },
+  taxes: { label: 'Taxes', column: 'taxes_override' },
+  benefits: { label: 'Benefits', column: 'benefits_override' },
+  retirement_401k: { label: '401k', column: 'retirement_401k_override' },
+  roth: { label: 'Roth', column: 'roth_override' },
+  auto_savings: { label: 'Additional Auto Savings', column: 'auto_savings_override' },
+  net_income: { label: 'Net Income', column: 'net_income_override', hint: DERIVED_HINT },
   budget: { label: 'Planned Spend', column: 'budget_override', hint: 'Defaults to the sum of your non-savings category budgets.' },
+  planned_save: { label: 'Planned Save', column: 'planned_save_override', hint: 'Defaults to the sum of your savings category budgets.' },
   housing: { label: 'Housing', column: 'housing_override', notes_column: 'housing_notes' },
   additional: { label: 'Additional Expenses', column: 'additional_expenses', notes_column: 'additional_notes', zero_default: true },
+  projected_out: { label: 'Projected Out', column: 'projected_out_override', hint: DERIVED_HINT },
   additional_savings: { label: 'Additional Savings', column: 'additional_savings', hint: 'Extra money to set aside. Reduces Planned Leftover.' },
+  planned_leftover: { label: 'Planned Leftover', column: 'planned_leftover_override', hint: DERIVED_HINT },
+  actual_spent: { label: 'Actual Spend', column: 'actual_spent_override', hint: 'Defaults to your recorded spending, not counting savings transfers.' },
+  saved_amount: { label: 'Actual Saved', column: 'actual_saved_override', hint: 'Defaults to your recorded transfers to savings categories.' },
   adjustments: { label: 'Adjustments', column: 'adjustments', zero_default: true, hint: 'Positive adds to Actual Leftover (e.g. a refund). Negative subtracts.' },
+  actual_leftover: { label: 'Actual Leftover', column: 'actual_leftover_override', hint: DERIVED_HINT },
 }
+
+const INPUT_FIELDS: InputField[] = [
+  'salary_income', 'one_time_income', 'additional_income',
+  'taxes', 'benefits', 'retirement_401k', 'roth', 'auto_savings',
+  'budget', 'planned_save', 'housing', 'additional', 'additional_savings',
+  'actual_spent', 'saved_amount', 'adjustments',
+]
 
 // Yearly salary deduction fields, grouped into the table's deduction columns
 const TAX_FIELDS = ['federal_tax', 'state_tax', 'local_tax', 'fica_total', 'ca_disability', 'state_etc']
@@ -115,18 +148,24 @@ const Tooltip = ({ text, align = 'right', width = 'w-64', children }: {
   </span>
 )
 
-// Recompute every value that derives from the editable fields
+// Apply overrides and recompute every derived value. Each derived total uses the
+// (possibly overridden) values to its left, unless it is overridden itself.
 const with_totals = (m: MonthData): MonthData => {
-  const gross_income = m.salary_income + m.one_time_income + m.additional_income
-  const net_income = gross_income - m.taxes - m.benefits - m.retirement_401k - m.roth - m.auto_savings
-  const projected_out = m.budget + m.housing + m.additional
+  const o = m.overrides
+  const v = {} as Record<InputField, number>
+  for (const f of INPUT_FIELDS) v[f] = o[f] ?? m.defaults[f]
+
+  const gross_income = o.gross_income ?? v.salary_income + v.one_time_income + v.additional_income
+  const net_income = o.net_income ?? gross_income - v.taxes - v.benefits - v.retirement_401k - v.roth - v.auto_savings
+  const projected_out = o.projected_out ?? v.budget + v.housing + v.additional
   return {
     ...m,
+    ...v,
     gross_income,
     net_income,
     projected_out,
-    planned_leftover: net_income - projected_out - m.planned_save - m.additional_savings,
-    actual_leftover: net_income - m.actual_spent - m.saved_amount + m.adjustments,
+    planned_leftover: o.planned_leftover ?? net_income - projected_out - v.planned_save - v.additional_savings,
+    actual_leftover: o.actual_leftover ?? net_income - v.actual_spent - v.saved_amount + v.adjustments,
   }
 }
 
@@ -134,9 +173,8 @@ type Column = {
   id: string
   label: string
   group: 'income' | 'paycheck' | 'plan' | 'actual'
+  field: Field
   tooltip?: string
-  field?: Field // set for editable columns
-  value: (m: MonthData) => number
   actual?: boolean // only meaningful for past/current months
   tone?: (m: MonthData) => string
 }
@@ -144,49 +182,50 @@ type Column = {
 const leftover_tone = (n: number) => (n >= 0 ? 'text-green-600 font-semibold' : 'text-red-600 font-semibold')
 
 const COLUMNS: Column[] = [
-  { id: 'salary', label: 'Salary Income', group: 'income', value: m => m.salary_income,
+  { id: 'salary', label: 'Salary Income', group: 'income', field: 'salary_income',
     tooltip: 'Recurring income before deductions: salary and any other recurring paychecks.' },
-  { id: 'one_time', label: 'One Time Income', group: 'income', value: m => m.one_time_income,
+  { id: 'one_time', label: 'One Time Income', group: 'income', field: 'one_time_income',
     tooltip: 'Non-recurring income dated in this month.' },
-  { id: 'additional_income', label: "Add'l Income", group: 'income', field: 'additional_income', value: m => m.additional_income,
-    tooltip: 'Additional Income: extra income you expect this month. Starts at $0. Click a value to add.' },
-  { id: 'gross', label: 'Gross Income', group: 'income', value: m => m.gross_income, tone: () => 'font-medium text-gray-900',
+  { id: 'additional_income', label: "Add'l Income", group: 'income', field: 'additional_income',
+    tooltip: 'Additional Income: extra income you expect this month. Starts at $0.' },
+  { id: 'gross', label: 'Gross Income', group: 'income', field: 'gross_income', tone: () => 'font-medium text-gray-900',
     tooltip: 'Salary Income + One Time Income + Additional Income.' },
-  { id: 'taxes', label: 'Taxes', group: 'paycheck', value: m => m.taxes,
+  { id: 'taxes', label: 'Taxes', group: 'paycheck', field: 'taxes',
     tooltip: 'Federal, state, local, FICA and state disability taxes.' },
-  { id: 'benefits', label: 'Benefits', group: 'paycheck', value: m => m.benefits,
+  { id: 'benefits', label: 'Benefits', group: 'paycheck', field: 'benefits',
     tooltip: 'Insurance and benefit deductions: medical, dental, vision, life, disability, legal plan, identity theft and similar.' },
-  { id: '401k', label: '401k', group: 'paycheck', value: m => m.retirement_401k,
+  { id: '401k', label: '401k', group: 'paycheck', field: 'retirement_401k',
     tooltip: 'All 401k contributions: pre-tax, after-tax and Roth 401k.' },
-  { id: 'roth', label: 'Roth', group: 'paycheck', value: m => m.roth,
+  { id: 'roth', label: 'Roth', group: 'paycheck', field: 'roth',
     tooltip: 'Roth IRA contributions.' },
-  { id: 'auto_savings', label: "Add'l Auto Savings", group: 'paycheck', value: m => m.auto_savings,
+  { id: 'auto_savings', label: "Add'l Auto Savings", group: 'paycheck', field: 'auto_savings',
     tooltip: 'Additional Auto Deducted Savings: HYSA, crypto, personal investments, other savings, HSA and FSA.' },
-  { id: 'net', label: 'Net Income', group: 'paycheck', value: m => m.net_income, tone: () => 'font-medium text-gray-900',
+  { id: 'net', label: 'Net Income', group: 'paycheck', field: 'net_income', tone: () => 'font-medium text-gray-900',
     tooltip: 'Gross Income minus Taxes, Benefits, 401k, Roth and Additional Auto Savings.' },
-  { id: 'budget', label: 'Planned Spend', group: 'plan', field: 'budget', value: m => m.budget,
-    tooltip: 'Defaults to the sum of your non-savings category budgets for the month. Click a value to change it.' },
-  { id: 'planned_save', label: 'Planned Save', group: 'plan', value: m => m.planned_save,
-    tooltip: 'Sum of your savings category budgets for the month.' },
-  { id: 'housing', label: 'Housing', group: 'plan', field: 'housing', value: m => m.housing },
-  { id: 'additional', label: "Add'l", group: 'plan', field: 'additional', value: m => m.additional,
+  { id: 'budget', label: 'Planned Spend', group: 'plan', field: 'budget',
+    tooltip: 'Defaults to the sum of your non-savings category budgets for the month.' },
+  { id: 'planned_save', label: 'Planned Save', group: 'plan', field: 'planned_save',
+    tooltip: 'Defaults to the sum of your savings category budgets for the month.' },
+  { id: 'housing', label: 'Housing', group: 'plan', field: 'housing' },
+  { id: 'additional', label: "Add'l", group: 'plan', field: 'additional',
     tooltip: 'Additional expenses planned for this month.' },
-  { id: 'projected_out', label: 'Projected Out', group: 'plan', value: m => m.projected_out, tone: () => 'text-gray-600',
+  { id: 'projected_out', label: 'Projected Out', group: 'plan', field: 'projected_out', tone: () => 'text-gray-600',
     tooltip: "Planned Spend + Housing + Add'l. Does not include Planned Save." },
-  { id: 'additional_savings', label: "Add'l Savings", group: 'plan', field: 'additional_savings', value: m => m.additional_savings,
-    tooltip: 'Additional Savings: extra money you plan to set aside this month. Starts at $0. Click a value to add.' },
-  { id: 'planned_leftover', label: 'Planned Leftover', group: 'plan', value: m => m.planned_leftover,
+  { id: 'additional_savings', label: "Add'l Savings", group: 'plan', field: 'additional_savings',
+    tooltip: 'Additional Savings: extra money you plan to set aside this month. Starts at $0.' },
+  { id: 'planned_leftover', label: 'Planned Leftover', group: 'plan', field: 'planned_leftover',
     tone: m => leftover_tone(m.planned_leftover),
     tooltip: 'Net Income − Projected Out − Planned Save − Additional Savings.' },
-  { id: 'actual_spent', label: 'Actual Spend', group: 'actual', actual: true, value: m => m.actual_spent,
+  { id: 'actual_spent', label: 'Actual Spend', group: 'actual', field: 'actual_spent', actual: true,
     tone: () => 'text-blue-600 font-medium',
     tooltip: 'Spending this month, not counting transfers to savings categories. The current month counts spending so far.' },
-  { id: 'saved', label: 'Actual Saved', group: 'actual', actual: true, value: m => m.saved_amount,
+  { id: 'saved', label: 'Actual Saved', group: 'actual', field: 'saved_amount', actual: true,
     tone: () => 'text-green-600 font-medium',
     tooltip: 'Transfers to savings categories this month.' },
-  { id: 'adjustments', label: `Adjust${SOFT_HYPHEN}ments`, group: 'actual', field: 'adjustments', value: m => m.adjustments,
+  { id: 'adjustments', label: `Adjust${SOFT_HYPHEN}ments`, group: 'actual', field: 'adjustments',
+    tone: () => 'text-orange-600 font-medium',
     tooltip: 'Manual corrections. Positive adds to Actual Leftover (e.g. a refund); negative subtracts.' },
-  { id: 'actual_leftover', label: 'Actual Leftover', group: 'actual', actual: true, value: m => m.actual_leftover,
+  { id: 'actual_leftover', label: 'Actual Leftover', group: 'actual', field: 'actual_leftover', actual: true,
     tone: m => leftover_tone(m.actual_leftover),
     tooltip: 'Net Income − Actual Spend − Actual Saved + Adjustments. The current month counts activity so far.' },
 ]
@@ -377,54 +416,52 @@ export default function PlanningPage() {
 
         const spending = spending_map[month_year] || { spent: 0, saved: 0 }
 
-        // Apply overrides or use defaults (use ?? so 0 overrides are respected)
-        const override = overrides_map[month_year] || {}
-        const defaults: Record<Field, number> = {
+        const defaults: Record<InputField, number> = {
+          salary_income: round2(salary_income),
+          one_time_income: round2(one_time_income),
           additional_income: 0,
+          taxes: round2(taxes),
+          benefits: round2(benefits),
+          retirement_401k: round2(retirement_401k),
+          roth: round2(roth),
+          auto_savings: round2(auto_savings),
           budget: default_budget,
+          planned_save: round2(planned_save),
           housing: 0,
           additional: 0,
           additional_savings: 0,
+          actual_spent: round2(spending.spent),
+          saved_amount: round2(spending.saved),
           adjustments: 0,
         }
-        const values = {} as Record<Field, number>
-        const overridden: MonthData['overridden'] = {}
+
+        // Read overrides (use != null so 0 overrides are respected)
+        const row = overrides_map[month_year] || {}
+        const overrides: MonthData['overrides'] = {}
         const notes: MonthData['notes'] = {}
         for (const field of Object.keys(FIELDS) as Field[]) {
           const cfg = FIELDS[field]
-          const value = override[cfg.column]
-          const note = cfg.notes_column ? override[cfg.notes_column] : null
-          values[field] = value != null ? parseFloat(value.toString()) : defaults[field]
-          overridden[field] = value != null && !(cfg.zero_default && values[field] === 0 && !note)
+          const raw = row[cfg.column]
+          const note = cfg.notes_column ? row[cfg.notes_column] : null
           if (note) notes[field] = note
+          if (raw == null) continue
+          const value = parseFloat(raw.toString())
+          if (cfg.zero_default && value === 0 && !note) continue
+          overrides[field] = value
         }
 
         months_data.push(with_totals({
           month: month_year,
           month_name: format(month_date, 'MMMM'),
           status,
-          salary_income: round2(salary_income),
-          one_time_income: round2(one_time_income),
-          additional_income: values.additional_income,
-          taxes: round2(taxes),
-          benefits: round2(benefits),
-          retirement_401k: round2(retirement_401k),
-          roth: round2(roth),
-          auto_savings: round2(auto_savings),
-          budget: values.budget,
-          planned_save: round2(planned_save),
-          housing: values.housing,
-          additional: values.additional,
-          additional_savings: values.additional_savings,
-          actual_spent: round2(spending.spent),
-          saved_amount: round2(spending.saved),
-          adjustments: values.adjustments,
+          ...defaults,
           gross_income: 0,
           net_income: 0,
           projected_out: 0,
           planned_leftover: 0,
           actual_leftover: 0,
-          overridden,
+          defaults,
+          overrides,
           notes,
         }))
       }
@@ -496,8 +533,7 @@ export default function PlanningPage() {
       setMonths(prev => prev.map(m => targets.includes(m.month)
         ? with_totals({
             ...m,
-            [edit_field]: parsed_value,
-            overridden: { ...m.overridden, [edit_field]: true },
+            overrides: { ...m.overrides, [edit_field]: parsed_value },
             notes: { ...m.notes, [edit_field]: notes || undefined },
           })
         : m
@@ -515,9 +551,14 @@ export default function PlanningPage() {
     if (!editing_month || saving) return
     setSaving(true)
     try {
-      await write_override(null, null)
-      // Reload to get fresh calculated values
-      await load_planning_data(true)
+      const targets = await write_override(null, null)
+      if (!targets) return
+      setMonths(prev => prev.map(m => {
+        if (!targets.includes(m.month)) return m
+        const { [edit_field]: _removed, ...overrides } = m.overrides
+        const { [edit_field]: _note, ...notes } = m.notes
+        return with_totals({ ...m, overrides, notes })
+      }))
       close_edit()
     } catch (err: any) {
       console.error('Error resetting to default:', err)
@@ -597,6 +638,12 @@ export default function PlanningPage() {
   }
 
   const editing = months.find(m => m.month === editing_month)
+  // What the edited field would be without its own override, shown in the edit popup
+  const calculated_value = (() => {
+    if (!editing) return null
+    const { [edit_field]: _removed, ...overrides } = editing.overrides
+    return with_totals({ ...editing, overrides })[edit_field]
+  })()
   const remaining_after_edit = editing ? months.length - months.indexOf(editing) - 1 : 0
 
   const cell_base = 'px-1 py-2 text-right whitespace-nowrap tabular-nums'
@@ -642,19 +689,15 @@ export default function PlanningPage() {
   )
 
   const render_cell = (month: MonthData, col: Column) => {
-    const value = col.value(month)
+    const field = col.field
+    const value = month[field]
     const cls = `${cell_base} ${divider(col)}`
 
     if (col.actual && month.status === 'future') {
       return <td key={col.id} className={`${cls} text-gray-300`}>—</td>
     }
 
-    if (!col.field) {
-      return <td key={col.id} className={`${cls} ${col.tone?.(month) ?? 'text-gray-700'}`}><Amount value={value} /></td>
-    }
-
-    const field = col.field
-    const is_overridden = month.overridden[field]
+    const is_overridden = field in month.overrides
     const note = month.notes[field]
     const muted = value === 0 && !is_overridden
 
@@ -664,7 +707,7 @@ export default function PlanningPage() {
           onClick={() => open_edit(month, field)}
           title={is_overridden ? `Manually set${note ? `\n\n${note}` : ''}` : 'Click to edit'}
           className={`inline-flex items-center gap-1 hover:text-blue-600 transition ${
-            muted ? 'text-gray-400' : field === 'adjustments' ? 'text-orange-600 font-medium' : 'text-gray-700'
+            muted ? 'text-gray-400' : col.tone?.(month) ?? 'text-gray-700'
           }`}
         >
           {note && <MessageSquare size={11} className="text-gray-400" />}
@@ -676,7 +719,8 @@ export default function PlanningPage() {
   }
 
   const render_total = (col: Column) => {
-    const total = col.actual || col.id === 'adjustments' ? sum(col.value, elapsed) : sum(col.value)
+    const value_of = (m: MonthData) => m[col.field]
+    const total = col.actual || col.id === 'adjustments' ? sum(value_of, elapsed) : sum(value_of)
     const empty = col.actual && elapsed.length === 0
     const tone = col.id === 'planned_leftover' || col.id === 'actual_leftover'
       ? (total >= 0 ? 'text-green-600' : 'text-red-600')
@@ -847,9 +891,7 @@ export default function PlanningPage() {
                 {visible_columns.map((col, i) => (
                   <th
                     key={col.id}
-                    className={`px-1 py-2 text-right font-medium align-bottom leading-tight ${divider(col)} ${
-                      col.field ? 'text-blue-700' : 'text-gray-700'
-                    }`}
+                    className={`px-1 py-2 text-right font-medium align-bottom leading-tight text-gray-700 ${divider(col)}`}
                   >
                     {col.tooltip ? (
                       <Tooltip text={col.tooltip} align={i < visible_columns.length / 2 ? 'left' : 'right'}>
@@ -887,7 +929,7 @@ export default function PlanningPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-3 text-xs text-gray-500">
-          <span><span className="text-blue-700 font-medium">Blue columns</span> are editable: click a value</span>
+          <span>Click any value to edit it</span>
           <span>Click a group name (Income, Paycheck, Plan, Actual) to show or hide columns</span>
           <span className="inline-flex items-center gap-1.5">
             <span className="w-1.5 h-1.5 rounded-full bg-blue-500" /> Manually set
@@ -929,6 +971,12 @@ export default function PlanningPage() {
                 </div>
                 {!edit_value_valid && (
                   <p className="text-sm text-red-600 mt-1">Enter an amount, or use Reset to Default to clear it.</p>
+                )}
+                {calculated_value != null && (
+                  <p className="text-xs text-gray-500 mt-1">
+                    Calculated value: {money(calculated_value)}
+                    {editing && edit_field in editing.overrides ? ' (Reset to Default restores this)' : ''}
+                  </p>
                 )}
               </div>
 
