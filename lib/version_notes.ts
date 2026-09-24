@@ -9,6 +9,20 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.7.0',
+    date: '2026-09-24',
+    title: 'Sheets',
+    features: [
+      'NEW: Sheets page (in the sidebar next to Planning) with up to three spreadsheets saved to your account',
+      'NEW: Formulas: cell references, ranges, + - * / ^, & to join text, comparisons, and SUM, AVERAGE, MIN, MAX, COUNT, ROUND, ABS and IF. Hover "fx" next to the formula bar for help',
+      'NEW: Keyboard navigation, drag or Shift+arrow to select, copy and paste with Excel and Google Sheets, Delete to clear, and Ctrl+Z to undo',
+      'NEW: Sheets save automatically as you type. Double-click a sheet tab to rename it',
+      'NEW: Import an .xlsx, .xls or .csv file into a sheet, and export any sheet as .xlsx with its formulas',
+    ],
+    bugFixes: [],
+    breaking: [],
+  },
+  {
     version: '5.6.0',
     date: '2026-09-24',
     title: 'Planning Page Redesign, Tax Calculator & Duplicate Income',

@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus, X } from 'lucide-react'
+import { Home, Receipt, DollarSign, TrendingUp, BarChart3, LogOut, Plus, X, Sheet } from 'lucide-react'
 import Link from 'next/link'
 
 import { VERSION_NOTES, CURRENT_VERSION } from '@/lib/version_notes'
@@ -172,7 +172,14 @@ export default function DashboardLayout({
             </svg>
             Planning
           </Link>
-          <Link 
+          <Link
+            href="/dashboard/sheets"
+            className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700"
+          >
+            <Sheet size={20} />
+            Sheets
+          </Link>
+          <Link
             href="/dashboard/settings"
             className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50 rounded-lg text-gray-700"
           >
@@ -315,6 +322,17 @@ export default function DashboardLayout({
                 <div>
                   <div className="font-medium text-gray-800">Planning</div>
                   <div className="text-sm text-gray-500">Yearly financial overview</div>
+                </div>
+              </Link>
+              <Link
+                href="/dashboard/sheets"
+                onClick={() => setShowMobileMenu(false)}
+                className="flex items-center gap-4 p-4 hover:bg-gray-50 rounded-lg"
+              >
+                <Sheet size={24} className="text-gray-600" />
+                <div>
+                  <div className="font-medium text-gray-800">Sheets</div>
+                  <div className="text-sm text-gray-500">Your own spreadsheets</div>
                 </div>
               </Link>
               <Link 
