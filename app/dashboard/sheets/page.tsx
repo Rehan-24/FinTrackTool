@@ -3,7 +3,7 @@
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as XLSX from 'xlsx'
 import { supabase } from '@/lib/supabase'
-import { Plus, Trash2, Undo2, Upload, Download, Check, Loader2, AlertCircle } from 'lucide-react'
+import { Plus, Trash2, Undo2, Upload, Download, Check, Loader2, AlertCircle, PaintBucket, ChevronDown } from 'lucide-react'
 import {
   Cells, CellValue, SheetError, SUPPORTED_FUNCTIONS,
   evaluate_sheet, display_value, cell_key, index_to_col, parse_number,
@@ -16,12 +16,14 @@ type Sheet = {
   cells: Cells
   row_count: number
   col_count: number
+  col_widths: Record<string, number> // pixels, keyed by column index
+  fills: Record<string, string> // hex fill color, keyed by cell address
 }
 
 type Pos = { r: number, c: number }
 type Editing = { draft: string, from: 'cell' | 'bar', mode: 'enter' | 'edit' } | null
 type SaveState = 'saved' | 'pending' | 'saving' | 'error'
-type Snapshot = Pick<Sheet, 'cells' | 'row_count' | 'col_count'>
+type Snapshot = Pick<Sheet, 'cells' | 'row_count' | 'col_count' | 'col_widths' | 'fills'>
 
 const MAX_SHEETS = 3
 const MAX_ROWS = 500
@@ -31,6 +33,37 @@ const DEFAULT_COLS = 12
 const SAVE_DELAY_MS = 800
 const UNDO_LIMIT = 100
 const NAME_MAX = 40
+const DEFAULT_COL_WIDTH = 112
+const MIN_COL_WIDTH = 40
+const MAX_COL_WIDTH = 800
+
+const FILL_COLORS = [
+  { name: 'Yellow', hex: '#FEF08A' },
+  { name: 'Green', hex: '#BBF7D0' },
+  { name: 'Blue', hex: '#BFDBFE' },
+  { name: 'Red', hex: '#FECACA' },
+  { name: 'Orange', hex: '#FED7AA' },
+  { name: 'Purple', hex: '#E9D5FF' },
+  { name: 'Pink', hex: '#FBCFE8' },
+  { name: 'Gray', hex: '#E5E7EB' },
+]
+
+const FORMATTING_MIGRATION_NOTICE =
+  'Column widths and fill colors can\'t be saved yet. Run add_sheet_formatting.sql in the Supabase SQL Editor, then reload.'
+
+const clamp_width = (w: number) => Math.round(Math.max(MIN_COL_WIDTH, Math.min(MAX_COL_WIDTH, w)))
+
+// Rows from before the formatting columns existed have no widths or fills
+const normalize = (row: any): Sheet => ({ ...row, col_widths: row.col_widths ?? {}, fills: row.fills ?? {} })
+
+// Shared canvas for measuring text when auto-fitting columns
+let measure_ctx: CanvasRenderingContext2D | null = null
+const text_width = (text: string, font: string) => {
+  measure_ctx ??= document.createElement('canvas').getContext('2d')
+  if (!measure_ctx) return text.length * 8
+  measure_ctx.font = font
+  return measure_ctx.measureText(text).width
+}
 
 const FORMULA_HELP =
   `Start a cell with = to use a formula. Use cell references (A1), ranges (A1:A10), + - * / ^, ` +
@@ -39,9 +72,11 @@ const FORMULA_HELP =
 
 // ── cell ────────────────────────────────────────────────────────────────────
 
-const Cell = memo(function Cell({ r, c, text, numeric, error, in_range, active, editing, onMouseDown, onMouseEnter, onDoubleClick }: {
+const Cell = memo(function Cell({ r, c, width, fill, text, numeric, error, in_range, active, editing, onMouseDown, onMouseEnter, onDoubleClick }: {
   r: number
   c: number
+  width: number
+  fill?: string
   text: string
   numeric: boolean
   error: boolean
@@ -58,9 +93,12 @@ const Cell = memo(function Cell({ r, c, text, numeric, error, in_range, active, 
       onMouseDown={e => onMouseDown(r, c, e)}
       onMouseEnter={() => onMouseEnter(r, c)}
       onDoubleClick={() => onDoubleClick(r, c)}
-      className={`relative h-7 w-28 min-w-[7rem] max-w-[7rem] border border-gray-200 px-1.5 text-sm whitespace-nowrap overflow-hidden text-ellipsis cursor-cell ${
-        in_range ? 'bg-blue-50' : 'bg-white'
-      } ${active ? 'outline outline-2 -outline-offset-2 outline-blue-500' : ''} ${
+      style={{
+        width, minWidth: width, maxWidth: width,
+        backgroundColor: fill,
+        boxShadow: in_range ? 'inset 0 0 0 999px rgba(59, 130, 246, 0.14)' : undefined,
+      }}
+      className={`relative h-7 border border-gray-200 px-1.5 text-sm whitespace-nowrap overflow-hidden text-ellipsis cursor-cell bg-white ${active ? 'outline outline-2 -outline-offset-2 outline-blue-500' : ''} ${
         error ? 'text-red-600' : 'text-gray-800'
       } ${numeric ? 'text-right tabular-nums' : 'text-left'}`}
     >
@@ -134,7 +172,7 @@ export default function SheetsPage() {
 
       const { data, error } = await supabase
         .from('sheets')
-        .select('id, position, name, cells, row_count, col_count')
+        .select('*')
         .eq('user_id', user.id)
         .order('position')
 
@@ -148,7 +186,7 @@ export default function SheetsPage() {
       if (!data || data.length === 0) {
         await create_sheet([])
       } else {
-        setSheets(data)
+        setSheets(data.map(normalize))
         setActiveId(data[0].id)
       }
     } catch (err) {
@@ -179,11 +217,14 @@ export default function SheetsPage() {
           cells: sheet.cells,
           row_count: sheet.row_count,
           col_count: sheet.col_count,
+          col_widths: sheet.col_widths,
+          fills: sheet.fills,
           updated_at: new Date().toISOString(),
         })
         .eq('id', id)
       if (error) {
         console.error('Error saving sheet:', error)
+        if (/col_widths|fills/.test(error.message)) setNotice(FORMATTING_MIGRATION_NOTICE)
         dirty.current.add(id) // retry on the next change
         failed = true
       }
@@ -198,14 +239,17 @@ export default function SheetsPage() {
     save_timer.current = setTimeout(flush_saves, SAVE_DELAY_MS)
   }
 
+  const push_undo = (sheet: Sheet) => {
+    const stack = (undo_stacks.current[sheet.id] ??= [])
+    const { cells, row_count, col_count, col_widths, fills } = sheet
+    stack.push({ cells, row_count, col_count, col_widths, fills })
+    if (stack.length > UNDO_LIMIT) stack.shift()
+  }
+
   // Apply a change to the active sheet, optionally recording an undo step
   const update_active = (patch: Partial<Sheet>, record_undo = true) => {
     if (!active) return
-    if (record_undo) {
-      const stack = (undo_stacks.current[active.id] ??= [])
-      stack.push({ cells: active.cells, row_count: active.row_count, col_count: active.col_count })
-      if (stack.length > UNDO_LIMIT) stack.shift()
-    }
+    if (record_undo) push_undo(active)
     setSheets(prev => prev.map(s => (s.id === active.id ? { ...s, ...patch } : s)))
     schedule_save(active.id)
   }
@@ -228,7 +272,7 @@ export default function SheetsPage() {
     const { data, error } = await supabase
       .from('sheets')
       .insert({ user_id: user.id, position, name: `Sheet ${position}`, row_count: DEFAULT_ROWS, col_count: DEFAULT_COLS })
-      .select('id, position, name, cells, row_count, col_count')
+      .select('*')
       .single()
 
     if (error || !data) {
@@ -236,7 +280,7 @@ export default function SheetsPage() {
       alert(`Couldn't create a sheet${error?.message ? `: ${error.message}` : ''}`)
       return
     }
-    setSheets([...existing, data].sort((a, b) => a.position - b.position))
+    setSheets([...existing, normalize(data)].sort((a, b) => a.position - b.position))
     switch_sheet(data.id)
   }
 
@@ -504,6 +548,108 @@ export default function SheetsPage() {
     el?.scrollIntoView({ block: 'nearest', inline: 'nearest' })
   }, [sel])
 
+  // ── column widths ──
+
+  const col_width = (c: number) => active?.col_widths[c] ?? DEFAULT_COL_WIDTH
+
+  // Dragging a column edge: widths update live, one undo step and one save per drag
+  const resizing = useRef<{ id: string, c: number, start_x: number, start_w: number } | null>(null)
+
+  const start_resize = (c: number, e: React.MouseEvent) => {
+    if (!active || e.button !== 0) return
+    e.preventDefault()
+    e.stopPropagation()
+    push_undo(active)
+    resizing.current = { id: active.id, c, start_x: e.clientX, start_w: col_width(c) }
+  }
+
+  useEffect(() => {
+    const on_move = (e: MouseEvent) => {
+      const drag = resizing.current
+      if (!drag) return
+      const width = clamp_width(drag.start_w + e.clientX - drag.start_x)
+      setSheets(prev => prev.map(s => (s.id === drag.id ? { ...s, col_widths: { ...s.col_widths, [drag.c]: width } } : s)))
+    }
+    const on_up = (e: MouseEvent) => {
+      const drag = resizing.current
+      if (!drag) return
+      resizing.current = null
+      // A click without movement (e.g. half of a double-click) changes nothing: drop its undo step
+      if (e.clientX === drag.start_x) undo_stacks.current[drag.id]?.pop()
+      else schedule_save(drag.id)
+    }
+    window.addEventListener('mousemove', on_move)
+    window.addEventListener('mouseup', on_up)
+    return () => {
+      window.removeEventListener('mousemove', on_move)
+      window.removeEventListener('mouseup', on_up)
+    }
+  }, [])
+
+  // Double-clicking a column edge fits the column to its widest value. If that column is part of a
+  // multi-column selection, every selected column is fitted, like Excel.
+  const autofit = (c: number) => {
+    if (!active) return
+    const cols = c >= range.c1 && c <= range.c2 && range.c1 !== range.c2
+      ? Array.from({ length: range.c2 - range.c1 + 1 }, (_, i) => range.c1 + i)
+      : [c]
+    const sample = grid_ref.current?.querySelector('td[data-cell]')
+    const font = sample ? getComputedStyle(sample).font : '14px sans-serif'
+
+    const col_widths = { ...active.col_widths }
+    for (const col of cols) {
+      let widest = 0
+      for (let r = 0; r < active.row_count; r++) {
+        const key = cell_key(r, col)
+        const raw = active.cells[key]
+        if (!raw) continue
+        const text = raw.startsWith('=') ? display_value(values[key]) : raw
+        widest = Math.max(widest, text_width(text, font))
+      }
+      // Empty columns go back to the default width; 16px covers padding and borders
+      if (widest === 0) delete col_widths[col]
+      else col_widths[col] = clamp_width(Math.ceil(widest) + 16)
+    }
+    update_active({ col_widths })
+  }
+
+  // Clicking a column or row header selects all of it
+  const select_column = (c: number, e: React.MouseEvent) => {
+    if (!active || e.button !== 0) return
+    e.preventDefault()
+    if (editing_ref.current) commit_edit(0, 0, false)
+    focus_grid()
+    setAnchor({ r: active.row_count - 1, c: e.shiftKey ? anchor.c : c })
+    setSel({ r: 0, c })
+  }
+
+  const select_row = (r: number, e: React.MouseEvent) => {
+    if (!active || e.button !== 0) return
+    e.preventDefault()
+    if (editing_ref.current) commit_edit(0, 0, false)
+    focus_grid()
+    setAnchor({ r: e.shiftKey ? anchor.r : r, c: active.col_count - 1 })
+    setSel({ r, c: 0 })
+  }
+
+  // ── fills ──
+
+  const [fill_open, setFillOpen] = useState(false)
+
+  const apply_fill = (hex: string | null) => {
+    if (!active) return
+    const fills = { ...active.fills }
+    for (let r = range.r1; r <= range.r2; r++) {
+      for (let c = range.c1; c <= range.c2; c++) {
+        if (hex) fills[cell_key(r, c)] = hex
+        else delete fills[cell_key(r, c)]
+      }
+    }
+    update_active({ fills })
+    setFillOpen(false)
+    focus_grid()
+  }
+
   // ── rows / columns ──
 
   const add_rows = () => active && update_active({ row_count: Math.min(MAX_ROWS, active.row_count + 10) })
@@ -536,11 +682,20 @@ export default function SheetsPage() {
         }
       }
 
+      // Column widths saved in the file (pixels, or character widths at ~7px each)
+      const col_widths: Record<string, number> = {}
+      ;(ws['!cols'] || []).forEach((col, c) => {
+        const px = col?.wpx ?? (col?.wch ? col.wch * 7 + 5 : undefined)
+        if (px && c < MAX_COLS) col_widths[c] = clamp_width(px)
+      })
+
       if (Object.keys(active.cells).length > 0 &&
         !confirm(`Replace everything in "${active.name}" with the contents of ${file.name}? You can undo this.`)) return
 
       update_active({
         cells,
+        col_widths,
+        fills: {},
         row_count: Math.max(DEFAULT_ROWS, rows),
         col_count: Math.max(DEFAULT_COLS, cols),
       })
@@ -580,6 +735,7 @@ export default function SheetsPage() {
       }
     }
     ws['!ref'] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: max_r, c: max_c } })
+    ws['!cols'] = Array.from({ length: max_c + 1 }, (_, c) => ({ wpx: col_width(c) }))
 
     const workbook = XLSX.utils.book_new()
     const tab_name = active.name.replace(/[\\/?*[\]:]/g, ' ').slice(0, 31) || 'Sheet'
@@ -697,6 +853,43 @@ export default function SheetsPage() {
                   <Plus size={15} /> Column
                 </button>
                 <span className="w-px h-5 bg-gray-200" />
+                <div className="relative">
+                  <button
+                    onClick={() => setFillOpen(o => !o)}
+                    aria-haspopup="true"
+                    aria-expanded={fill_open}
+                    className="flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 text-gray-700"
+                  >
+                    <PaintBucket size={15} /> Fill <ChevronDown size={13} />
+                  </button>
+                  {fill_open && (
+                    <>
+                      <div className="fixed inset-0 z-30" onClick={() => setFillOpen(false)} />
+                      <div className="absolute left-0 top-full mt-1 z-40 w-48 bg-white border border-gray-200 rounded-lg shadow-lg p-3">
+                        <div className="text-xs font-medium text-gray-600 mb-2">Fill {range_label}</div>
+                        <div className="grid grid-cols-4 gap-2">
+                          {FILL_COLORS.map(color => (
+                            <button
+                              key={color.hex}
+                              onClick={() => apply_fill(color.hex)}
+                              title={color.name}
+                              aria-label={`${color.name} fill`}
+                              className="h-8 rounded border border-gray-300 hover:ring-2 hover:ring-blue-400"
+                              style={{ backgroundColor: color.hex }}
+                            />
+                          ))}
+                        </div>
+                        <button
+                          onClick={() => apply_fill(null)}
+                          className="mt-3 w-full text-xs text-gray-700 border border-gray-200 rounded py-1.5 hover:bg-gray-50"
+                        >
+                          No fill
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+                <span className="w-px h-5 bg-gray-200" />
                 <button onClick={() => file_ref.current?.click()} className="flex items-center gap-1 px-2 py-1 rounded hover:bg-gray-100 text-gray-700">
                   <Upload size={15} /> Import
                 </button>
@@ -773,22 +966,33 @@ export default function SheetsPage() {
                   <thead>
                     <tr>
                       <th className="sticky top-0 left-0 z-20 w-10 min-w-[2.5rem] h-7 bg-gray-100 border border-gray-200" />
-                      {Array.from({ length: active.col_count }, (_, c) => (
-                        <th
-                          key={c}
-                          className={`sticky top-0 z-10 h-7 w-28 min-w-[7rem] border border-gray-200 text-xs font-medium ${
-                            c >= range.c1 && c <= range.c2 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
-                          }`}
-                        >
-                          {index_to_col(c)}
-                        </th>
-                      ))}
+                      {Array.from({ length: active.col_count }, (_, c) => {
+                        const width = col_width(c)
+                        return (
+                          <th
+                            key={c}
+                            onMouseDown={e => select_column(c, e)}
+                            style={{ width, minWidth: width, maxWidth: width }}
+                            className={`sticky top-0 z-10 h-7 border border-gray-200 text-xs font-medium cursor-pointer ${
+                              c >= range.c1 && c <= range.c2 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
+                            }`}
+                          >
+                            {index_to_col(c)}
+                            <span
+                              onMouseDown={e => start_resize(c, e)}
+                              onDoubleClick={e => { e.stopPropagation(); autofit(c) }}
+                              title="Drag to resize, double-click to fit"
+                              className="absolute top-0 -right-1 z-10 h-full w-2 cursor-col-resize hover:bg-blue-400/60"
+                            />
+                          </th>
+                        )
+                      })}
                     </tr>
                   </thead>
                   <tbody>
                     {Array.from({ length: active.row_count }, (_, r) => (
                       <tr key={r}>
-                        <th className={`sticky left-0 z-10 w-10 border border-gray-200 text-xs font-medium ${
+                        <th onMouseDown={e => select_row(r, e)} className={`sticky left-0 z-10 w-10 border border-gray-200 text-xs font-medium cursor-pointer ${
                           r >= range.r1 && r <= range.r2 ? 'bg-blue-100 text-blue-800' : 'bg-gray-100 text-gray-600'
                         }`}>
                           {r + 1}
@@ -803,6 +1007,8 @@ export default function SheetsPage() {
                               key={c}
                               r={r}
                               c={c}
+                              width={col_width(c)}
+                              fill={active.fills[key]}
                               // Typed values show exactly as entered; formulas show their result
                               text={is_formula ? display_value(value) : raw}
                               numeric={typeof value === 'number'}
@@ -825,7 +1031,8 @@ export default function SheetsPage() {
               <div className="px-3 py-2 border-t border-gray-200 text-xs text-gray-500">
                 Click a cell and type, or double-click to edit. Enter and Tab move between cells, Shift + arrows or drag
                 to select, Ctrl+C / Ctrl+V to copy and paste (works with Excel and Google Sheets), Delete clears, Ctrl+Z
-                undoes. {active.row_count} rows × {active.col_count} columns.
+                undoes. Click a column or row header to select it; drag a column edge to resize it or double-click the
+                edge to fit its contents. {active.row_count} rows × {active.col_count} columns.
               </div>
             </div>
           )}

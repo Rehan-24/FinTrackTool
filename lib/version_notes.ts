@@ -9,6 +9,18 @@ export type VersionNote = {
 
 export const VERSION_NOTES: VersionNote[] = [
   {
+    version: '5.7.1',
+    date: '2026-09-24',
+    title: 'Sheets: Column Widths & Fill Colors',
+    features: [
+      'NEW: Resize columns by dragging a column edge, or double-click the edge to fit the column to its contents',
+      'NEW: Fill colors for cells from the Fill menu in the toolbar',
+      'NEW: Click a column or row header to select the whole column or row',
+    ],
+    bugFixes: [],
+    breaking: [],
+  },
+  {
     version: '5.7.0',
     date: '2026-09-24',
     title: 'Sheets',
